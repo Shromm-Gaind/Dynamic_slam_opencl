@@ -323,17 +323,20 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																					cout << ",imgmem = "	<< imgmem <<flush;
 																					cout << ",imgmem image_size_bytes= "<< image_size_bytes <<flush;
 																				}
-	cv::Mat img_sum;
-	baseImage.convertTo(img_sum, CV_32FC1);
+	
+	cv::Mat cost 		= cv::Mat::ones (costVolLayers, mm_height * mm_width, CV_32FC1); 	cost	= obj["initialCost"].asFloat();			// Initialization of buffers. ? Are OpenCL buffers initialiyzed to zero by default ?
+	cv::Mat hit      	= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_32FC1); 	hit		= obj["initialWeight"].asFloat();
+	cv::Mat img_sum		= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_32FC1);
+	cv::Mat gxy			= cv::Mat::ones (mm_height, mm_width, CV_32FC1);
 
-	status = clEnqueueWriteBuffer(uload_queue, gxmem, 		CL_FALSE, 0, mm_size_bytes, 		gx, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, gymem, 		CL_FALSE, 0, mm_size_bytes, 		gy, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, gxmem, 		CL_FALSE, 0, mm_size_bytes, 		gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, gymem, 		CL_FALSE, 0, mm_size_bytes, 		gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}
 	status = clEnqueueWriteBuffer(uload_queue, param_buf, 	CL_FALSE, 0, 16 * sizeof(float), 	params, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}
 	status = clEnqueueWriteBuffer(uload_queue, basemem, 	CL_FALSE, 0, mm_image_size_bytes, 	baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}
 	
-	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	cdata, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	hdata, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, CL_FALSE, 0, mm_vol_size_bytes, 	img_sum_data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, CL_FALSE, 0, mm_vol_size_bytes, 	img_sum.data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}
 	
 	clFlush(uload_queue); status = clFinish(uload_queue); 					if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)="				<< status << checkerror(status)<<"\n"<<flush; exit_(status);}
 	

@@ -81,8 +81,8 @@ void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?
 // # load next image to buffer NB load at position [log_2 index]
 // See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
 	image = imread(png[frame_num].string());
-	if (image.type()!= base_image_type || image.size()!=base_image_size) {
-		cout<< "\nError: Dynamic_slam::getFrame(), frame_num = " << frame_num << "missmatched. base_image_size="<<base_image_size<<", image.size()="<<image.size()<<", base_image_type="<<base_image_type<<", image.type()="<<image.type()<<"\n\n"<<flush;
+	if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
+		cout<< "\n\nError: Dynamic_slam::getFrame(), frame_num = " << frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
 		exit(0);
 	}
 	runcl.loadFrame( image );
