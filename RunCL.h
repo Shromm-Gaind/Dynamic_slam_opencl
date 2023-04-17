@@ -21,22 +21,28 @@
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
 
-#define PIXELS				0	// indices for float params passed to __const params_buf
-#define ROWS				1	// TODO Can these be #included from a common header for both host and device code?
+//#define PIXELS			0	// fp16_params indices
+//#define ROWS				1	// TODO Can these be #included from a common header for both host and device code?
+//#define COLS				2
+//#define LAYERS				3
+#define MAX_INV_DEPTH		0	// fp16_params indices
+#define MIN_INV_DEPTH		1
+#define INV_DEPTH_STEP		2
+#define ALPHA_G				3
+#define BETA_G				4	//  __kernel void CacheG4
+#define EPSILON 			5	//  __kernel void UpdateQD		// epsilon = 0.1
+#define SIGMA_Q 			6									// sigma_q = 0.0559017
+#define SIGMA_D 			7
+#define THETA				8
+#define LAMBDA				9	//  __kernel void UpdateA2
+#define SCALE_EAUX			10
+
+#define PIXELS				0	// uint_params indices
+#define ROWS				1	
 #define COLS				2
 #define LAYERS				3
-#define MAX_INV_DEPTH		4
-#define MIN_INV_DEPTH		5
-#define INV_DEPTH_STEP		6
-#define ALPHA_G				7
-#define BETA_G				8	//  __kernel void CacheG4
-#define EPSILON 			9	//  __kernel void UpdateQD		// epsilon = 0.1
-#define SIGMA_Q 			10									// sigma_q = 0.0559017
-#define SIGMA_D 			11
-#define THETA				12
-#define LAMBDA				13	//  __kernel void UpdateA2
-#define SCALE_EAUX			14
-#define NUM_PARAMS			14
+#define MARGIN				4
+
 /*
 #define BASE_MEM 			0	// device memory buffers
 #define IMG_MEM				1
@@ -86,9 +92,12 @@ public:
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
-	float 				params[16] = {0};
+	uint				uint_params[8] = {0};
+	cv::float16_t 		params[16] 	= { cv::float16_t(0) };
+	cv::float16_t 		k2k[16] 	= { cv::float16_t(0) };
 	
-	uint 				mm_margin, mm_height, mm_width, mm_size_bytes, mm_image_size_bytes, mm_vol_size_bytes; 
+	int 				frame_num;
+	uint 				mm_margin, mm_height, mm_width, mm_size_bytes, mm_vol_size_bytes, fp16_size; 
 	int 				width, height, costVolLayers, baseImage_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
 	cv::Size 			baseImage_size;
 	std::map< std::string, boost::filesystem::path > paths;
@@ -99,6 +108,8 @@ public:
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show );
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
+	
+	void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q );
 
 	void allocatemem();//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data);
 	void calcCostVol(float* k2k, cv::Mat &image);
@@ -256,6 +267,12 @@ public:
 			case	CV_32SC3:										return "CV_32SC3";
 			case	CV_32SC4:										return "CV_32SC4";
 
+			//case	CV_16F
+			case	CV_16FC1:										return "CV_16FC1";
+			case	CV_16FC2:										return "CV_16FC2";
+			case	CV_16FC3:										return "CV_16FC3";
+			case	CV_16FC4:										return "CV_16FC4";
+			
 			//case	CV_32F:										return "CV_32F";
 			case	CV_32FC1:										return "CV_32FC1";
 			case	CV_32FC2:										return "CV_32FC2";

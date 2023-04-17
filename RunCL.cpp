@@ -10,50 +10,54 @@ RunCL::RunCL(Json::Value obj_)
 	obj = obj_;
 	verbosity = obj["verbosity"].asInt();
 	std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
-																						if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
-	createFolders( );																	/*Step1: Getting platforms and choose an available one.*/////////
-	cl_uint 		numPlatforms;														//the NO. of platforms
-	cl_platform_id 	platform 		= NULL;												//the chosen platform
-	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);			if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); }
-	uint			conf_platform	= obj["opencl_platform"].asUInt();					if(verbosity>0) cout << "numPlatforms = " << numPlatforms << "\n" << flush;
-	if (numPlatforms > conf_platform){																/*Choose the platform.*/
+																							if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
+	createFolders( );																		/*Step1: Getting platforms and choose an available one.*/////////
+	cl_uint 		numPlatforms;															//the NO. of platforms
+	cl_platform_id 	platform 		= NULL;													//the chosen platform
+	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); }
+	uint			conf_platform	= obj["opencl_platform"].asUInt();						if(verbosity>0) cout << "numPlatforms = " << numPlatforms << "\n" << flush;
+	
+	if (numPlatforms > conf_platform){														/*Choose the platform.*/
 		cl_platform_id* platforms 	= (cl_platform_id*)malloc(numPlatforms * sizeof(cl_platform_id));
-		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);	if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
+		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);		if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
 		platform 					= platforms[ conf_platform ];
-		free(platforms);																if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1]\
-																						<<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
+		free(platforms);																	if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1]\
+																							<<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
 	} else {cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
 	
-	cl_uint				numDevices = 0;													/*Step 2:Query the platform.*//////////////////////////////////
-	cl_device_id        *devices;
-	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);		if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	cl_uint			numDevices		= 0;													/*Step 2:Query the platform.*//////////////////////////////////
+	cl_device_id    *devices;
+	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 	uint conf_device = obj["opencl_device"].asUInt();
 	
-	if (numDevices > conf_device){
+	if (numDevices > conf_device){															/*Choose the device*/
 		devices = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));
 		status  = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);
-	}																					if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);} 
+	}																						if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);} 
 
-																						if(verbosity>0) cout << "\nRunCL_chk 3\n" << flush; cout << "cl_device_id  devices = " << devices << "\n" << flush;
-	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};/*Step 3: Create context.*////////////////////////////////////
-	m_context = clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status); if(status!=0) 			{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-	deviceId  = devices[conf_device];													/*Step 4: Create command queue & associate context.*///////////
-	cl_command_queue_properties prop[] = { 0 };											//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
-	m_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);		if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+																							if(verbosity>0) cout << "\nRunCL_chk 3\n" << flush; cout << "cl_device_id  devices = " << devices << "\n" << flush;
+	
+	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};	/*Step 3: Create context.*////////////////////////////////////
+	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) 			{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	
+	deviceId  	= devices[conf_device];														/*Step 4: Create command queue & associate context.*///////////
+	cl_command_queue_properties prop[] = { 0 };												//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
+	m_queue 	= clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	uload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	dload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	track_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-																						// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
-																						// NB Might want to create command queues on multiple platforms & devices.
-																						// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
-	const char *filename = obj["kernel_filepath"].asCString();							/*Step 5: Create program object*///////////////////////////////
+																							// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
+																							// NB Might want to create command queues on multiple platforms & devices.
+																							// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
+	
+	const char *filename = obj["kernel_filepath"].asCString();								/*Step 5: Create program object*///////////////////////////////
 	string sourceStr;
-	status 						= convertToString(filename, sourceStr);					if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	status 						= convertToString(filename, sourceStr);						if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	const char 	*source 		= sourceStr.c_str();
 	size_t 		sourceSize[] 	= { strlen(source) };
 	m_program 	= clCreateProgramWithSource(m_context, 1, &source, sourceSize, NULL);
 	
-	status = clBuildProgram(m_program, 1, devices, NULL, NULL, NULL);					/*Step 6: Build program.*/////////////////////
+	status = clBuildProgram(m_program, 1, devices, NULL, NULL, NULL);						/*Step 6: Build program.*/////////////////////
 	if (status != CL_SUCCESS){
 		printf("\nclBuildProgram failed: %d\n", status);
 		char buf[0x10000];
@@ -61,12 +65,12 @@ RunCL::RunCL(Json::Value obj_)
 		printf("\n%s\n", buf);
 		exit_(status);
 	}
-	cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", NULL);				/*Step 7: Create kernel objects.*////////////
+	cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", NULL);					/*Step 7: Create kernel objects.*////////////
 	cache3_kernel   = clCreateKernel(m_program, "CacheG3", 			NULL);
 	updateQD_kernel = clCreateKernel(m_program, "UpdateQD", 		NULL);
 	updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 		NULL);
 	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
-																						if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
+																							if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
 }
 
 void RunCL::createFolders(){
@@ -149,7 +153,7 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 }
 
 void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show ){
-																				if(verbosity>0) cout<<"\n\nDownloadAndSave_3Channel filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<"\t"<<flush;
+																				if(verbosity>0) cout<<"\n\nDownloadAndSave_3Channel filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes);
 		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
@@ -182,11 +186,14 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 
 		cv::Mat outMat;
 		if (type_mat == CV_32FC3){
-				cv::imwrite(folder_tiff.string(), temp_mat );
-				temp_mat *=256;
-				temp_mat.convertTo(outMat, CV_8U);
-				cv::imwrite(folder_png.string(), (outMat) );					// Has "Grayscale 16-bit gamma integer"
-		}
+			cv::imwrite(folder_tiff.string(), temp_mat );
+			temp_mat *=256;
+			temp_mat.convertTo(outMat, CV_8U);
+			cv::imwrite(folder_png.string(), (outMat) );					// Has "Grayscale 16-bit gamma integer"
+		}else if (type_mat == CV_8UC3){
+			cv::imwrite(folder_tiff.string(), temp_mat );
+			cv::imwrite(folder_png.string(),  temp_mat );
+		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
 }
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
@@ -245,6 +252,13 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 	}
 }
 
+void RunCL::computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q ){
+		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
+		sigma_d		= cv::float16_t( mu / (2.0/ theta)  );
+		sigma_q 	= cv::float16_t( mu / (2.0*epsilon) );
+}
+
+
 void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data)
 {
 																				if(verbosity>0) cout << "RunCL::allocatemem_chk0" << flush;
@@ -260,11 +274,12 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	baseImage_type 		= baseImage.type();
 	int layerstep 		= width * height;
 	
+	fp16_size			= sizeof(cv::float16_t);
+	
 	mm_margin			= obj["MipMap_margin"].asUInt();						// MipMap parameters
 	mm_width 			= baseImage.cols * 1.5 + 4 * mm_margin;
 	mm_height 			= baseImage.rows       + 2 * mm_margin;
-	mm_image_size_bytes	= mm_width * mm_height * baseImage.elemSize();
-	mm_size_bytes		= mm_width * mm_height * sizeof(float);
+	mm_size_bytes		= mm_width * mm_height * fp16_size;				// for FP16 'half', or BF16 on Tensor cores
 	mm_vol_size_bytes	= mm_size_bytes * costVolLayers;
 	
 	// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
@@ -286,8 +301,8 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																					cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
 																				}
 	cl_int res;
-	imgmem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  , 					  mm_image_size_bytes,  0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	basemem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, mm_image_size_bytes,  0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	imgmem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  , 					  mm_size_bytes,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
+	basemem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
 	
 	dmem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	amem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -302,8 +317,8 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	hdatabuf 	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	img_sum_buf = clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-	param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16*sizeof(float),  	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	k2kbuf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16*sizeof(float),  	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	k2kbuf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 																				if(verbosity>1) {
 																					cout << ",dmem = " 		<< dmem << endl;
@@ -329,16 +344,37 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cv::Mat img_sum		= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_32FC1);
 	cv::Mat gxy			= cv::Mat::ones (mm_height, mm_width, CV_32FC1);
 
+	params[PIXELS]			= cv::float16_t(   baseImage.rows * baseImage.cols	);															// Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
+	params[ROWS]			= cv::float16_t(   baseImage.rows 					);
+	params[COLS]			= cv::float16_t(   baseImage.cols 					);
+	params[LAYERS]			= cv::float16_t(   obj["layers"].asFloat()			);
+	params[MAX_INV_DEPTH]	= cv::float16_t( 1/obj["min_depth"].asFloat()		);
+	params[MIN_INV_DEPTH]	= cv::float16_t( 1/obj["max_depth"].asFloat()		);
+	params[ALPHA_G]			= cv::float16_t(   obj["alpha_g"].asFloat()			);
+	params[BETA_G]			= cv::float16_t(   obj["beta_g"].asFloat()			);
+	params[EPSILON]			= cv::float16_t(   obj["epsilon"].asFloat()			);
+	params[THETA]			= cv::float16_t(   obj["thetaStart"].asFloat()		);
+	params[LAMBDA]			= cv::float16_t(   obj["lambda"].asFloat()			);
+	params[SCALE_EAUX]		= cv::float16_t(   obj["scale_E_aux"].asFloat()		);
+	params[MARGIN]			= cv::float16_t(   mm_margin 						);
+	
+	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), params[SIGMA_Q], params[SIGMA_D] );
+	
+	k2k[0]  = cv::float16_t( 1.0 );																											// initialize k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	k2k[5]  = cv::float16_t( 1.0 );
+	k2k[10] = cv::float16_t( 1.0 );
+
 	status = clEnqueueWriteBuffer(uload_queue, gxmem, 		CL_FALSE, 0, mm_size_bytes, 		gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}
 	status = clEnqueueWriteBuffer(uload_queue, gymem, 		CL_FALSE, 0, mm_size_bytes, 		gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, param_buf, 	CL_FALSE, 0, 16 * sizeof(float), 	params, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, basemem, 	CL_FALSE, 0, mm_image_size_bytes, 	baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, param_buf, 	CL_FALSE, 0, 16 * fp16_size, 		params, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, param_buf, 	CL_FALSE, 0, 16 * fp16_size, 		k2k, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}
 	
 	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}
 	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}
 	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, CL_FALSE, 0, mm_vol_size_bytes, 	img_sum.data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}
+	status = clEnqueueWriteBuffer(uload_queue, basemem, 	CL_FALSE, 0, image_size_bytes, 		baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}
 	
-	clFlush(uload_queue); status = clFinish(uload_queue); 					if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)="				<< status << checkerror(status)<<"\n"<<flush; exit_(status);}
+	clFlush(uload_queue); status = clFinish(uload_queue); 																				if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
 	
 	DownloadAndSave_3Channel(basemem, ss.str(), paths.at("basemem"), image_size_bytes, baseImage_size, baseImage_type, false );				// DownloadAndSave_3Channel(basemem,..) verify uploads.
 																																			// set kernelArg. NB "0 &k2kbuf" & "2 &imgmem" set in calcCostVol(..)
@@ -363,19 +399,25 @@ void RunCL::predictFrame(){ //predictFrame();
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
 																															if(verbosity>0) cout << "\n RunCL::loadFrame_chk 0\n" << flush;
 	cl_int status;
-	cl_event writeEvt;
-	status = clEnqueueWriteBuffer(uload_queue, imgmem, CL_FALSE, 0, image_size_bytes, image.data, 0, NULL, &writeEvt);							// WriteBuffer imgmem #########
-	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
-	
-	if (verbosity>0){
-		stringstream ss;
-		ss << keyFrameCount;
-		DownloadAndSave_3Channel(imgmem, ss.str(), paths.at("imgmem"), width * height * sizeof(float)*3, baseImage_size,   CV_32FC3, 	false );
-	}
+	cl_event writeEvt;																										// WriteBuffer basemem #########
+	status = clEnqueueWriteBuffer(uload_queue, basemem, CL_FALSE, 0, image_size_bytes, image.data, 0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
+																															if (verbosity>0){
+																																stringstream ss;	ss << keyFrameCount;
+																																DownloadAndSave_3Channel(basemem, ss.str(), paths.at("basemem"), image_size_bytes, baseImage_size,  baseImage_type, 	false );
+																															}
 }
 
-void RunCL::cvt_color_space(){ //getFrame();
-
+void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV), NB we will use basemem for image upload, and imgmem for the MipMap. RGB is default for .png standard.
+	
+	//args
+	//__global uchar3* base,		//0
+	//__global half3*   img,		//1
+	//__global half*   params		//3
+	//params[margin_]
+	
+	//dims
+	
+	//kernel 
 
 }
 

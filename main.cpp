@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); }   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
 	int verbosity_ 		= obj["verbosity"].asInt() ;						// -1= none, 0=errors only, 1=basic, 2=lots.
 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;
-																			if(verbosity_>0) cout << "\n main_chk 0\n" << flush;
+																			if(verbosity_>0) cout << "\n\n main_chk 0\n" << flush;
 																			cout <<" conf file = " << argv[1] << endl;
 																			//cout << ifs.str() <<endl << endl;
 																			cout <<"verbosity_ = "<<verbosity_<<", imagesPerCV = "<<imagesPerCV <<endl;
@@ -28,9 +28,9 @@ int main(int argc, char *argv[])
 	Dynamic_slam dynamic_slam(obj);											// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
 	// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
-	int max_frame_count = obj["data_file_offset"].asUInt();	
-	int frame_count = 0;
-	int ds_error = 0;
+	int max_frame_count = obj["max_frame_count"].asUInt();	
+	int frame_count 	= 0;
+	int ds_error 		= 0;
 	do{
 		ds_error = dynamic_slam.nextFrame();
 		frame_count ++;

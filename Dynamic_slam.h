@@ -21,7 +21,7 @@ public:
     Json::Value obj;
     RunCL runcl;
     int verbosity;
-    int frame_num;
+    
     cv::Mat image, R, T, d, cameraMatrix;
     // image parameters
     cv::Size    base_image_size;

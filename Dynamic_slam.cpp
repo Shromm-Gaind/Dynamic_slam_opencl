@@ -16,7 +16,7 @@ Dynamic_slam::Dynamic_slam(
 {
 	obj = obj_;
 	verbosity 	= obj["verbosity"].asInt();
-	frame_num 	= obj["data_file_offset"].asUInt();
+	runcl.frame_num 	= obj["data_file_offset"].asUInt();
 																														if(verbosity>0) cout << "\n Dynamic_slam::Dynamic_slam_chk 0\n" << flush;
 	stringstream ss0;
 	ss0 << obj["data_path"].asString() << obj["data_file"].asString();
@@ -27,19 +27,18 @@ Dynamic_slam::Dynamic_slam(
 	if ( is_directory(root)==false ){ cout << "Data folder "<< ss0.str()  <<" is not a folder.\n"<<flush; exit(0); }
 	if ( empty(root)==true )		{ cout << "Data folder "<< ss0.str()  <<" is empty.\n"		 <<flush; exit(0); }
 																														if(verbosity>0) cout << "\n Dynamic_slam::Dynamic_slam_chk 1\n" << flush;
-	// get lists of files
-	get_all(root, ".txt",   txt);                            // gathers all filepaths with each suffix, into c++ vectors.
+	get_all(root, ".txt",   txt);																						// Get lists of files. Gathers all filepaths with each suffix, into c++ vectors.
 	get_all(root, ".png",   png);
 	get_all(root, ".depth", depth);
 																														if(verbosity>0) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
-    if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<flush;
-	// set image params
-	runcl.baseImage 	= imread(png[frame_num].string());																// NB ref for dimensions and data type.
+																														if(verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<flush;
+	runcl.baseImage 	= imread(png[runcl.frame_num].string());														// Set image params, ref for dimensions and data type.
+																														if(verbosity>1) { imshow("runcl.baseImage",runcl.baseImage); cv::waitKey(-1); }
 	runcl.allocatemem();
-	if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): runcl.baseImage.size() = "<< runcl.baseImage.size()  <<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
+																														if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): runcl.baseImage.size() = "<< runcl.baseImage.size() \
+																															<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 
 };
-
 
 
 int Dynamic_slam::nextFrame()
@@ -62,7 +61,7 @@ int Dynamic_slam::nextFrame()
 		}
 		ExhaustiveSearch();
 	}
-	frame_num++;
+	runcl.frame_num++;
 	return(0);					// NB option to return an error that stops the main loop.
 };
 
@@ -76,16 +75,18 @@ void Dynamic_slam::predictFrame()
 	// kernel predict new frame
 };
 
-void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?
+void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
 {																														if(verbosity>0) cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
 // # load next image to buffer NB load at position [log_2 index]
 // See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
-	image = imread(png[frame_num].string());
+	image = imread(png[runcl.frame_num].string());
 	if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
-		cout<< "\n\nError: Dynamic_slam::getFrame(), frame_num = " << frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
+		cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.frame_num = " << runcl.frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
 		exit(0);
 	}
-	runcl.loadFrame( image );
+	//image.convertTo(image, CV_16FC3, 1.0/256, 0.0); // NB cv_16FC3 is preferable, for faster half precision processing on AMD, Intel & ARM GPUs. 
+	runcl.loadFrame( image );						// NB Nvidia GeForce have 'Tensor Compute" FP16, accessible by PTX. AMD have RDNA and CDNA. These need PTX/assembly code and may use BF16 instead of FP16.
+	// load a basic image in CV_8UC3, then convert on GPU to 'half'
 	runcl.cvt_color_space( );
 	runcl.mipmap();
 	runcl.img_gradients();

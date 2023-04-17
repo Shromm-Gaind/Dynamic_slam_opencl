@@ -1,6 +1,6 @@
 {
     "verbosity":1,                                                      // -1= none, 0=errors only, 1=basic, 2=lots.
-    "imagesPerCV":30,
+    "imagesPerCV":7,
     "max_frame_count":30,                                               // how many frames to run for. NB -1 -> run indefinitely.
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
     "":"",
