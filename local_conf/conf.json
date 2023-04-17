@@ -21,7 +21,7 @@
     "":"",//"max_opt_count":60,
     "":"",
     "initialCost":1.0,          //3.0,
-    "initialWeight":0.0000001,
+    "initialWeight":0.0000001,  // 0.00006103515625 smallest positive normal number in FP16
     "":"",
     "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
     "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
@@ -36,7 +36,7 @@
     "kernel_filepath":"../Dynamic_slam_kernels.cl",                     // need file paths for building kernels
     "opencl_platform":2,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices 
     "opencl_device":0,
-    "":"",
+    "MipMap_margin":4,
     "":"",
     "":"",
     "":"",

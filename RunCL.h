@@ -85,21 +85,26 @@ public:
 	cl_command_queue				m_queue, uload_queue, dload_queue, track_queue; // queue[4]; //
 	cl_program						m_program;
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
-	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, k2kbuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, param_buf, img_sum_buf; // mem[14]; //
+	cl_kernel						cvt_color_space_kernel;
+	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf; // mem[14]; //
+	cl_mem							k2kbuf, fp16_param_buf, uint_param_buf;
+	
+	//cl_event						;
+	
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, local_work_size, image_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
-	uint				uint_params[8] = {0};
-	cv::float16_t 		params[16] 	= { cv::float16_t(0) };
-	cv::float16_t 		k2k[16] 	= { cv::float16_t(0) };
+	uint				uint_params[8] 		= {0};
+	cv::float16_t 		fp16_params[16]		= { cv::float16_t(0) };
+	cv::float16_t 		k2k[16]				= { cv::float16_t(0) };
 	
 	int 				frame_num;
 	uint 				mm_margin, mm_height, mm_width, mm_size_bytes, mm_vol_size_bytes, fp16_size; 
-	int 				width, height, costVolLayers, baseImage_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
-	cv::Size 			baseImage_size;
+	int 				width, height, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
+	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
 
 	RunCL(Json::Value obj_);
@@ -304,7 +309,7 @@ public:
 											data_size,		// size
 											outmat,			// pointer
 											0,				// num_events_in_wait_list
-											NULL,			// event_waitlist
+											NULL,			// event_waitlist				needs to know about preceeding events:
 											&readEvt);		// event
 														if (status != CL_SUCCESS) { cout << "\nclEnqueueReadBuffer(..) status=" << checkerror(status) <<"\n"<<flush; exit_(status);} 
 															else if(verbosity>0) cout <<"\nclEnqueueReadBuffer(..)"<<flush;
