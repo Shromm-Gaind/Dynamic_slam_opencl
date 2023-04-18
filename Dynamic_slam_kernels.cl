@@ -51,40 +51,55 @@
 #define COLS				2
 #define LAYERS				3
 #define MARGIN				4
+#define MM_PIXELS			5
+#define MM_ROWS				6	
+#define MM_COLS				7
 
 
 __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
-	__global uchar3*	base,			//0
-	__global half3*		img,			//1
-	__global uint*		uint_params		//2
+	__global uchar*		base,			//0
+	__global half*		img,			//1
+	__global uint*		uint_params,	//2
+	__global float*		img_sum			//3
 	//__global half*		fp16_params		//4
 		 )
 {																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
-	uint global_id 	= get_global_id(0);
+	int global_id 	= (int)get_global_id(0);
 	uint pixels 	= uint_params[PIXELS];
+	
 	if (global_id > pixels) return;
 	
 	uint rows		= uint_params[ROWS];
 	uint cols 		= uint_params[COLS];
 	uint margin 	= uint_params[MARGIN];
+	uint mm_cols	= uint_params[MM_COLS];
 	
-	uchar3 pixel 	= base[global_id];
-	uchar R_uchar 	= pixel.x;
+	if (global_id==0) printf("\n## global_id==1 ##, pixels=%u, rows=%u, cols=%u, margin=%u, mm_cols=%u, \n", pixels,rows,cols,margin,mm_cols);
+	
+	
+	uchar3 pixel 	= base[global_id*3];
+	float3 pixelf	= (float3)(pixel.x ,pixel.y, pixel.z);
+	
+	uchar R_uchar	= pixel.x;
 	uchar G_uchar	= pixel.y;
 	uchar B_uchar	= pixel.z;
 	
-	half R			= pixel.x;
-	half G 			= pixel.y;
-	half B 			= pixel.z;
+	//half3 RGB;
+	half  R,G,B, H,S,V;
+	vstore_half(pixelf.x/256, 0, &R);
+	vstore_half(pixelf.y/256, 0, &G);
+	vstore_half(pixelf.z/256, 0, &B);
 	
-	half V 			= max(R_uchar, max(G_uchar,B_uchar) );
+	uchar V_max   = max(R_uchar, max(G_uchar,B_uchar) );
+	float V_max_f = ((float)V_max)/256;
+	vstore_half( V_max_f, 0, &V );
 	
-	half min_rgb	= min(R_uchar, min(G_uchar,B_uchar) );
-	half divisor	= V-min_rgb;
+	half min_rgb; vstore_half( ((float)min(R_uchar, min(G_uchar,B_uchar))/256 ), 0, &min_rgb );
+	half divisor; vstore_half( (((float)V)/256)-min_rgb, 0, &divisor );
 	
-	half S = (V!=0)*(V-min_rgb)/V;
+	S = (V!=0)*(V-min_rgb)/V;
 	
-	half H = (V==R && V!=0)*native_divide( (60*(G-B) ), divisor )   \
+	H = (V==R && V!=0)*native_divide( (60*(G-B) ), divisor )   \
 	 +     (V==G && V!=0)*native_divide( 120 + 60*(B-R), divisor )	\
 	 +     (V==B && V!=0)*native_divide( 240 + 60*(R-G), divisor )	;
 	
@@ -94,9 +109,36 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	uint img_row	= base_row + margin;
 	uint img_col	= base_col + margin;
 	
-	uint img_index	= img_row*(cols+(margin*4)) + img_col;   
-	half3 img_pixel = (half3)(H,S,V);
-	img[img_index]	= img_pixel;
+	uint img_index	= img_row*mm_cols*3 + img_col*3;   
+	//half3 img_pixel = (half3)(H,S,V);
+	//img[img_index]	= img_pixel;
+	
+	
+	//half3 img_pixel = (half3)(0.5, 0.5, 0.0);
+	//img[global_id*3]	= img_pixel;
+	img[img_index   ] = H;
+	img[img_index +1] = S;
+	img[img_index +2] = V;
+	
+	float Rf, Bf, Gf, Hf, Sf, Vf;
+	Rf = vload_half(  0, &R );
+	Gf = vload_half(  0, &B );
+	Bf = vload_half(  0, &G );
+	Hf = vload_half(  0, &H );
+	Sf = vload_half(  0, &S );
+	Vf = vload_half(  0, &V );
+	
+	//float3 img_pixel_f = (float3)(Rf, Bf, Gf);
+	//img_sum[img_index*3] = img_pixel_f/256;
+	
+	img_sum[img_index]    = Rf;
+	img_sum[img_index +1] = Bf;
+	img_sum[img_index +2] = Gf;
+	
+	if (global_id==pixels-1) printf("\n## global_id==%u, img_index=%u, img_row=%u, img_col=%u ##", pixels-1, img_index, img_row, img_col);
+	
+	//if (global_id==1000) printf("\n\nR=%hx , G=%hx  , B=%hx  , H=%hx  , S=%hx  ,  V=%hx   \n\n",(short)R, (short)G, (short)B, (short)H, (short)S, (short)V );
+	
 	/* 
 	 * from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * V = max(R,G,B)

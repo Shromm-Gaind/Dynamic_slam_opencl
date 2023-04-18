@@ -38,10 +38,13 @@
 #define SCALE_EAUX			10
 
 #define PIXELS				0	// uint_params indices
-#define ROWS				1	
+#define ROWS				1
 #define COLS				2
 #define LAYERS				3
 #define MARGIN				4
+#define MM_PIXELS			5
+#define MM_ROWS				6
+#define MM_COLS				7
 
 /*
 #define BASE_MEM 			0	// device memory buffers
@@ -93,7 +96,7 @@ public:
 	
 	
 	cv::Mat 			baseImage;
-	size_t  			global_work_size, local_work_size, image_size_bytes;
+	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_vol_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
@@ -102,8 +105,8 @@ public:
 	cv::float16_t 		k2k[16]				= { cv::float16_t(0) };
 	
 	int 				frame_num;
-	uint 				mm_margin, mm_height, mm_width, mm_size_bytes, mm_vol_size_bytes, fp16_size; 
-	int 				width, height, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
+	uint 				mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
+	int 				width, height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
 
@@ -317,6 +320,8 @@ public:
 															else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
 		status = clWaitForEvents(1, &readEvt); 			if (status != CL_SUCCESS) { cout << "\nclWaitForEvents status="			<< checkerror(status) <<"\n"<<flush; exit_(status);} 
 															else if(verbosity>0) cout <<"\nclWaitForEvents(..)"<<flush;
+		status = clFinish(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFinish(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
+															else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
 	}
 };
 
