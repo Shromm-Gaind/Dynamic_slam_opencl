@@ -170,6 +170,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		if (type_mat == CV_16FC3)	{
 			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);
 			cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
+			
 			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize() );  // baseImage.total() * baseImage.elemSize()
 			
 			temp_mat = cv::Mat::zeros (size_mat, CV_32FC3);
@@ -289,21 +290,26 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 	}
 }
 
+void RunCL::computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q ){
+		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
+		sigma_d		= cv::float16_t( mu / (2.0/ theta)  );
+		sigma_q 	= cv::float16_t( mu / (2.0*epsilon) );
+}
+
 void RunCL::computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
 		sigma_d		= cl_half( mu / (2.0/ theta)  );
 		sigma_q 	= cl_half( mu / (2.0*epsilon) );
 }
 
-
 void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data)
 {
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk0\n\n" << flush;
-																				if(baseImage.empty()){cout <<"\nError RunCL::allocatemem() : runcl.baseImage.empty()"<<flush; exit(0); }
+																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk0\n\n" << flush;
+																																		if(baseImage.empty()){cout <<"\nError RunCL::allocatemem() : runcl.baseImage.empty()"<<flush; exit(0); }
 	stringstream 		ss;
 	ss << "allocatemem";
-	cl_int status;
-	cl_event writeEvt;
+	cl_int 				status;
+	cl_event 			writeEvt;
 	
 	image_size_bytes	= baseImage.total() * baseImage.elemSize() ;
 	costVolLayers 		= 2*( 1 + obj["layers"].asUInt() );
@@ -315,7 +321,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	
 	fp16_size			= sizeof(cl_half);
 	
-	mm_margin			= obj["MipMap_margin"].asUInt();						// MipMap parameters
+	mm_margin			= obj["MipMap_margin"].asUInt();																				// MipMap parameters
 	mm_width 			= baseImage.cols * 1.5 + 4 * mm_margin;
 	mm_height 			= baseImage.rows       + 2 * mm_margin;
 	mm_layerstep		= mm_width * mm_height;
@@ -323,176 +329,203 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cv::Mat temp(mm_height, mm_width, CV_16FC3);
 	mm_Image_size		= temp.size();
 	mm_Image_type		= temp.type();
-	mm_size_bytes_C3	= temp.total() * temp.elemSize() ;// mm_width * mm_height * fp16_size;				// for FP16 'half', or BF16 on Tensor cores
+	mm_size_bytes_C3	= temp.total() * temp.elemSize() ;																				// mm_width * mm_height * fp16_size;	// for FP16 'half', or BF16 on Tensor cores
+	
 	cv::Mat temp2(mm_height, mm_width, CV_16FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1\n\n" << flush;
-	// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
+																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1\n\n" << flush;
+																																		// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
 	status = clGetKernelWorkGroupInfo(cvt_color_space_kernel, deviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local_work_size), &local_work_size, NULL); 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1.1,\t local_work_size="<< local_work_size <<"\n\n" << flush;
-	// Number of total work items, calculated here after 1st image is loaded &=> know the size.
-	// NB localSize must be devisor
-	// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
-	global_work_size 		= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
-	mm_global_work_size 	= ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
-	
-																				if(verbosity>0){ 
-																					cout << "\n\nRunCL::allocatemem_chk1.2,\t global_work_size="<<global_work_size<<",\t mm_global_work_size="<<mm_global_work_size <<"\n" << flush;
-																					cout << "layerstep="<<layerstep <<",\t mm_layerstep"<< mm_layerstep<<"\n\n" << flush;
-																				}
-	//local_work_size=32; // trial for nvidia
-																				if(verbosity>0){
-																					cout << "\n\nRunCL::allocatemem_chk2\n\n" << flush;
-																					cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
-																					cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
-																					cout<<"\n";
-																					cout<<"\nallocatemem chk1, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
-																					cout<<"\nbaseImage.elemSize()="<< baseImage.elemSize()<<", baseImage.elemSize1()="<<baseImage.elemSize1()<<flush;
-																					cout<<"\nbaseImage.type()="<< baseImage.type() <<", sizeof(baseImage.type())="<< sizeof(baseImage.type())<<flush;
-																					cout<<"\n";
-																					cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
-																					cout<<"\n";
-																					cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
-																					cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
-																					cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
-																					cout<<"\n";
-																					cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
-																					cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
-																				}
+																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1.1,\t local_work_size="<< local_work_size <<"\n\n" << flush;
+																																		// Number of total work items, calculated here after 1st image is loaded &=> know the size.
+																																		// NB localSize must be devisor
+																																		// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
+	global_work_size 	= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
+	mm_global_work_size = ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
+																																		if(verbosity>0){ 
+																																			cout << "\n\nRunCL::allocatemem_chk1.2,\t global_work_size="<<global_work_size<<",\t mm_global_work_size="<<mm_global_work_size <<"\n" << flush;
+																																			cout << "layerstep="<<layerstep <<",\t mm_layerstep"<< mm_layerstep<<"\n\n" << flush;
+																																		}
+																																		//local_work_size=32; // trial for nvidia
+																																		if(verbosity>0){
+																																			cout << "\n\nRunCL::allocatemem_chk2\n\n" << flush;
+																																			cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
+																																			cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
+																																			cout<<"\n";
+																																			cout<<"\nallocatemem chk1, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
+																																			cout<<"\nbaseImage.elemSize()="<< baseImage.elemSize()<<", baseImage.elemSize1()="<<baseImage.elemSize1()<<flush;
+																																			cout<<"\nbaseImage.type()="<< baseImage.type() <<", sizeof(baseImage.type())="<< sizeof(baseImage.type())<<flush;
+																																			cout<<"\n";
+																																			cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
+																																			cout<<"\n";
+																																			cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
+																																			cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
+																																			cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
+																																			cout<<"\n";
+																																			cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
+																																			cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
+																																		}
 	cl_int res;
-	imgmem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  , 					  mm_size_bytes_C1,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
-	basemem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
+	imgmem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C1,  	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
+	basemem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
 	
-	dmem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	amem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	gxmem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	gymem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	g1mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	lomem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	himem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	qmem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE					, 2 * mm_size_bytes_C1, 	 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	dmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	gxmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	gymem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	g1mem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	lomem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	himem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	qmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-	cdatabuf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	hdatabuf 	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	img_sum_buf = clCreateBuffer(m_context, CL_MEM_READ_WRITE 					, 2 * mm_vol_size_bytes, 	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
+	cdatabuf			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	hdatabuf 			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	img_sum_buf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 2 * mm_vol_size_bytes,0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
 	
-	fp16_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  				, 16 * fp16_size,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  				, 16 * fp16_size,  		0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	uint_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  				, 8 * sizeof(uint),  	0, &res);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	//half_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	fp16_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	uint_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-
-																				if(verbosity>0) {
-																					cout << "\n\nRunCL::allocatemem_chk3\n\n" << flush;
-																					cout << ",dmem = " 			<< dmem << endl;
-																					cout << ",amem = " 			<< amem << endl;
-																					cout << ",gxmem = " 		<< gxmem << endl;
-																					cout << ",gymem = " 		<< gymem << endl;
-																					cout << ",qmem = " 			<< qmem << endl;
-																					cout << ",g1mem = " 		<< g1mem << endl;
-																					cout << ",lomem = " 		<< lomem << endl;
-																					cout << ",himem = " 		<< himem << endl;
-																					cout << ",cdatabuf = " 		<< cdatabuf << endl;
-																					cout << ",hdatabuf = " 		<< hdatabuf << endl;
-																					cout << ",imgmem = " 		<< imgmem << endl;
-																					cout << ",basemem = " 		<< basemem << endl;
-																					cout << ",fp16_param_buf = "<< fp16_param_buf << endl;
-																					cout << ",k2kbuf = " 		<< k2kbuf << endl;
-																					cout << ",uint_param_buf = "<< uint_param_buf << endl;
-																					cout << ",imgmem image_size_bytes= "<< image_size_bytes <<flush;
-																				}
-	
+																																		if(verbosity>0) {
+																																			cout << "\n\nRunCL::allocatemem_chk3\n\n" << flush;
+																																			cout << ",dmem = " 			<< dmem << endl;
+																																			cout << ",amem = " 			<< amem << endl;
+																																			cout << ",gxmem = " 		<< gxmem << endl;
+																																			cout << ",gymem = " 		<< gymem << endl;
+																																			cout << ",qmem = " 			<< qmem << endl;
+																																			cout << ",g1mem = " 		<< g1mem << endl;
+																																			cout << ",lomem = " 		<< lomem << endl;
+																																			cout << ",himem = " 		<< himem << endl;
+																																			cout << ",cdatabuf = " 		<< cdatabuf << endl;
+																																			cout << ",hdatabuf = " 		<< hdatabuf << endl;
+																																			cout << ",imgmem = " 		<< imgmem << endl;
+																																			cout << ",basemem = " 		<< basemem << endl;
+																																			cout << ",fp16_param_buf = "<< fp16_param_buf << endl;
+																																			cout << ",k2kbuf = " 		<< k2kbuf << endl;
+																																			cout << ",uint_param_buf = "<< uint_param_buf << endl;
+																																			cout << ",imgmem image_size_bytes= "<< image_size_bytes <<flush;
+																																		}
 	cv::Mat cost 		= cv::Mat::ones (costVolLayers, mm_height * mm_width, CV_16FC1); 	//cost	= obj["initialCost"].asFloat()   ;	cost.convertTo(		cost,		temp.type() );	// Initialization of buffers. ? Are OpenCL buffers initialiyzed to zero by default ? TODO fix initialization CV_16FC1, poss with a kernel.
 	cv::Mat hit      	= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_16FC1); 	//hit	= obj["initialWeight"].asFloat() ;	hit.convertTo(		hit,		temp.type() );
 	cv::Mat img_sum		= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_16FC1);												//img_sum.convertTo(	img_sum,	temp.type() );
 	cv::Mat gxy			= cv::Mat::ones (mm_height, mm_width, CV_16FC1);
-
-	cout << "\n\nmm_vol_size_bytes="<<mm_vol_size_bytes<< ",\t cost.total()*cost.elemSize()="<< cost.total()*cost.elemSize() <<" .\n\n"<<flush; 
-	//cv::imshow("cost", cost); cv::waitKey(5000);
-	/*
-	fp16_params[MAX_INV_DEPTH]	= cv::float16_t( 1/obj["min_depth"].asFloat()		);														// Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
+																																		cout << "\n\nmm_vol_size_bytes="<<mm_vol_size_bytes<< ",\t cost.total()*cost.elemSize()="<< cost.total()*cost.elemSize() <<" .\n\n"<<flush; 
+																																		//cv::imshow("cost", cost); cv::waitKey(5000);
+	fp16_params[MAX_INV_DEPTH]	= cv::float16_t( 1/obj["min_depth"].asFloat()		);													// This works: Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
 	fp16_params[MIN_INV_DEPTH]	= cv::float16_t( 1/obj["max_depth"].asFloat()		);
+				//INV_DEPTH_STEP	;
 	fp16_params[ALPHA_G]		= cv::float16_t(   obj["alpha_g"].asFloat()			);
 	fp16_params[BETA_G]			= cv::float16_t(   obj["beta_g"].asFloat()			);
 	fp16_params[EPSILON]		= cv::float16_t(   obj["epsilon"].asFloat()			);
+				//SIGMA_Q ;
+				//SIGMA_D ;
 	fp16_params[THETA]			= cv::float16_t(   obj["thetaStart"].asFloat()		);
 	fp16_params[LAMBDA]			= cv::float16_t(   obj["lambda"].asFloat()			);
 	fp16_params[SCALE_EAUX]		= cv::float16_t(   obj["scale_E_aux"].asFloat()		);
-	*/
-	
-	cl_half_params[MAX_INV_DEPTH]	= cl_half( 1/obj["min_depth"].asFloat()		);														// Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
+	/* 
+	cl_half_params[MAX_INV_DEPTH]	= cl_half( 1/obj["min_depth"].asFloat()		);														// Does not work : Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
 	cl_half_params[MIN_INV_DEPTH]	= cl_half( 1/obj["max_depth"].asFloat()		);
+	//INV_DEPTH_STEP	;
 	cl_half_params[ALPHA_G]			= cl_half(   obj["alpha_g"].asFloat()		);
 	cl_half_params[BETA_G]			= cl_half(   obj["beta_g"].asFloat()		);
 	cl_half_params[EPSILON]			= cl_half(   obj["epsilon"].asFloat()		);
+	//SIGMA_Q ;
+	//SIGMA_D ;
 	cl_half_params[THETA]			= cl_half(   obj["thetaStart"].asFloat()	);
 	cl_half_params[LAMBDA]			= cl_half(   obj["lambda"].asFloat()		);
 	cl_half_params[SCALE_EAUX]		= cl_half(   obj["scale_E_aux"].asFloat()	);
+	*/
+																																		if(verbosity>0){
+																																			float test_float = 12.06;							// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
+																																			cl_half test_half = cl_half(test_float);
+																																			cout << "\n\nTesting cl_half:"<<flush;
+																																			cout << "\ntest_float="<<test_float<<flush;
+																																			cout << "\ntest_half="<<test_half<<flush;
+																																			cout << "\nfloat(test_half)="<<float(test_half)<<flush;
+																																			test_half = test_float;
+																																			cout << "\ntest_half="<<test_half<<flush;
+																																			cout << "\n"<<flush;
+																																			test_half=cv::float16_t(test_float);
+																																			cout << "\ntest_half="<<test_half<<flush;
+																																			cv::float16_t test_cvfp16 = cv::float16_t(test_float);
+																																			cout << "\ntest_cvfp16="<<test_cvfp16<<flush;
+																																			cout << "\ntest_cvfp16="<<float(test_cvfp16)<<flush;
+																																			cout << "\n";
+																																			cout << "Oct content, test_float, test_half, test_cvfp16\n";
+																																			cout << std::oct << test_float << endl;
+																																			cout << std::oct << test_half << endl;
+																																			cout << std::oct << test_cvfp16 << endl;
+																																			cout << "\n\n"<<flush;
+																																		}
+	uint_params[PIXELS]			= 	baseImage.rows * baseImage.cols ;
+	uint_params[ROWS]			= 	baseImage.rows ;
+	uint_params[COLS]			= 	baseImage.cols ;
+	uint_params[LAYERS]			= 	obj["layers"].asUInt() ;
+	uint_params[MARGIN]			= 	mm_margin ;
+	uint_params[MM_PIXELS]		= 	mm_height * mm_width ;
+	uint_params[MM_ROWS]		= 	mm_height ;
+	uint_params[MM_COLS]		= 	mm_width ;
 	
-	float test_float = 12.06;
-	cl_half test_half = cl_half(test_float);
-	cout << "\n\nTesting cl_half:"<<flush;
-	cout << "\ntest_float="<<test_float<<flush;
-	cout << "\ntest_half="<<test_half<<flush;
-	cout << "\nfloat(test_half)="<<float(test_half)<<flush;
-	test_half = test_float;
-	cout << "\ntest_half="<<test_half<<flush;
-	cout << "\n"<<flush;
-	test_half=cv::float16_t(test_float);
-	cout << "\ntest_half="<<test_half<<flush;
-	cv::float16_t test_cvfp16 = cv::float16_t(test_float);
-	cout << "\ntest_cvfp16="<<test_cvfp16<<flush;
-	cout << "\ntest_cvfp16="<<float(test_cvfp16)<<flush;
-	cout << "\n\n"<<flush;
-	
-	// 
-	
-	
-	uint_params[PIXELS]				= 	baseImage.rows * baseImage.cols ;
-	uint_params[ROWS]				= 	baseImage.rows ;
-	uint_params[COLS]				= 	baseImage.cols ;
-	uint_params[LAYERS]				= 	obj["layers"].asUInt() ;
-	uint_params[MARGIN]				= 	mm_margin ;
-	uint_params[MM_PIXELS]			= 	mm_height * mm_width ;
-	uint_params[MM_ROWS]			= 	mm_height ;
-	uint_params[MM_COLS]			= 	mm_width ;
-	
-	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
-	
-	cl_half_k2k[0]  = cl_half( 1.0 );																											// initialize cl_half_k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp16_params[SIGMA_Q], fp16_params[SIGMA_D] );
+																																		//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
+																																		if(verbosity>0){
+																																			cout << "\n\nChecking fp16_params[]";
+																																			cout << "\nfp16_params[0 MAX_INV_DEPTH]="		<<fp16_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
+																																			cout << "\nfp16_params[1 MIN_INV_DEPTH]="		<<fp16_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
+																																			cout << "\nfp16_params[2 INV_DEPTH_STEP]="	<<fp16_params[INV_DEPTH_STEP];
+																																			cout << "\nfp16_params[3 ALPHA_G]="			<<fp16_params[ALPHA_G]				<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
+																																			cout << "\nfp16_params[4 BETA_G]="			<<fp16_params[BETA_G]				<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
+																																			cout << "\nfp16_params[5 EPSILON]="			<<fp16_params[EPSILON]				<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
+																																			cout << "\nfp16_params[6 SIGMA_Q]="			<<fp16_params[SIGMA_Q];
+																																			cout << "\nfp16_params[7 SIGMA_D ]="			<<fp16_params[SIGMA_D ];
+																																			cout << "\nfp16_params[8 THETA]="				<<fp16_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
+																																			cout << "\nfp16_params[9 LAMBDA]="			<<fp16_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
+																																			cout << "\nfp16_params[10 SCALE_EAUX]="		<<fp16_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
+																																			cout << "\n";
+																																			/*
+																																			cout << "\n\nChecking cl_half_params[]";
+																																			cout << "\ncl_half_params[MAX_INV_DEPTH]="	<<cl_half_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
+																																			cout << "\ncl_half_params[MIN_INV_DEPTH]="	<<cl_half_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
+																																			cout << "\ncl_half_params[INV_DEPTH_STEP]="	<<cl_half_params[INV_DEPTH_STEP];
+																																			cout << "\ncl_half_params[ALPHA_G]="		<<cl_half_params[ALPHA_G]			<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
+																																			cout << "\ncl_half_params[BETA_G]="			<<cl_half_params[BETA_G]			<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
+																																			cout << "\ncl_half_params[EPSILON]="		<<cl_half_params[EPSILON]			<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
+																																			cout << "\ncl_half_params[SIGMA_Q]="		<<cl_half_params[SIGMA_Q];
+																																			cout << "\ncl_half_params[SIGMA_D]="		<<cl_half_params[SIGMA_D];
+																																			cout << "\ncl_half_params[THETA]="			<<cl_half_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
+																																			cout << "\ncl_half_params[LAMBDA]="			<<cl_half_params[LAMBDA]			<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
+																																			cout << "\ncl_half_params[SCALE_EAUX]="		<<cl_half_params[SCALE_EAUX]		<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
+																																			cout << "\n";
+																																			*/
+																																		}
+	fp16_k2k[0]  = cv::float16_t( 1.0 );																									// initialize fp16_k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	fp16_k2k[5]  = cv::float16_t( 1.0 );
+	fp16_k2k[10] = cv::float16_t( 1.0 );
+	/*
+	cl_half_k2k[0]  = cl_half( 1.0 );																									// initialize cl_half_k2k as 'unity' transform, i.e. zero rotation & zero translation.
 	cl_half_k2k[5]  = cl_half( 1.0 );
 	cl_half_k2k[10] = cl_half( 1.0 );
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4\n\n" << flush;
-
+	*/
+																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4\n\n" << flush;
 	status = clEnqueueWriteBuffer(uload_queue, gxmem, 			CL_FALSE, 0, mm_size_bytes_C1, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
 	status = clEnqueueWriteBuffer(uload_queue, gymem, 			CL_FALSE, 0, mm_size_bytes_C1, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.2\n\n" << flush;
-	status = clEnqueueWriteBuffer(uload_queue, fp16_param_buf, 	CL_FALSE, 0, 16 * fp16_size, 	cl_half_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.3\n\n" << flush;
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * fp16_size, 	cl_half_k2k, 			0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.4\n\n" << flush;
+	status = clEnqueueWriteBuffer(uload_queue, fp16_param_buf, 	CL_FALSE, 0, 16 * fp16_size, 	fp16_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * fp16_size, 	fp16_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, uint_param_buf,	CL_FALSE, 0, 8 * sizeof(uint),	uint_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.5\n\n" << flush;
-	
-	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.6\n\n" << flush;
-																				
-	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 	CL_FALSE, 0, mm_vol_size_bytes, 	hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.7\n\n" << flush;
-																				
-	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, CL_FALSE, 0, mm_vol_size_bytes, 	img_sum.data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.8\n\n" << flush;
-	status = clEnqueueWriteBuffer(uload_queue, basemem, 	CL_FALSE, 0, image_size_bytes, 		baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4.9\n\n" << flush;
+	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, 	CL_FALSE, 0, mm_vol_size_bytes, img_sum.data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, basemem, 		CL_FALSE, 0, image_size_bytes, 	baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	clFlush(uload_queue); status = clFinish(uload_queue); 																				if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
-																				if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk5\n\n" << flush;
-	
-	DownloadAndSave_3Channel( 	basemem,	ss.str(), paths.at("basemem"),		image_size_bytes, 	baseImage_size, 	baseImage_type, false );				// DownloadAndSave_3Channel(basemem,..) verify uploads.
-	DownloadAndSave( 			gxmem,		ss.str(), paths.at("gxmem"), 		mm_size_bytes_C1, 	mm_Image_size, 		CV_16FC1, 		false /*true*/, 1);
-	DownloadAndSaveVolume(		cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size, 		CV_16FC1,  		false  , 1 /*max_range*/);
-	
+																																		
+																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk5\n\n" << flush;
+																																		if(verbosity>0) {
+																																			DownloadAndSave_3Channel( 	basemem,	ss.str(), paths.at("basemem"),		image_size_bytes, 	baseImage_size, 	baseImage_type, false );		// DownloadAndSave_3Channel(basemem,..) verify uploads.
+																																			DownloadAndSave( 			gxmem,		ss.str(), paths.at("gxmem"), 		mm_size_bytes_C1, 	mm_Image_size, 		CV_16FC1, 		false /*true*/, 1);
+																																			DownloadAndSaveVolume(		cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size, 		CV_16FC1,  		false  , 1 /*max_range*/);
+																																		}
 	/*	// TODO  update and reactivate the old kernels
 	// set kernelArg. NB "0 &k2kbuf" & "2 &imgmem" set in calcCostVol(..)
 	res = clSetKernelArg(cost_kernel, 1, sizeof(cl_mem),  &basemem);		if(res!=CL_SUCCESS){cout<<"\nbasemem res= "   		<<checkerror(res)<<"\n"<<flush;exit_(res);} // base				
@@ -534,7 +567,8 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 	res = clSetKernelArg(cvt_color_space_kernel, 1, sizeof(cl_mem), &imgmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global half*		img,			//1	
 	res = clSetKernelArg(cvt_color_space_kernel, 2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uint*		uint_params		//2
 	res = clSetKernelArg(cvt_color_space_kernel, 3, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uint*		img_sum			//3
-	res = clSetKernelArg(cvt_color_space_kernel, 4, sizeof(cl_mem), &fp16_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global half*		half_params		//4
+	//res = clSetKernelArg(cvt_color_space_kernel, 4, sizeof(cl_mem), &half_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global half*		half_params		//4
+	res = clSetKernelArg(cvt_color_space_kernel, 4, sizeof(cl_mem), &fp16_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global half*		fp16_params		//4
 	
 	status = clFlush(m_queue); 				if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = clFinish(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
@@ -553,18 +587,18 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 																																//cv::Mat temp(mm_height, mm_width, CV_32FC3);	//image_size_bytes, temp.size(), CV_16FC3,
 																																
 																																DownloadAndSave_3Channel(	imgmem, ss.str(), paths.at("imgmem"),  mm_size_bytes_C3, mm_Image_size,  CV_16FC3 /*mm_Image_type*/, 	false );
-																																cout<<",chk2.3,"<<flush;
+																																cout<<"\n\n,chk2.3,"<<flush;
 																																cout<<"\n img_sum_buf="<< img_sum_buf <<flush;
 																																cout<<"\n ss.str()="<< ss.str() <<flush;
 																																cout<<"\n paths.at(\"img_sum_buf\")="<< paths.at("img_sum_buf") <<flush;
 																																cout<<"\n mm_size_bytes_C1="<< mm_size_bytes_C1 <<flush;
 																																cout<<"\n mm_size_bytes_C3="<< mm_size_bytes_C3 <<flush;
 																																
-																																cout<<"\n mm_Image_size="<< mm_Image_size <<flush;
+																																cout<<"\n mm_Image_size="<< mm_Image_size <<"\n\n"<<flush;
 																																
 																																DownloadAndSave_3Channel(	img_sum_buf, ss.str(), paths.at("img_sum_buf"),  mm_size_bytes_C3*2, mm_Image_size,  CV_32FC3 /*mm_Image_type*/, 	false );
 																																//DownloadAndSave( 	img_sum_buf,	ss.str(), paths.at("img_sum_buf"), mm_size_bytes_C1, 	mm_Image_size, 		CV_32FC1, 		false /*true*/, 1);
-																																cout<<",chk2.4,"<<flush;
+																																cout<<"\n\n,chk2.4,\n\n"<<flush;
 																															}
 																															if(verbosity>0) cout<<"\nRunCL::cvt_color_space()_chk3_Finished"<<flush;
 }

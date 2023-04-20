@@ -90,7 +90,7 @@ public:
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
 	cl_kernel						cvt_color_space_kernel;
 	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf; // mem[14]; //
-	cl_mem							k2kbuf, fp16_param_buf, uint_param_buf;
+	cl_mem							k2kbuf, half_param_buf, fp16_param_buf, uint_param_buf;
 	
 	//cl_event						;
 	
@@ -101,10 +101,10 @@ public:
 	cl_device_id 		deviceId;
 	
 	uint				uint_params[8] 		= {0};
-	//cv::float16_t 		fp16_params[16]		= { cv::float16_t(0) };
-	//cv::float16_t 		k2k[16]				= { cv::float16_t(0) };
-	cl_half				cl_half_params[16]		= { cl_half(0) };
-	cl_half				cl_half_k2k[16]			= { cl_half(0) };
+	cv::float16_t 		fp16_params[16]		= { cv::float16_t(0) };
+	cv::float16_t 		fp16_k2k[16]		= { cv::float16_t(0) };
+	//cl_half				cl_half_params[16]		= { cl_half(0) };
+	//cl_half				cl_half_k2k[16]			= { cl_half(0) };
 	
 	int 				frame_num;
 	uint 				mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
@@ -120,7 +120,8 @@ public:
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
 	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q );
-	void computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q);
+	void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q);
+	void computeSigmas(float epsilon, float theta, float L, cl_half       &sigma_d, cl_half       &sigma_q);
 
 	void allocatemem();//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data);
 	void calcCostVol(float* k2k, cv::Mat &image);

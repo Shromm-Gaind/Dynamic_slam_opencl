@@ -58,10 +58,11 @@
 
 __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
 	__global uchar*		base,			//0
-	__global half*		img,			//1
+	__global half*		img,			//1		// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
 	__global uint*		uint_params,	//2
 	__global float*		img_sum,		//3
-	__global half*		half_params		//4
+	//__global half*		half_params,	//4
+	__global half*		fp16_params		//4
 		 )
 {																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
 	int global_id 	= (int)get_global_id(0);
@@ -73,14 +74,32 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	uint cols 		= uint_params[COLS];
 	uint margin 	= uint_params[MARGIN];
 	uint mm_cols	= uint_params[MM_COLS];
-	
+	/*																		// Testing cv::fp16 and opencl 'half'
 	float float_params[11];
-	for (int i=0; i<12; i++) float_params[i] = vload_half( i, half_params );
+	//for (int i=0; i<12; i++) float_params[i] = vload_half( i, half_params );
+	half  test_half1  = 1210;
+	half  test_half2  = 10.201;
+	half  test_half3  = 1.020;
+	float test_float1 = vload_half(0, &test_half1);
+	float test_float2 = vload_half(0, &test_half2);
+	float test_float3 = vload_half(0, &test_half3);
 	
 	if (global_id==0){ 
-		printf("\n## global_id==1 ##, pixels=%u, rows=%u, cols=%u, margin=%u, mm_cols=%u, \n", pixels,rows,cols,margin,mm_cols);
-		printf("\n## half_params, MAX_INV_DEPTH=%f,  SCALE_EAUX=%f\n", float_params[MAX_INV_DEPTH], float_params[SCALE_EAUX]);
+		for (int i=0; i<11; i++){
+			printf("\nhalf_params[%d]=%f,\t\t fp16_params[%d]=%f",i, half_params[i], i, fp16_params[i]);
+		}
+		printf("\n\n## global_id==1 ##, pixels=%u, rows=%u, cols=%u, margin=%u, mm_cols=%u, \n", pixels,rows,cols,margin,mm_cols);
+		//printf("\n## half_params, MAX_INV_DEPTH=%hu,  SCALE_EAUX=%hu\n", half_params[MAX_INV_DEPTH], half_params[SCALE_EAUX]);
+		//printf("\n## test_half1=%hu, test_half2=%hu, test_half3=%hu\n", test_half1, test_half2, test_half3); // 248 for all of them
+		//printf("\n## test_half1=%hx, test_half2=%hx, test_half3=%hx\n", test_half1, test_half2, test_half3); // f8  for all of them 
+		//printf("\n## test_half1= %hf, test_half2= %hf, test_half3= %hf\n", test_half1, test_half2, test_half3); // correct output
+		printf("\n## test_half1= %f, test_half2= %f, test_half3= %f\n", test_half1, test_half2, test_half3); // correct output
+		//printf("\n## float_params, MAX_INV_DEPTH=%f,  SCALE_EAUX=%f\n", float_params[MAX_INV_DEPTH], float_params[SCALE_EAUX]);
+		printf("\n## test_float1= %f, test_float2= %f, test_float3= %f\n", test_float1, test_float2, test_float3); // correct output
+		printf("\n## test_half1*fp16_params[0]= %f, test_half2+fp16_params[4]= %f, test_half3/fp16_params[3]= %f\n",\
+			test_half1*fp16_params[0], test_half2+fp16_params[4], test_half3/fp16_params[3]); 	// verify that 'half' aritmetic works with cv::fp16 data. 
 	}
+	*/
 	
 	uchar R_uchar	= base[global_id*3];
 	uchar G_uchar	= base[global_id*3+1];
@@ -154,7 +173,7 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	 *     0								if R=G=B
 	 */
 }
-/*
+
 __kernel void convertParams(// ? can CPU generate FP16 in wchar ? Could be fasterthan taking GPU space. Use cv::float16_t class to fill arrays.
 	__global float* k2k,		//0
 	__global half* 	k2k_half,	//1
@@ -162,10 +181,10 @@ __kernel void convertParams(// ? can CPU generate FP16 in wchar ? Could be faste
 	__global half* 	params_half //3
 		 )
 {
-	
+	int global_id 	= (int)get_global_id(0);
 	
 }
-*/
+
 /*__kernel void  (
 	__global float* k2k,		//0
 	
