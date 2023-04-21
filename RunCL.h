@@ -308,7 +308,7 @@ public:
 	void ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0) {
 		cl_event readEvt;
 		cl_int status;
-														cout<<"\nReadOutput: &outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\t"<<flush;
+														//cout<<"\nReadOutput: &outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
 		status = clEnqueueReadBuffer(dload_queue,			// command_queue
 											buf_mem,		// buffer
 											CL_FALSE,		// blocking_read
@@ -319,13 +319,13 @@ public:
 											NULL,			// event_waitlist				needs to know about preceeding events:
 											&readEvt);		// event
 														if (status != CL_SUCCESS) { cout << "\nclEnqueueReadBuffer(..) status=" << checkerror(status) <<"\n"<<flush; exit_(status);} 
-															else if(verbosity>0) cout <<"\nclEnqueueReadBuffer(..)"<<flush;
+															//else if(verbosity>0) cout <<"\nclEnqueueReadBuffer(..)"<<flush;
 		status = clFlush(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFlush(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
-															else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
+															//(else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
 		status = clWaitForEvents(1, &readEvt); 			if (status != CL_SUCCESS) { cout << "\nclWaitForEvents status="			<< checkerror(status) <<"\n"<<flush; exit_(status);} 
-															else if(verbosity>0) cout <<"\nclWaitForEvents(..)"<<flush;
-		status = clFinish(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFinish(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
-															else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
+															//else if(verbosity>0) cout <<"\nclWaitForEvents(..)"<<flush;
+		//status = clFinish(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFinish(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
+															//else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
 	}
 };
 

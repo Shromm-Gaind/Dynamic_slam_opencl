@@ -33,11 +33,12 @@ Dynamic_slam::Dynamic_slam(
 																														if(verbosity>0) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
 																														if(verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<flush;
 	runcl.baseImage 	= imread(png[runcl.frame_num].string());														// Set image params, ref for dimensions and data type.
+																														if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam_chk 3: runcl.baseImage.size() = "<< runcl.baseImage.size() \
+																															<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 																														if(verbosity>1) { imshow("runcl.baseImage",runcl.baseImage); cv::waitKey(-1); }
 	runcl.allocatemem();
-																														if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam(): runcl.baseImage.size() = "<< runcl.baseImage.size() \
+																														if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																															<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-
 };
 
 
@@ -76,9 +77,22 @@ void Dynamic_slam::predictFrame()
 };
 
 void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
-{																														if(verbosity>0) cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
-// # load next image to buffer NB load at position [log_2 index]
-// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
+					{																														if(verbosity>1){ cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
+																																			// # load next image to buffer NB load at position [log_2 index]
+																																			// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
+																																				cout << "\n\nDynamic_slam::getFrame()";
+																																				cout << "\nruncl.baseImage.size() =" << runcl.baseImage.size();
+																																				cout << "\nruncl.baseImage_size =" << runcl.baseImage_size;
+																																				cout << "\nruncl.baseImage_type =" << runcl.baseImage_type ;
+																																				cout << "\nruncl.image_size_bytes =" << runcl.image_size_bytes ;
+																																				cout << endl;
+																																				cout << "\nruncl.mm_Image_type =" << runcl.mm_Image_type ;
+																																				cout << "\nruncl.mm_size_bytes_C3 =" << runcl.mm_size_bytes_C3 ;
+																																				cout << "\nruncl.mm_size_bytes_C1 =" << runcl.mm_size_bytes_C1 ;
+																																				cout << "\nruncl.mm_vol_size_bytes =" << runcl.mm_vol_size_bytes ;
+																																				cout << "\nruncl.mm_Image_size =" << runcl.mm_Image_size ;
+																																				cout << "\n" << flush ;
+																																			}
 	image = imread(png[runcl.frame_num].string());
 	if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
 		cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.frame_num = " << runcl.frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;

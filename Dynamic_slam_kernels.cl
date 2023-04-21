@@ -59,22 +59,20 @@
 __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
 	__global uchar*		base,			//0
 	__global half*		img,			//1		// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
-	__global uint*		uint_params,	//2
-	__global float*		img_sum,		//3
-	//__global half*		half_params,	//4
-	__global half*		fp16_params		//4
+	__global uint*		uint_params//,	//2
+	//__global float*		img_sum,		//3
+	//__global half*		fp16_params		//4
 		 )
 {																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
 	int global_id 	= (int)get_global_id(0);
 	uint pixels 	= uint_params[PIXELS];
-	
 	if (global_id > pixels) return;
 	
-	uint rows		= uint_params[ROWS];
 	uint cols 		= uint_params[COLS];
 	uint margin 	= uint_params[MARGIN];
 	uint mm_cols	= uint_params[MM_COLS];
 	/*																		// Testing cv::fp16 and opencl 'half'
+	uint rows		= uint_params[ROWS];
 	float float_params[11];
 	//for (int i=0; i<12; i++) float_params[i] = vload_half( i, half_params );
 	half  test_half1  = 1210;
@@ -100,15 +98,12 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 			test_half1*fp16_params[0], test_half2+fp16_params[4], test_half3/fp16_params[3]); 	// verify that 'half' aritmetic works with cv::fp16 data. 
 	}
 	*/
-	
 	uchar R_uchar	= base[global_id*3];
 	uchar G_uchar	= base[global_id*3+1];
 	uchar B_uchar	= base[global_id*3+2];
-	
 	uchar3 pixel 	= (uchar3)(R_uchar, G_uchar, B_uchar);
 	float3 pixelf	= (float3)(pixel.x ,pixel.y, pixel.z);
 	
-	//half3 RGB;
 	half  R,G,B, H,S,V;
 	vstore_half(pixelf.x/256, 0, &R);
 	vstore_half(pixelf.y/256, 0, &G);
@@ -129,21 +124,14 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
-	
 	uint img_row	= base_row + margin;
 	uint img_col	= base_col + margin;
-	
 	uint img_index	= img_row*mm_cols*3 + img_col*3;   
-	//half3 img_pixel = (half3)(H,S,V);
-	//img[img_index]	= img_pixel;
-	
-	
-	//half3 img_pixel = (half3)(0.5, 0.5, 0.0);
-	//img[global_id*3]	= img_pixel;
-	img[img_index   ] = R;
-	img[img_index +1] = G;
-	img[img_index +2] = B;
-	
+	img[img_index   ] = H;
+	img[img_index +1] = S;
+	img[img_index +2] = V;
+	/*
+	 * //Debugging FP16
 	float Rf, Bf, Gf, Hf, Sf, Vf;
 	Rf = vload_half(  0, &R );
 	Gf = vload_half(  0, &G );
@@ -152,9 +140,6 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	Sf = vload_half(  0, &S );
 	Vf = vload_half(  0, &V );
 	
-	//float3 img_pixel_f = (float3)(Rf, Bf, Gf);
-	//img_sum[img_index*3] = img_pixel_f/256;
-	
 	img_sum[img_index]    =  Hf;//((float)pixel.x)/256;
 	img_sum[img_index +1] =  Sf;//((float)pixel.y)/256;
 	img_sum[img_index +2] =  Vf;//((float)pixel.z)/256;
@@ -162,7 +147,7 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	if (global_id==pixels-1) printf("\n## global_id==%u, img_index=%u, img_row=%u, img_col=%u ##", pixels-1, img_index, img_row, img_col);
 	if (global_id==1000) printf("\n\nRf=%f , Gf=%f  , Bf=%f  , Hf=%f  , Sf=%f  ,  Vf=%f   \n\n",Rf, Gf, Bf, Hf, Sf, Vf );
 	//if (global_id==1000) printf("\n\nR=%hx , G=%hx  , B=%hx  , H=%hx  , S=%hx  ,  V=%hx   \n\n",(short)R, (short)G, (short)B, (short)H, (short)S, (short)V );
-	
+	*/
 	/* 
 	 * from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * V = max(R,G,B)
