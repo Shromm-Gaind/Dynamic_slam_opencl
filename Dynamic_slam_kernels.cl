@@ -55,6 +55,13 @@
 #define MM_ROWS				6	
 #define MM_COLS				7
 
+#define MiM_PIXELS			0	// for mipmap_buf
+#define MiM_READ_OFFSET		1
+#define MiM_WRITE_OFFSET	2
+#define MiM_READ_COLS		3
+#define MiM_WRITE_COLS		4
+#define MiM_GAUSSIAN_SIZE	5
+
 
 __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
 	__global uchar*		base,			//0
@@ -158,25 +165,21 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 
 __kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan taking GPU space. Use cv::float16_t class to fill arrays.
 	__global half*		img,			//0		// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
-	__global uint* 		read_offset,	//1
-	__global uint* 		write_offset,	//2
-	__global uint* 		read_cols,		//3
-	__global uint* 		write_cols,		//4
-	__global uint* 		pixels,			//5		// num pixels in reduced image &=> threads req.
-	__global uint* 		gaussian_size,	//6
-	__global half* 		gaussian,		//7
-	__global uint*		uint_params//,	//8
+	__global half* 		gaussian,		//1
+	__global uint*		uint_params,	//2
+	__global uint*		mipmap_params	//3
 		 )
 {
 	int global_id 		= (int)get_global_id(0);
-	uint pixels_ = *pixels;
-	if (global_id > pixels_) return;
+	if (global_id==1) printf("\n\n __kernel void mipmap(..) MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
 	
-	uint read_offset_ 	= *read_offset;
-	uint write_offset_ 	= *write_offset;
-	uint read_cols_ 	= *read_cols;
-	uint write_cols_ 	= *write_cols;
-	uint gaussian_size_ = *gaussian_size;
+	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint write_offset_ 	= mipmap_params[MiM_WRITE_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint read_index 	= 3*(read_offset_  + (global_id/read_cols_ )*mm_cols + (global_id%read_cols_ ) );	// NB 3 channels.

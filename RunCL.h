@@ -90,7 +90,7 @@ public:
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
 	cl_kernel						cvt_color_space_kernel, mipmap_kernel;
 	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf; // mem[14]; //
-	cl_mem							k2kbuf, half_param_buf, fp16_param_buf, uint_param_buf;
+	cl_mem							k2kbuf, half_param_buf, fp16_param_buf, uint_param_buf, mipmap_buf, gaussian_buf;
 	
 	//cl_event						;
 	
