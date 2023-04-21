@@ -98,23 +98,19 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 			test_half1*fp16_params[0], test_half2+fp16_params[4], test_half3/fp16_params[3]); 	// verify that 'half' aritmetic works with cv::fp16 data. 
 	}
 	*/
-	uchar R_uchar	= base[global_id*3];
-	uchar G_uchar	= base[global_id*3+1];
-	uchar B_uchar	= base[global_id*3+2];
-	uchar3 pixel 	= (uchar3)(R_uchar, G_uchar, B_uchar);
-	float3 pixelf	= (float3)(pixel.x ,pixel.y, pixel.z);
-	
+	float R_float	= base[global_id*3]  /256.0;
+	float G_float	= base[global_id*3+1]/256.0;
+	float B_float	= base[global_id*3+2]/256.0;
 	half  R,G,B, H,S,V;
-	vstore_half(pixelf.x/256, 0, &R);
-	vstore_half(pixelf.y/256, 0, &G);
-	vstore_half(pixelf.z/256, 0, &B);
+	vstore_half(R_float, 0, &R);
+	vstore_half(G_float, 0, &G);
+	vstore_half(B_float, 0, &B);
 	
-	uchar V_max   = max(R_uchar, max(G_uchar,B_uchar) );
-	float V_max_f = ((float)V_max)/256;
+	float V_max_f = max(R_float, max(G_float, B_float) );
 	vstore_half( V_max_f, 0, &V );
 	
-	half min_rgb; vstore_half( ((float)min(R_uchar, min(G_uchar,B_uchar))/256 ), 0, &min_rgb );
-	half divisor; vstore_half( (((float)V)/256)-min_rgb, 0, &divisor );
+	half min_rgb; 	vstore_half( min(R_float, min(G_float, B_float)) , 0, &min_rgb );
+	half divisor = V - min_rgb;
 	
 	S = (V!=0)*(V-min_rgb)/V;
 	
@@ -139,7 +135,7 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	Hf = vload_half(  0, &H );
 	Sf = vload_half(  0, &S );
 	Vf = vload_half(  0, &V );
-	
+	//uchar3 pixel 	= (uchar3)(R_uchar, G_uchar, B_uchar);
 	img_sum[img_index]    =  Hf;//((float)pixel.x)/256;
 	img_sum[img_index +1] =  Sf;//((float)pixel.y)/256;
 	img_sum[img_index +2] =  Vf;//((float)pixel.z)/256;
@@ -150,6 +146,7 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	*/
 	/* 
 	 * from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
+	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
 	 * V = max(R,G,B)
 	 * S = (0, if V=0), otherwise (V-min(RGB))/V
 	 * H = 60(G-B)/(V-min(R,G,B)  			if V=R
@@ -159,15 +156,42 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	 */
 }
 
-__kernel void convertParams(// ? can CPU generate FP16 in wchar ? Could be fasterthan taking GPU space. Use cv::float16_t class to fill arrays.
-	__global float* k2k,		//0
-	__global half* 	k2k_half,	//1
-	__global float* params,		//2
-	__global half* 	params_half //3
+__kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan taking GPU space. Use cv::float16_t class to fill arrays.
+	__global half*		img,			//0		// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
+	__global uint* 		read_offset,	//1
+	__global uint* 		write_offset,	//2
+	__global uint* 		read_cols,		//3
+	__global uint* 		write_cols,		//4
+	__global uint* 		pixels,			//5		// num pixels in reduced image &=> threads req.
+	__global uint* 		gaussian_size,	//6
+	__global half* 		gaussian,		//7
+	__global uint*		uint_params//,	//8
 		 )
 {
-	int global_id 	= (int)get_global_id(0);
+	int global_id 		= (int)get_global_id(0);
+	uint pixels_ = *pixels;
+	if (global_id > pixels_) return;
 	
+	uint read_offset_ 	= *read_offset;
+	uint write_offset_ 	= *write_offset;
+	uint read_cols_ 	= *read_cols;
+	uint write_cols_ 	= *write_cols;
+	uint gaussian_size_ = *gaussian_size;
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint read_index 	= 3*(read_offset_  + (global_id/read_cols_ )*mm_cols + (global_id%read_cols_ ) );	// NB 3 channels.
+	uint write_index 	= 3*(write_offset_ + (global_id/write_cols_)*mm_cols + (global_id%write_cols_) );
+	
+	half reduced_pixel_x=0, reduced_pixel_y=0, reduced_pixel_z=0;
+	for (int i=0; i<gaussian_size_; i++){ for (int j=0; j<gaussian_size_; j++){
+			reduced_pixel_x += img[ read_index+0 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_y += img[ read_index+1 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_z += img[ read_index+2 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+	}	}
+	// TODO NB this would be better for split color mipmap BUT any vector of 3 would be stored on a vector of 4, as a power of 2.
+	img[ write_index+0 ] = reduced_pixel_x;		
+	img[ write_index+1 ] = reduced_pixel_y;
+	img[ write_index+2 ] = reduced_pixel_z;
 }
 
 /*__kernel void  (

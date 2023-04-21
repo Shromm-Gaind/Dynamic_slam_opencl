@@ -88,7 +88,7 @@ public:
 	cl_command_queue				m_queue, uload_queue, dload_queue, track_queue; // queue[4]; //
 	cl_program						m_program;
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
-	cl_kernel						cvt_color_space_kernel;
+	cl_kernel						cvt_color_space_kernel, mipmap_kernel;
 	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf; // mem[14]; //
 	cl_mem							k2kbuf, half_param_buf, fp16_param_buf, uint_param_buf;
 	
@@ -133,7 +133,7 @@ public:
 	void predictFrame();
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();
-	void mipmap();
+	void mipmap(uint num_reductions, uint gaussian_size);
 	void img_gradients();
 	
 	void loadFrameData();
