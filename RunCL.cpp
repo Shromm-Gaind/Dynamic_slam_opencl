@@ -664,7 +664,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 #define MiM_WRITE_COLS		4
 #define MiM_GAUSSIAN_SIZE	5
 
-void RunCL::mipmap(uint num_reductions, uint gaussian_size=3){ //getFrame();
+void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
 	cl_event 			writeEvt, ev;
 	cl_int 				res, status;
@@ -678,51 +678,53 @@ void RunCL::mipmap(uint num_reductions, uint gaussian_size=3){ //getFrame();
 	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, gaussian_size*gaussian_size*sizeof(cv::float16_t), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
 	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 																																																	// set kernel args
-	res = clSetKernelArg(mipmap_kernel, 0, sizeof(cl_mem), &imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	else cout<<"\nchk2.1.1"<<flush;		//__global half*	img,			//0	
-	res = clSetKernelArg(mipmap_kernel, 1, sizeof(cl_mem), &gaussian_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	else cout<<"\nchk2.1.1"<<flush;		//__global half*	gaussian,		//1
-	res = clSetKernelArg(mipmap_kernel, 2, sizeof(cl_mem), &uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	else cout<<"\nchk2.1.1"<<flush;		//__global uint*	uint_params		//2
+	res = clSetKernelArg(mipmap_kernel, 0, sizeof(cl_mem), &imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global half*	img,			//0	
+	res = clSetKernelArg(mipmap_kernel, 1, sizeof(cl_mem), &gaussian_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global half*	gaussian,		//1
+	res = clSetKernelArg(mipmap_kernel, 2, sizeof(cl_mem), &uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global uint*	uint_params		//2
 	
 	uint read_rows				= baseImage_size.height;
 	uint write_rows 			= read_rows/2;
-	mipmap[MiM_READ_OFFSET] 		= mm_margin + (mm_margin * mm_width);
-	mipmap[MiM_WRITE_OFFSET] 	= baseImage_size.width + (3 * mm_margin) + (mm_margin * mm_width);
+	mipmap[MiM_READ_OFFSET] 	= 3* (mm_margin + (mm_margin * mm_width));
+	mipmap[MiM_WRITE_OFFSET] 	= 3* (baseImage_size.width + (3 * mm_margin) + (mm_margin * mm_width) );
 	mipmap[MiM_READ_COLS] 		= baseImage_size.width;
 	mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_READ_COLS]/2;
 	mipmap[MiM_GAUSSIAN_SIZE] 	= gaussian_size;
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk1"<<flush;}
+	
+	cout << "\n\n  read_rows="<<read_rows<<", write_rows="<<write_rows  <<", mipmap[MiM_READ_OFFSET]="<<mipmap[MiM_READ_OFFSET]  <<", mipmap[MiM_WRITE_OFFSET] ="<<mipmap[MiM_WRITE_OFFSET]   <<", mipmap[MiM_READ_COLS] ="<<mipmap[MiM_READ_COLS] <<", mipmap[MiM_WRITE_COLS]="<<mipmap[MiM_WRITE_COLS]   <<",  mm_margin="<<mm_margin <<",  mm_width="<<mm_width <<"\n"  <<flush; //<<", ="<<  <<", ="<< 
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk1"<<flush;}
 	for(int reduction = 0; reduction < num_reductions; reduction++) {
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;}
 		mipmap[MiM_PIXELS]		= write_rows*mipmap[MiM_WRITE_COLS];																																	// compute num threads to launch & num_pixels in reduction
-		size_t num_threads		= ceil( (float)(mipmap[MM_PIXELS])/(float)local_work_size ) * local_work_size ;																						// global_work_size formula  
+		size_t num_threads		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																						// global_work_size formula  
 		
 																																																	// write mipmap_buf
 		status = clEnqueueWriteBuffer(uload_queue, mipmap_buf, 	CL_FALSE, 0, 8 * sizeof(uint), 	mipmap, 0, NULL, &writeEvt);	
 		if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.1"<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.1"<<flush;}
 		res = clSetKernelArg(mipmap_kernel, 3, sizeof(cl_mem), &mipmap_buf);	
-											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	else cout<<"\nchk2.1.2"<<flush;											//__global uint*	mipmap_params	//3
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.2"<<flush;}
+											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.2"<<flush;											//__global uint*	mipmap_params	//3
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.2"<<flush;}
 		status = clFlush(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}								// clEnqueueNDRangeKernel
 		status = clFinish(m_queue); 		if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}		
-																																			if(verbosity>0) cout<<"\nRunCL::mipmap(..)_chk2.3,  global_work_size="<< global_work_size <<flush;
+																																			if(verbosity>0) cout<<"\nRunCL::mipmap(..)_chk2.3,  global_work_size="<< global_work_size <<", num_threads="<< num_threads << ", mipmap[MiM_PIXELS]=" <<mipmap[MiM_PIXELS] <<", write_rows="<<write_rows <<", mipmap[MiM_WRITE_COLS]="<< mipmap[MiM_WRITE_COLS]<< ", local_work_size="<<local_work_size <<flush;
 		res = clEnqueueNDRangeKernel(m_queue, mipmap_kernel, 1, 0, &num_threads, &local_work_size, 0, NULL, &ev); 																					// run mipmap_kernel, NB wait for own previous iteration.
 		if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.4"<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.4"<<flush;}
 		status = clFlush(m_queue);			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
 		status = clWaitForEvents (1, &ev);	if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.5"<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.5"<<flush;}
 																																																	// update read&write rows&cols
 		read_rows					= write_rows;
 		write_rows 					= write_rows/2;
-		mipmap[MiM_READ_OFFSET] 		= mipmap[MiM_WRITE_OFFSET];
-		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + ( (write_rows + 2 * mm_margin) * mm_width) ;
+		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
+		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + 3*( (read_rows + 2*mm_margin) * mm_width) ;
 		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS] 			= mipmap[MiM_WRITE_COLS] * write_rows;
 		mipmap[MiM_GAUSSIAN_SIZE] 	= read_rows/2;
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
 	}
-																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;}
+																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;}
 }
 
 void RunCL::img_gradients(){ //getFrame();

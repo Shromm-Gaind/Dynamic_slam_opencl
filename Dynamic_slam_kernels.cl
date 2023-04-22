@@ -105,9 +105,9 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 			test_half1*fp16_params[0], test_half2+fp16_params[4], test_half3/fp16_params[3]); 	// verify that 'half' aritmetic works with cv::fp16 data. 
 	}
 	*/
-	float R_float	= base[global_id*3]  /256.0;
-	float G_float	= base[global_id*3+1]/256.0;
-	float B_float	= base[global_id*3+2]/256.0;
+	float R_float	= base[global_id*3]  /256.0f;
+	float G_float	= base[global_id*3+1]/256.0f;
+	float B_float	= base[global_id*3+2]/256.0f;
 	half  R,G,B, H,S,V;
 	vstore_half(R_float, 0, &R);
 	vstore_half(G_float, 0, &G);
@@ -170,8 +170,8 @@ __kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan t
 	__global uint*		mipmap_params	//3
 		 )
 {
-	int global_id 		= (int)get_global_id(0);
-	if (global_id==1) printf("\n\n __kernel void mipmap(..) MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
+	float global_id 	= get_global_id(0);
+	//if (global_id==1) printf("\n\n __kernel void mipmap(..) (global_id==1)  MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
 	
 	if (global_id > mipmap_params[MiM_PIXELS]) return;
 	
@@ -182,15 +182,33 @@ __kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan t
 	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
-	uint read_index 	= 3*(read_offset_  + (global_id/read_cols_ )*mm_cols + (global_id%read_cols_ ) );	// NB 3 channels.
-	uint write_index 	= 3*(write_offset_ + (global_id/write_cols_)*mm_cols + (global_id%write_cols_) );
+	
+	uint read_row    = 2*global_id/write_cols_;
+	uint read_column = 2*fmod(global_id,write_cols_);//*read_cols_;		//global_id % read_cols_; //)*read_cols_;
+	
+	uint write_row    = global_id/write_cols_;
+	uint write_column = fmod(global_id,write_cols_);//*write_cols_;	//(float(global_id)%write_cols_)*write_cols_;
+	
+	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );	// NB 3 channels.
+	uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
+	
+	if (global_id== (mipmap_params[MiM_PIXELS]-1) || global_id== (mipmap_params[MiM_PIXELS]-1-write_cols_)  ) printf("\n\n __kernel void mipmap(..) (global_id==%f (mipmap_params[MiM_PIXELS]-1)   read_offset_=%u  ,write_offset_=%u  ,read_cols_=%u  , write_cols_=%u  ,read_index=%u   , write_index=%u  , write_row=%u, write_column=%u,  read_row=%u,  read_column=%u,  mm_cols=%u", global_id, read_offset_  ,write_offset_  ,read_cols_  , write_cols_  ,read_index   , write_index, write_row, write_column, read_row, read_column, mm_cols );
+		
+		//MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
+	
 	
 	half reduced_pixel_x=0, reduced_pixel_y=0, reduced_pixel_z=0;
+	/*
 	for (int i=0; i<gaussian_size_; i++){ for (int j=0; j<gaussian_size_; j++){
-			reduced_pixel_x += img[ read_index+0 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
-			reduced_pixel_y += img[ read_index+1 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
-			reduced_pixel_z += img[ read_index+2 + 3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_x += img[ read_index+0 + 2*3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_y += img[ read_index+1 + 2*3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_z += img[ read_index+2 + 2*3*(j + mm_cols*i) ] * gaussian[ j + gaussian_size_*i ];
 	}	}
+	*/
+	reduced_pixel_x += img[ read_index+0 ];
+	reduced_pixel_y += img[ read_index+1 ];
+	reduced_pixel_z += img[ read_index+2 ];
+	
 	// TODO NB this would be better for split color mipmap BUT any vector of 3 would be stored on a vector of 4, as a power of 2.
 	img[ write_index+0 ] = reduced_pixel_x;		
 	img[ write_index+1 ] = reduced_pixel_y;
