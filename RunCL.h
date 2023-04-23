@@ -46,6 +46,13 @@
 #define MM_ROWS				6
 #define MM_COLS				7
 
+#define MiM_PIXELS			0	// MipMap uint params
+#define MiM_READ_OFFSET		1
+#define MiM_WRITE_OFFSET	2
+#define MiM_READ_COLS		3
+#define MiM_WRITE_COLS		4
+#define MiM_GAUSSIAN_SIZE	5
+
 /*
 #define BASE_MEM 			0	// device memory buffers
 #define IMG_MEM				1
