@@ -622,7 +622,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 	res = clSetKernelArg(cvt_color_space_kernel, 1, sizeof(cl_mem), &imgmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global half*		img,			//1	
 	res = clSetKernelArg(cvt_color_space_kernel, 2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uint*		uint_params		//2
 	/*
-	//res = clSetKernelArg(cvt_color_space_kernel, 3, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uint*		img_sum			//3		// used for debugging
+	//res = clSetKernelArg(cvt_color_space_kernel, 3, sizeof(cl_mem), &img_sum_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*		img_sum			//3		// used for debugging
 	//res = clSetKernelArg(cvt_color_space_kernel, 4, sizeof(cl_mem), &half_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global half*		half_params		//4		// used to test data type compatability
 	//res = clSetKernelArg(cvt_color_space_kernel, 4, sizeof(cl_mem), &fp16_param_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global half*		fp16_params		//4
 	*/
@@ -691,7 +691,7 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 	res = clSetKernelArg(mipmap_kernel, 3, sizeof(cl_mem), 					 	&mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global uint*	uint_params		//2
 	
 																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk0.1"<<flush;}
-	res = clSetKernelArg(mipmap_kernel, 4, (local_size+2) * 3 * sizeof(cl_half4), NULL);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global uint*	uint_params		//2
+	res = clSetKernelArg(mipmap_kernel, 4, (local_size+2) * 4 * sizeof(cl_half4), NULL);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;//else cout<<"\nchk2.1.1"<<flush;		//__global uint*	uint_params		//2
 	//    clSetKernelArg(vector_kernel, 1, local_size * 4 * sizeof(float), NULL);
 																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk0.2"<<flush;}
 	uint read_rows				= baseImage_size.height;
@@ -733,7 +733,6 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS] 			= mipmap[MiM_WRITE_COLS] * write_rows;
-		mipmap[MiM_GAUSSIAN_SIZE] 	= read_rows/2;
 																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
 	}
 																																			if(verbosity>0) {

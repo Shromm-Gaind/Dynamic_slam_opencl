@@ -121,9 +121,10 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	
 	S = (V!=0)*(V-min_rgb)/V;
 	
-	H = (V==R && V!=0)*native_divide( (60*(G-B) ), divisor )   \
-	 +     (V==G && V!=0)*native_divide( 120 + 60*(B-R), divisor )	\
-	 +     (V==B && V!=0)*native_divide( 240 + 60*(R-G), divisor )	;
+	H = (   (V==R && V!=0)*half_divide( (60*(G-B) ), divisor )      \
+	 +     (V==G && V!=0)*( 120 + half_divide(60*(B-R), divisor ))	\
+	 +     (V==B && V!=0)*( 240 + half_divide(60*(R-G), divisor ))	\
+	 ) / 360;
 	
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
@@ -133,8 +134,9 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	img[img_index   ] = H;
 	img[img_index +1] = S;
 	img[img_index +2] = V;
+	
 	/*
-	 * //Debugging FP16
+	//Debugging FP16
 	float Rf, Bf, Gf, Hf, Sf, Vf;
 	Rf = vload_half(  0, &R );
 	Gf = vload_half(  0, &G );
@@ -142,15 +144,28 @@ __kernel void cvt_color_space(	// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) us
 	Hf = vload_half(  0, &H );
 	Sf = vload_half(  0, &S );
 	Vf = vload_half(  0, &V );
+	
+	float min_rgb_float = min(R_float, min(G_float, B_float)) ;
+	float divisor_float = Vf - min_rgb_float;
+	float Hfloat = (Vf==Rf && Vf!=0)*native_divide(60*(Gf-Bf), divisor_float )   \
+	 +     (Vf==Gf && Vf!=0)*( 120 + native_divide(60*(Bf-Rf), divisor_float ))	\
+	 +     (Vf==Bf && Vf!=0)*( 240 + native_divide(60*(Rf-Gf), divisor_float ))	;
+	 
+	float Hfloat_R =       (60*(Gf-Bf))/divisor_float ;
+	float Hfloat_G = 120 + (60*(Bf-Rf))/divisor_float ;
+	float Hfloat_B = 240 + (60*(Rf-Gf))/divisor_float ;
+	
 	//uchar3 pixel 	= (uchar3)(R_uchar, G_uchar, B_uchar);
-	img_sum[img_index]    =  Hf;//((float)pixel.x)/256;
-	img_sum[img_index +1] =  Sf;//((float)pixel.y)/256;
-	img_sum[img_index +2] =  Vf;//((float)pixel.z)/256;
+//	img_sum[img_index]    =  Hf;//((float)pixel.x)/256;
+//	img_sum[img_index +1] =  Sf;//((float)pixel.y)/256;
+//	img_sum[img_index +2] =  Vf;//((float)pixel.z)/256;
 	
 	if (global_id==pixels-1) printf("\n## global_id==%u, img_index=%u, img_row=%u, img_col=%u ##", pixels-1, img_index, img_row, img_col);
-	if (global_id==1000) printf("\n\nRf=%f , Gf=%f  , Bf=%f  , Hf=%f  , Sf=%f  ,  Vf=%f   \n\n",Rf, Gf, Bf, Hf, Sf, Vf );
+	if (global_id==1000) printf("\n\nRf=%f , Gf=%f  , Bf=%f  , Hf=%f  , Sf=%f  ,  Vf=%f  \n min_rgb=%f, divisor=%f, native_divide((60*(G-B)),divisor)=%f, native_divide(120+60*(B-R),divisor)=%f, native_divide(240+60*(R-G),divisor)=%f \n    min_rgb_float =%f, divisor_float=%f, Hfloat=%f   ###  Hfloat_R=%f,  Hfloat_G=%f,   Hfloat_B=%f \n\n",\
+		Rf, Gf, Bf, Hf, Sf, Vf,  min_rgb, divisor, native_divide((60*(G-B)),divisor), native_divide(120+60*(B-R),divisor), native_divide(240+60*(R-G),divisor),  min_rgb_float,  divisor_float, Hfloat,  Hfloat_R, Hfloat_G, Hfloat_B  );
 	//if (global_id==1000) printf("\n\nR=%hx , G=%hx  , B=%hx  , H=%hx  , S=%hx  ,  V=%hx   \n\n",(short)R, (short)G, (short)B, (short)H, (short)S, (short)V );
 	*/
+	
 	/* 
 	 * from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
@@ -173,60 +188,12 @@ __kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan t
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id		= global_id_u;
-	//if (global_id==1) printf("\n\n __kernel void mipmap(..) (global_id==1)  MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
+	if (global_id==1) printf("\n\n __kernel void mipmap(..) (global_id==1)  MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ",\
+		mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
 	
-	if (global_id > mipmap_params[MiM_PIXELS]) return;
-	int lid 		= get_local_id(0);
-	int group_size 	= get_local_size(0);
-	int patch_length= group_size+2;
-	
-	half4 private_[3];
-	uint  index = global_id_u *3;
-	for (int i=0; i<3; i++){
-		local_img_patch[1+ lid + i*patch_length].x	= img[index];
-		local_img_patch[1+ lid + i*patch_length].y	= img[index+1];
-		local_img_patch[1+ lid + i*patch_length].z  = img[index+2];
-		local_img_patch[1+ lid + i*patch_length].w  = 0;
-		//local_img_patch[1+ lid + i*patch_length].x 		= private_[i].x;
-		//local_img_patch[1+ lid + i*patch_length].y 		= private_[i].y;
-		//local_img_patch[1+ lid + i*patch_length].z 		= private_[i].z;
-		//local_img_patch[1+ lid + i*patch_length].w 		= private_[i].w;
-	}
-	
-	if (lid==0 || lid==group_size){
-		int step = (lid==group_size)*2 -1;		// gives step = +/-1;
-		if (global_id_u < 2*group_size +2) printf("\n lid=%u, group_size=%u, step=%u, ", lid, group_size, step ); //NB margins are zero.
-		index = (global_id_u+step) *3;
-		for (int i=0; i<3; i++){
-			local_img_patch[1+ step+ i*patch_length].x= img[index];
-			local_img_patch[1+ step+ i*patch_length].y= img[index+1];
-			local_img_patch[1+ step+ i*patch_length].z= img[index+2];
-			local_img_patch[1+ step+ i*patch_length].w= 0;
-			//local_img_patch[1+ step+ i*patch_length] = private_[i];
-		}
-	}
-	
-	barrier(CLK_LOCAL_MEM_FENCE);
-	/*
-	if (global_id_u==(976*10 + 100)){	// NB the margins are all zero value.
-		for (int i=0; i<3; i++) {
-			half4 this_px = local_img_patch[1+ lid + i*patch_length];
-			printf("\nlocal_img_patch[1+ lid + %i*%i]=(%f,%f,%f,%f),   ", i, patch_length, this_px.x, this_px.y, this_px.z, this_px.w);  //  private_[%i]=(%f,%f,%f,%f) //, i, private_[i].x, private_[i].y, private_[i].z, private_[i].w
-		}printf("\n");
-	}
-	*/
-	if (global_id_u==(976*10 + 100)){	// NB the margins are all zero value.
-		printf("\n lid=%u,  global_id_u=%u, ", lid, global_id_u );
-		//if (global_id_u < group_size){
-			for (int i=0; i<3; i++) {
-				half4 this_px  = local_img_patch[lid + i*patch_length];
-				half4 this_px2 = local_img_patch[lid + i*patch_length + patch_length+2];
-				printf("\n lid=%u,  global_id_u=%u,   local_img_patch[lid + i*patch_length]=(%f,%f,%f,%f),   local_img_patch[lid + i*patch_length + patch_length+2]=(%f,%f,%f,%f)",\
-					lid, global_id_u, this_px.x, this_px.y, this_px.z, this_px.w,     this_px2.x, this_px2.y, this_px2.z, this_px2.w);  
-			}printf("\n");
-		//}
-	}
-	
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint patch_length	= group_size+2;
 	
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params[MiM_WRITE_OFFSET];
@@ -237,41 +204,188 @@ __kernel void mipmap(// ? can CPU generate FP16 in wchar ? Could be fasterthan t
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	
-	uint read_row    = 2*global_id/write_cols_;
-	uint read_column = 2*fmod(global_id,write_cols_);//*read_cols_;		//global_id % read_cols_; //)*read_cols_;
+	uint read_row    	= 2*global_id/write_cols_;
+	uint read_column 	= 2*fmod(global_id,write_cols_);
 	
-	uint write_row    = global_id/write_cols_;
-	uint write_column = fmod(global_id,write_cols_);//*write_cols_;	//(float(global_id)%write_cols_)*write_cols_;
+	uint write_row    	= global_id/write_cols_;
+	uint write_column 	= fmod(global_id,write_cols_);
 	
-	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );	// NB 3 channels.
+	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );	// for 'img[..]'NB 3 channels.
 	uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
+	/*
+	//uint  index 	 = global_id_u *3;
+	uint local_index = lid;
+	half4 temp_half4 = {img[read_index], img[read_index+1], img[read_index+2], 0 };	// Note how to load a half4 vector.
+	local_img_patch[local_index] = temp_half4;
+	*/
+	/*
+	local_img_patch[local_index] 	= img[read_index];
+	local_img_patch[local_index+1] 	= img[read_index+1];
+	local_img_patch[local_index+2] 	= img[read_index+2];
+	*/
+	/*
+	local_img_patch[lid].x = img[index];
+	local_img_patch[lid].y = img[index+1];
+	local_img_patch[lid].z = img[index+2];
+	local_img_patch[lid].w = 0;
+	*/
 	
-	if (global_id== (mipmap_params[MiM_PIXELS]-1) || global_id== (mipmap_params[MiM_PIXELS]-1-write_cols_)  ) printf("\n\n __kernel void mipmap(..) (global_id==%f (mipmap_params[MiM_PIXELS]-1)   read_offset_=%u  ,write_offset_=%u  ,read_cols_=%u  , write_cols_=%u  ,read_index=%u   , write_index=%u  , write_row=%u, write_column=%u,  read_row=%u,  read_column=%u,  mm_cols=%u", global_id, read_offset_  ,write_offset_  ,read_cols_  , write_cols_  ,read_index   , write_index, write_row, write_column, read_row, read_column, mm_cols );
+	/*
+	float2 val = { 0.1, 0.2 };
+	half2 val_half = { 0.3, 0.4 };
+	//vstore_half(val, 0, val_half2);
+	float temp[4] = {img[index],img[index+1],img[index+2],0};
+	float4 temp4 = vload4(0, temp  );
+	size_t temp4_offset= 0;
+	//vstore_half4( temp4, temp4_offset, &temp_half4  );
+	//vstore_half4(img[index+1], 1, &private_);
+	//vstore_half4(img[index+2], 2, &private_);
+	*/
+	/*
+//	private_half4.x = img[index];
+	//private_.y = img[index+1];
+	//private_.z = img[index+2];
+	//private_.w = 0;
+//	local_img_patch[lid] = private_;
+	*/
+	/*
+	for (int i=0; i<3; i++){
 		
-		//MiM_PIXELS=%u, MiM_READ_OFFSET=%u,  MiM_WRITE_OFFSET=%u,  MiM_READ_COLS=%u,  MiM_WRITE_COLS=%u, MiM_GAUSSIAN_SIZE=%u,  ", mipmap_params[MiM_PIXELS], mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_WRITE_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_WRITE_COLS], mipmap_params[MiM_GAUSSIAN_SIZE] );
+		local_img_patch[1+ lid + i*patch_length].x	= img[index];
+		local_img_patch[1+ lid + i*patch_length].y	= img[index+1];
+		local_img_patch[1+ lid + i*patch_length].z  = img[index+2];
+		local_img_patch[1+ lid + i*patch_length].w  = 0;
+		
+		//vstore_half(img[index], 0, &local_img_patch[1+ lid + i*patch_length]);
+	}
+	*/
+	for (int i=0; i<3; i++){
+		half4 temp_half4 = {img[read_index +i*mm_cols*3], img[read_index+1 +i*mm_cols*3], img[read_index+2 +i*mm_cols*3], 0 };	// Note how to load a half4 vector.
+		local_img_patch[1+ lid + i*patch_length] = temp_half4;
+	}
 	
 	
-	//half reduced_pixel_x=0, reduced_pixel_y=0, reduced_pixel_z=0;
+	//barrier(CLK_LOCAL_MEM_FENCE);
+	
+	if (lid==0 || lid==group_size-1){
+		int step = (lid==group_size-1)*2 -1;		// gives step = +/-1;
+		 //NB margins are zero.
+		uint index = (global_id_u+step) *3;
+		
+		uint row = global_id_u/976;
+		uint col = fmod(global_id,976.0f);
+		
+		for (int i=0; i<3; i++){
+			half4 temp_half4 = {img[index +i*mm_cols*3], img[index+1 +i*mm_cols*3], img[index+2 +i*mm_cols*3], 0 };	// Note how to load a half4 vector.
+			local_img_patch[1+ lid + i*patch_length] = temp_half4;
+			
+			/*
+			local_img_patch[1+ step+ i*patch_length].x = img[index];
+			local_img_patch[1+ step+ i*patch_length].y = img[index+1];
+			local_img_patch[1+ step+ i*patch_length].z = img[index+2];
+			local_img_patch[1+ step+ i*patch_length].w = 0;
+			//local_img_patch[1+ step+ i*patch_length] = private_[i];
+			*/
+			
+			if (global_id_u >4*976 && global_id_u < 6*976) printf("\nA) i=%i, row=%u, col=%u, lid=%u, global_id_u=%u, index=%u, group_size=%u, step=%i, local_img_patch[1+ step+ i*patch_length =%i]=(%f,%f,%f,%f),  img[index+(0-2)]=(%f,%f,%f)", \
+			 i, row, col, lid, global_id_u, index, group_size, step, (1+step+i*patch_length), local_img_patch[1+ step+ i*patch_length].x, local_img_patch[1+ step+ i*patch_length].y, local_img_patch[1+ step+ i*patch_length].z, local_img_patch[1+ step+ i*patch_length].w , img[index], img[index+1], img[index+2]  );
+			
+		}
+	}
+			
+	
+	
+	
+	barrier(CLK_LOCAL_MEM_FENCE);
+	/*
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint write_offset_ 	= mipmap_params[MiM_WRITE_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
+	
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	
+	uint read_row    	= 2*global_id/write_cols_;
+	uint read_column 	= 2*fmod(global_id,write_cols_);
+	
+	uint write_row    	= global_id/write_cols_;
+	uint write_column 	= fmod(global_id,write_cols_);
+	
+	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );	// for 'img[..]'NB 3 channels.
+	//uint read_index 	= lid;
+	uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
+	*/
+	half reduced_pixel_x=0, reduced_pixel_y=0, reduced_pixel_z=0;
 	half4 reduced_pixel4 =0;
 
-	
-	for (int i=0; i<gaussian_size_; i++){ 
-		read_index += i*3*mm_cols;
-		for (int j=0; j<gaussian_size_; j++){
-			int index = read_index + 3*j;
-			reduced_pixel4 += local_img_patch[index] ;// * gaussian[ j + gaussian_size_*i ];
-			//reduced_pixel_y += img[ index+1] * gaussian[ j + gaussian_size_*i ];
-			//reduced_pixel_z += img[ index+2] * gaussian[ j + gaussian_size_*i ];
-	}	}
 	/*
-	reduced_pixel_x += img[ read_index+0 ];
-	reduced_pixel_y += img[ read_index+1 ];
-	reduced_pixel_z += img[ read_index+2 ];
+	// Gaussian blurr
+	for (int i=0; i<gaussian_size_; i++){ 
+		read_index += i*3*mm_cols; // for 'img[..]'
+		//read_index += i*patch_length ;
+		
+		for (int j=0; j<gaussian_size_; j++){
+			int index = read_index + 3*j; // for 'img[..]'
+			//int index = read_index +j;
+			
+			//reduced_pixel4 += local_img_patch[index] * gaussian[ j + gaussian_size_*i ];// 
+			// / *
+			reduced_pixel_x += img[ index  ] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_y += img[ index+1] * gaussian[ j + gaussian_size_*i ];
+			reduced_pixel_z += img[ index+2] * gaussian[ j + gaussian_size_*i ];
+			// * /
+	}	}
 	*/
-	// TODO NB this would be better for split color mipmap BUT any vector of 3 would be stored on a vector of 4, as a power of 2.
-	img[ write_index+0 ] = reduced_pixel4.x; // reduced_pixel_x;		
-	img[ write_index+1 ] = reduced_pixel4.y; // reduced_pixel_y;
-	img[ write_index+2 ] = reduced_pixel4.z; // reduced_pixel_z;
+	
+	// Gaussian blurr
+	uint patch_read_index4 	= lid;
+	for (int i=0; i<gaussian_size_; i++){ 
+		patch_read_index4 += i*patch_length ;
+		for (int j=0; j<gaussian_size_; j++){
+			int index = patch_read_index4 +j;
+			reduced_pixel4 += local_img_patch[index] * gaussian[ j + gaussian_size_*i ];// 
+	}	}
+	
+	
+	
+	
+	
+	//reduced_pixel4 = temp_half4; //private_;//local_img_patch[lid];
+	
+	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	
+	img[ write_index+0 ] =	reduced_pixel4.x; //  reduced_pixel_x;	//
+	img[ write_index+1 ] =	reduced_pixel4.y; //  reduced_pixel_y;	//
+	img[ write_index+2 ] =	reduced_pixel4.z; //  reduced_pixel_z;	//
+	
+	/*
+	img[ write_index+0 ] =	reduced_pixel_x;
+	img[ write_index+1 ] =	reduced_pixel_y;
+	img[ write_index+2 ] =	reduced_pixel_z;
+	*/
+	/*
+	img[ write_index+0 ] =	img[read_index];
+	img[ write_index+1 ] =	img[read_index+1];
+	img[ write_index+2 ] =	img[read_index+2];
+	*/
+	/*
+	img[ write_index+0 ] =	local_img_patch[local_index] ;
+	img[ write_index+1 ] =	local_img_patch[local_index+1] ;
+	img[ write_index+2 ] =	local_img_patch[local_index+2] ;
+	*/
+	/*
+	img[ write_index+0 ] =	temp_half4.x ;
+	img[ write_index+1 ] =	temp_half4.y ;
+	img[ write_index+2 ] =	temp_half4.z ;
+	*/
+	/*
+	img[ write_index+0 ] =	local_img_patch[local_index].x ;
+	img[ write_index+1 ] =	local_img_patch[local_index].y ;
+	img[ write_index+2 ] =	local_img_patch[local_index].z ;
+	*/
+	//if (global_id== (mipmap_params[MiM_PIXELS]-2)) printf("\n\n Z/ global_id_u=%u  img[ write_index+(0-2)]=(%f,%f,%f)", global_id_u, vload_half(0,&reduced_pixel_x), vload_half(0,&reduced_pixel_y), vload_half(0,&reduced_pixel_z) );
 }
 
 /*__kernel void  (
