@@ -3,3 +3,4 @@ Dynamic_slam_opencl.kdev4
 output/*
 build/*
 .Dynamic_slam_kernels.cl.kate-swp
+*.kate-swp

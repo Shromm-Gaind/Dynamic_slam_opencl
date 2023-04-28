@@ -145,8 +145,7 @@ __kernel void mipmap(
 	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );													// for 'img[..]'NB 3 channels.
 	uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
 
-	for (int i=0; i<3; i++){
-		//if(global_id_u == 12*write_cols_ + 10){
+	for (int i=0; i<3; i++){																										// Load local_img_patch
 		half4 temp_half4 = {img[read_index +i*mm_cols*3], img[read_index+1 +i*mm_cols*3], img[read_index+2 +i*mm_cols*3], lid };	// Note how to load a half4 vector.
 		local_img_patch[1+ lid + i*patch_length] = temp_half4;
 	}
@@ -159,7 +158,7 @@ __kernel void mipmap(
 			local_img_patch[patch_index] = temp_half4;
 		}
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	barrier(CLK_LOCAL_MEM_FENCE);																									// fence between write & read local mem
 	half4 reduced_pixel4 =0;																										// Gaussian blurr
 	uint patch_read_index4 	 = lid;
 	uint patch_read_index4_2 = 0;
@@ -178,14 +177,51 @@ __kernel void mipmap(
 }
 
 
-/*__kernel void  (
-	__global float* k2k,		//0
-	
+__kernel void  img_grad(
+	__global half*		img,			//0		? Should I change to half4 for img? 
+	__global uint*		uint_params,	//1
+	__global half*		gxp,			//2
+	__global half*		gyp,			//3
+	__global half*		g1p				//4	 ?single channel  or tripple channel gradients ? prob triple given HSV.
 		 )
 {
-	
+	 int x = get_global_id(0);
+	 int rows 			= floor(params[rows_]);
+	 int cols 			= floor(params[cols_]);
+	 float alphaG		= params[alpha_g_];
+	 float betaG 		= params[beta_g_];
+
+	 int y = x / cols;
+	 x = x % cols;
+	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  // needed for wider kernel
+	 
+	 int upoff = -(y != 0)*cols;                   // up, down, left, right offsets, by boolean logic.
+	 int dnoff = (y < rows-1) * cols;
+     int lfoff = -(x != 0);
+	 int rtoff = (x < cols-1);
+
+	 //barrier(CLK_GLOBAL_MEM_FENCE);// causes the kernel to crash on Intel Iris Xe GPU.
+	 unsigned int offset = x + y * cols;
+
+	 float pu, pd, pl, pr;                         // rho, photometric difference: up, down, left, right, of grayscale ref image.
+	 float g0x, g0y, g0, g1;
+	 
+	 pr =  base[offset + rtoff];// + base[offset + rtoff +1];					   // NB base = grayscale CV_8UC1 image.
+	 pl =  base[offset + lfoff];// + base[offset + lfoff -1];
+	 pu =  base[offset + upoff];// + base[offset + 2*upoff];
+	 pd =  base[offset + dnoff];// + base[offset + 2*dnoff];
+
+	 float gx, gy;
+	 gx			= fabs(pr - pl);
+	 gy			= fabs(pd - pu);
+	 
+	 g1p[offset]= exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );
+	 //gxp[offset]= gx; // debugging only.
+	 //gyp[offset]= gy;
 	
 }
+
+/*
 __kernel void  (
 	__global float* k2k,		//0
 	
