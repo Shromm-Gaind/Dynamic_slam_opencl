@@ -65,7 +65,7 @@
 
 __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
 	__global uchar*		base,			//0
-	__global half*		img,			//1									// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
+	__global half4*		img,			//1									// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
 	__global uint*		uint_params		//2
 		 )
 {																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
@@ -102,10 +102,13 @@ __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16F
 	uint base_col	= global_id%cols ;
 	uint img_row	= base_row + margin;
 	uint img_col	= base_col + margin;
-	uint img_index	= img_row*mm_cols*3 + img_col*3;   
-	img[img_index   ] = H;
-	img[img_index +1] = S;
-	img[img_index +2] = V;
+	uint img_index	= img_row*mm_cols + img_col;   // img_row*mm_cols*3 + img_col*3;   
+	
+	half4 temp_half4  = {H,S,V,0};											// Note how to load a half4 vector.
+	img[img_index   ] = temp_half4;
+	//img[img_index   ] = H;
+	//img[img_index +1] = S;
+	//img[img_index +2] = V;
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
 	 * V = max(R,G,B)
@@ -118,7 +121,7 @@ __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16F
 }
 
 __kernel void mipmap(
-	__global half*		img,			//0						// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
+	__global half4*		img,			//0						// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
 	__global half* 		gaussian,		//1
 	__global uint*		uint_params,	//2
 	__global uint*		mipmap_params,	//3
@@ -142,20 +145,22 @@ __kernel void mipmap(
 	uint read_column 	= 2*fmod(global_id,write_cols_);
 	uint write_row    	= global_id/write_cols_;
 	uint write_column 	= fmod(global_id,write_cols_);
-	uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );													// for 'img[..]'NB 3 channels.
-	uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
+	//uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );													// for 'img[..]'NB 3 channels.
+	//uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
+	uint read_index 	= read_offset_  +  read_row*mm_cols  + read_column ;
+	uint write_index 	= write_offset_ +  write_row*mm_cols + write_column ;
 
 	for (int i=0; i<3; i++){																										// Load local_img_patch
-		half4 temp_half4 = {img[read_index +i*mm_cols*3], img[read_index+1 +i*mm_cols*3], img[read_index+2 +i*mm_cols*3], lid };	// Note how to load a half4 vector.
-		local_img_patch[1+ lid + i*patch_length] = temp_half4;
+		//half4 temp_half4 = {img[read_index +i*mm_cols*3], img[read_index+1 +i*mm_cols*3], img[read_index+2 +i*mm_cols*3], lid };	// Note how to load a half4 vector.
+		local_img_patch[1+ lid + i*patch_length] = img[read_index +i*mm_cols];//temp_half4;
 	}
 	if ((lid==0)||(lid==group_size-1)){
 		int step = (lid==group_size-1)*(patch_length-1);
 		for (int i=0; i<3; i++){
 			int patch_index = step + i*patch_length;
 			int read_index_2 = read_index -3*(lid==0) + 6*(lid==group_size-1) +(i*mm_cols)*3;
-			half4 temp_half4 = {img[read_index_2], img[read_index_2 +1], img[read_index_2 +2], -1 };
-			local_img_patch[patch_index] = temp_half4;
+			//half4 temp_half4 =  {img[read_index_2], img[read_index_2 +1], img[read_index_2 +2], -1 };
+			local_img_patch[patch_index] = img[read_index_2];//temp_half4;
 		}
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);																									// fence between write & read local mem
@@ -171,14 +176,15 @@ __kernel void mipmap(
 		patch_read_index4_2 += patch_length ;
 	}
 	if (global_id > mipmap_params[MiM_PIXELS]) return;
-	img[ write_index+0 ] =	reduced_pixel4.x;
-	img[ write_index+1 ] =	reduced_pixel4.y;
-	img[ write_index+2 ] =	reduced_pixel4.z;
+	img[ write_index ]	= reduced_pixel4;
+	//img[ write_index+0 ] =	reduced_pixel4.x;
+	//img[ write_index+1 ] =	reduced_pixel4.y;
+	//img[ write_index+2 ] =	reduced_pixel4.z;
 }
 
-
+/*
 __kernel void  img_grad(
-	__global half*		img,			//0		? Should I change to half4 for img? 
+	__global half4*		img,			//0		? Should I change to half4 for img? 
 	__global uint*		uint_params,	//1
 	__global half*		gxp,			//2
 	__global half*		gyp,			//3
@@ -220,6 +226,8 @@ __kernel void  img_grad(
 	 //gyp[offset]= gy;
 	
 }
+*/
+
 
 /*
 __kernel void  (
