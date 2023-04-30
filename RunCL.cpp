@@ -294,11 +294,17 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		if(show) cv::imshow( ss.str(), outMat );
 	}
 }
-
+/*
 void RunCL::computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
 		sigma_d		= cv::float16_t( mu / (2.0/ theta)  );
 		sigma_q 	= cv::float16_t( mu / (2.0*epsilon) );
+}
+*/
+void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
+		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
+		sigma_d		=  mu / (2.0/ theta)  ;
+		sigma_q 	=  mu / (2.0*epsilon) ;
 }
 
 void RunCL::computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q ){
@@ -389,11 +395,14 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	img_sum_buf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 2 * mm_vol_size_bytes,0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
 	
 	//half_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	fp16_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	//fp16_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	//k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	fp32_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	uint_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	mipmap_buf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
+	//gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
+	gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
 	
 																																		if(verbosity>1) {
 																																			cout << "\n\nRunCL::allocatemem_chk3\n\n" << flush;
@@ -409,7 +418,8 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << ",hdatabuf = " 		<< hdatabuf << endl;
 																																			cout << ",imgmem = " 		<< imgmem << endl;
 																																			cout << ",basemem = " 		<< basemem << endl;
-																																			cout << ",fp16_param_buf = "<< fp16_param_buf << endl;
+																																			//cout << ",fp16_param_buf = "<< fp16_param_buf << endl;
+																																			cout << ",fp32_param_buf = "<< fp32_param_buf << endl;
 																																			cout << ",k2kbuf = " 		<< k2kbuf << endl;
 																																			cout << ",uint_param_buf = "<< uint_param_buf << endl;
 																																			cout << "\n";
@@ -430,6 +440,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cv::Mat gxy			= cv::Mat::ones (mm_height, mm_width, CV_16FC1);
 																																		cout << "\n\nmm_vol_size_bytes="<<mm_vol_size_bytes<< ",\t cost.total()*cost.elemSize()="<< cost.total()*cost.elemSize() <<" .\n\n"<<flush; 
 																																		//cv::imshow("cost", cost); cv::waitKey(5000);
+	/*
 	fp16_params[MAX_INV_DEPTH]	= cv::float16_t( 1/obj["min_depth"].asFloat()		);													// This works: Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
 	fp16_params[MIN_INV_DEPTH]	= cv::float16_t( 1/obj["max_depth"].asFloat()		);
 				//INV_DEPTH_STEP	;
@@ -441,6 +452,21 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	fp16_params[THETA]			= cv::float16_t(   obj["thetaStart"].asFloat()		);
 	fp16_params[LAMBDA]			= cv::float16_t(   obj["lambda"].asFloat()			);
 	fp16_params[SCALE_EAUX]		= cv::float16_t(   obj["scale_E_aux"].asFloat()		);
+	*/
+	
+	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;													// This works: Initialize 'params[]' from conf.json . 
+	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
+				//INV_DEPTH_STEP	;
+	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
+	fp32_params[BETA_G]			=    obj["beta_g"].asFloat()		;
+	fp32_params[EPSILON]		=    obj["epsilon"].asFloat()		;
+				//SIGMA_Q ;
+				//SIGMA_D ;
+	fp32_params[THETA]			=    obj["thetaStart"].asFloat()	;
+	fp32_params[LAMBDA]			=    obj["lambda"].asFloat()		;
+	fp32_params[SCALE_EAUX]		=    obj["scale_E_aux"].asFloat()	;
+	
+	
 	/* 
 	cl_half_params[MAX_INV_DEPTH]	= cl_half( 1/obj["min_depth"].asFloat()		);														// Does not work : Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
 	cl_half_params[MIN_INV_DEPTH]	= cl_half( 1/obj["max_depth"].asFloat()		);
@@ -454,6 +480,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cl_half_params[LAMBDA]			= cl_half(   obj["lambda"].asFloat()		);
 	cl_half_params[SCALE_EAUX]		= cl_half(   obj["scale_E_aux"].asFloat()	);
 	*/
+/*
 																																		if(verbosity>1){
 																																			float test_float = 12.06;							// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
 																																			cl_half test_half = cl_half(test_float);
@@ -476,6 +503,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << std::oct << test_cvfp16 << endl;
 																																			cout << "\n\n"<<flush;
 																																		}
+*/
 	uint_params[PIXELS]			= 	baseImage.rows * baseImage.cols ;
 	uint_params[ROWS]			= 	baseImage.rows ;
 	uint_params[COLS]			= 	baseImage.cols ;
@@ -485,21 +513,21 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	uint_params[MM_ROWS]		= 	mm_height ;
 	uint_params[MM_COLS]		= 	mm_width ;
 	
-	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp16_params[SIGMA_Q], fp16_params[SIGMA_D] );
+	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																		//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
 																																		if(verbosity>1){
-																																			cout << "\n\nChecking fp16_params[]";
-																																			cout << "\nfp16_params[0 MAX_INV_DEPTH]="	<<fp16_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
-																																			cout << "\nfp16_params[1 MIN_INV_DEPTH]="	<<fp16_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
-																																			cout << "\nfp16_params[2 INV_DEPTH_STEP]="	<<fp16_params[INV_DEPTH_STEP];
-																																			cout << "\nfp16_params[3 ALPHA_G]="			<<fp16_params[ALPHA_G]				<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
-																																			cout << "\nfp16_params[4 BETA_G]="			<<fp16_params[BETA_G]				<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
-																																			cout << "\nfp16_params[5 EPSILON]="			<<fp16_params[EPSILON]				<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
-																																			cout << "\nfp16_params[6 SIGMA_Q]="			<<fp16_params[SIGMA_Q];
-																																			cout << "\nfp16_params[7 SIGMA_D ]="		<<fp16_params[SIGMA_D ];
-																																			cout << "\nfp16_params[8 THETA]="			<<fp16_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
-																																			cout << "\nfp16_params[9 LAMBDA]="			<<fp16_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
-																																			cout << "\nfp16_params[10 SCALE_EAUX]="		<<fp16_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
+																																			cout << "\n\nChecking fp32_params[]";
+																																			cout << "\nfp32_params[0 MAX_INV_DEPTH]="	<<fp32_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
+																																			cout << "\nfp32_params[1 MIN_INV_DEPTH]="	<<fp32_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
+																																			cout << "\nfp32_params[2 INV_DEPTH_STEP]="	<<fp32_params[INV_DEPTH_STEP];
+																																			cout << "\nfp32_params[3 ALPHA_G]="			<<fp32_params[ALPHA_G]				<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
+																																			cout << "\nfp32_params[4 BETA_G]="			<<fp32_params[BETA_G]				<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
+																																			cout << "\nfp32_params[5 EPSILON]="			<<fp32_params[EPSILON]				<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
+																																			cout << "\nfp32_params[6 SIGMA_Q]="			<<fp32_params[SIGMA_Q];
+																																			cout << "\nfp32_params[7 SIGMA_D ]="		<<fp32_params[SIGMA_D ];
+																																			cout << "\nfp32_params[8 THETA]="			<<fp32_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
+																																			cout << "\nfp32_params[9 LAMBDA]="			<<fp32_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
+																																			cout << "\nfp32_params[10 SCALE_EAUX]="		<<fp32_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
 																																			cout << "\n";
 																																			/*
 																																			cout << "\n\nChecking cl_half_params[]";
@@ -517,9 +545,16 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << "\n";
 																																			*/
 																																		}
+	/*
 	fp16_k2k[0]  = cv::float16_t( 1.0 );																									// initialize fp16_k2k as 'unity' transform, i.e. zero rotation & zero translation.
 	fp16_k2k[5]  = cv::float16_t( 1.0 );
 	fp16_k2k[10] = cv::float16_t( 1.0 );
+	*/
+	
+	fp32_k2k[0]  =  1.0 ;																									// initialize fp16_k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	fp32_k2k[5]  =  1.0 ;
+	fp32_k2k[10] =  1.0 ;
+	
 	/*
 	cl_half_k2k[0]  = cl_half( 1.0 );																									// initialize cl_half_k2k as 'unity' transform, i.e. zero rotation & zero translation.
 	cl_half_k2k[5]  = cl_half( 1.0 );
@@ -528,8 +563,10 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																		if(verbosity>1) cout << "\n\nRunCL::allocatemem_chk4\n\n" << flush;
 	status = clEnqueueWriteBuffer(uload_queue, gxmem, 			CL_FALSE, 0, mm_size_bytes_C1, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, gymem, 			CL_FALSE, 0, mm_size_bytes_C1, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	status = clEnqueueWriteBuffer(uload_queue, fp16_param_buf, 	CL_FALSE, 0, 16 * fp16_size, 	fp16_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * fp16_size, 	fp16_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	//status = clEnqueueWriteBuffer(uload_queue, fp16_param_buf, 	CL_FALSE, 0, 16 * fp16_size, 	fp16_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	//status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * fp16_size, 	fp16_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, fp32_param_buf, 	CL_FALSE, 0, 16 * sizeof(float), fp32_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, uint_param_buf,	CL_FALSE, 0, 8 * sizeof(uint),	uint_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
@@ -665,13 +702,13 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 	cl_event 			writeEvt, ev;
 	cl_int 				res, status;
 	uint 				mipmap[8];
-	cv::float16_t		a = cv::float16_t(0.0625);
-	cv::float16_t		b = cv::float16_t(0.125);
-	cv::float16_t		c = cv::float16_t(0.25);
-	cv::float16_t 		gaussian[9] = {a, b, a, b, c, b, a , b, a };																																//  TODO load gaussian kernel & size from conf.json .
+	float		a = float(0.0625);
+	float		b = float(0.125);
+	float		c = float(0.25);
+	float 		gaussian[9] = {a, b, a, b, c, b, a , b, a };																																//  TODO load gaussian kernel & size from conf.json .
 	if (gaussian_size!=3) {cout<<"Error: (gaussian_size!=3). Need to add code to malloc gaussian array. Probably with jsoncpp from 'conf.json' file." <<flush; exit(0); }
 	
-	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, gaussian_size*gaussian_size*sizeof(cv::float16_t), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
+	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, gaussian_size*gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
 	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	size_t local_size = local_work_size;																																							// set kernel args
 	res = clSetKernelArg(mipmap_kernel, 0, sizeof(cl_mem), 					 	&imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global half*	img,			//0	
