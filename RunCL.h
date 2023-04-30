@@ -103,7 +103,7 @@ public:
 	
 	
 	cv::Mat 			baseImage;
-	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_half4, mm_vol_size_bytes;
+	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
