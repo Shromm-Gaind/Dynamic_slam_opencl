@@ -34,7 +34,7 @@
 #define margin_			15
 */
 
-#define MAX_INV_DEPTH		0	// fp16_params indices
+#define MAX_INV_DEPTH		0	// fp32_params indices
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
 #define ALPHA_G				3
@@ -63,10 +63,10 @@
 #define MiM_GAUSSIAN_SIZE	5
 
 
-__kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV) using OpenCL 'half'.
-	__global uchar*		base,			//0
-	__global float4*	img,			//1									// relegate half to fp16 branch for now. // NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
-	__global uint*		uint_params		//2
+__kernel void cvt_color_space(
+	__global	uchar*	base,			//0
+	__global	float4*	img,			//1
+	__constant	uint*	uint_params		//2
 		 )
 {																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
 	int global_id 	= (int)get_global_id(0);
@@ -81,17 +81,10 @@ __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16F
 	float G_float	= base[global_id*3+1]/256.0f;
 	float B_float	= base[global_id*3+2]/256.0f;
 	
-	/*
-	half  R,G,B, H,S,V;
-	vstore_half(R_float, 0, &R);
-	vstore_half(G_float, 0, &G);
-	vstore_half(B_float, 0, &B);
-	*/
-	float V = max(R_float, max(G_float, B_float) ); // V_max_f
-	//vstore_half( V_max_f, 0, &V );
+	float V = max(R_float, max(G_float, B_float) ); 
 	
-	float min_rgb =	min(R_float, min(G_float, B_float)); //vstore_half( min(R_float, min(G_float, B_float)) , 0, &min_rgb ); //half
-	float divisor = V - min_rgb; // half
+	float min_rgb =	min(R_float, min(G_float, B_float));
+	float divisor = V - min_rgb;
 	
 	float S = (V!=0)*(V-min_rgb)/V;
 	
@@ -104,15 +97,11 @@ __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16F
 	uint base_col	= global_id%cols ;
 	uint img_row	= base_row + margin;
 	uint img_col	= base_col + margin;
-	uint img_index	= img_row*mm_cols + img_col;   // img_row*mm_cols*3 + img_col*3;   
+	uint img_index	= img_row*mm_cols + img_col;   
 	
-	float4 temp_float4  = {H,S,V,0};											// Note how to load a half4 vector.
+	float4 temp_float4  = {H,S,V,0};											// Note how to load a float4 vector.
 	img[img_index   ] = temp_float4;
-	/*
-	//img[img_index   ] = H;
-	//img[img_index +1] = S;
-	//img[img_index +2] = V;
-	*/
+
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
 	 * V = max(R,G,B)
@@ -125,11 +114,11 @@ __kernel void cvt_color_space(												// basemem(CV_8UC3, RGB)->imgmem(CV16F
 }
 
 __kernel void mipmap(
-	__global float4*	img,			//0						// relegate half to fp16 branch for now. // NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
-	__global float* 	gaussian,		//1
-	__global uint*		uint_params,	//2
-	__global uint*		mipmap_params,	//3
-	__local  float4*	local_img_patch //4
+	__global	float4*	img,			//0
+	__global	float* 	gaussian,		//1
+	__constant	uint*	uint_params,	//2
+	__constant	uint*	mipmap_params,	//3
+	__local		float4*	local_img_patch //4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -149,13 +138,10 @@ __kernel void mipmap(
 	uint read_column 	= 2*fmod(global_id,write_cols_);
 	uint write_row    	= global_id/write_cols_;
 	uint write_column 	= fmod(global_id,write_cols_);
-	//uint read_index 	= read_offset_  + 3*( read_row*mm_cols  + read_column  );													// for 'img[..]'NB 3 channels.
-	//uint write_index 	= write_offset_ + 3*( write_row*mm_cols + write_column );
 	uint read_index 	= read_offset_  +  read_row*mm_cols  + read_column ;
 	uint write_index 	= write_offset_ +  write_row*mm_cols + write_column ;
 
 	for (int i=0; i<3; i++){																										// Load local_img_patch
-		//half4 temp_half4 = {img[read_index +i*mm_cols*3], img[read_index+1 +i*mm_cols*3], img[read_index+2 +i*mm_cols*3], lid };	// Note how to load a half4 vector.
 		local_img_patch[1+ lid + i*patch_length] = img[read_index +i*mm_cols];//temp_half4;
 	}
 	if ((lid==0)||(lid==group_size-1)){
@@ -163,7 +149,6 @@ __kernel void mipmap(
 		for (int i=0; i<3; i++){
 			int patch_index = step + i*patch_length;
 			int read_index_2 = read_index -3*(lid==0) + 6*(lid==group_size-1) +(i*mm_cols)*3;
-			//half4 temp_half4 =  {img[read_index_2], img[read_index_2 +1], img[read_index_2 +2], -1 };
 			local_img_patch[patch_index] = img[read_index_2];//temp_half4;
 		}
 	}
@@ -174,35 +159,49 @@ __kernel void mipmap(
 	for (int i=0; i<gaussian_size_; i++){ 
 		for (int j=0; j<gaussian_size_; j++){
 			int index = patch_read_index4 +j;
-			reduced_pixel4 += local_img_patch[index] * gaussian[ j + gaussian_size_*i ];// 
+			reduced_pixel4 += local_img_patch[index] * gaussian[ j + gaussian_size_*i ];
 		}	
 		patch_read_index4   += patch_length ;
 		patch_read_index4_2 += patch_length ;
 	}
 	if (global_id > mipmap_params[MiM_PIXELS]) return;
 	img[ write_index ]	= reduced_pixel4;
-	//img[ write_index+0 ] =	reduced_pixel4.x;
-	//img[ write_index+1 ] =	reduced_pixel4.y;
-	//img[ write_index+2 ] =	reduced_pixel4.z;
 }
 
-/*
+
 __kernel void  img_grad(
-	__global float4*		img,			//0		? Should I change to half4 for img? 
-	__global uint*		uint_params,	//1
-	__global float*		gxp,			//2
-	__global float*		gyp,			//3
-	__global float*		g1p				//4	 ?single channel  or tripple channel gradients ? prob triple given HSV.
+	__global 	float4*	img,			//0 
+	__constant 	uint*	uint_params,	//1
+	__constant 	float*	fp32_params,	//2
+	__global 	float*	gxp,			//3
+	__global 	float*	gyp,			//4
+	__global 	float*	g1p,			//5	 ?single channel  or tripple channel gradients ? prob triple given HSV.
+	
+	__global 	float4*	img_sum				//6
 		 )
 {
-	 int x = get_global_id(0);
-	 int rows 			= floor(params[rows_]);
-	 int cols 			= floor(params[cols_]);
-	 float alphaG		= params[alpha_g_];
-	 float betaG 		= params[beta_g_];
+	 uint global_id_u = get_global_id(0);
+	 int  x = global_id_u;
+	 
+	 if (x > uint_params[MM_PIXELS]) return;
+	 
+	 float4 img_pvt = img[x];		// required to make data in float4 accessible the kernel. 
+	 //img_sum[x] = img_private;
+	 
+	 int rows 			= uint_params[MM_ROWS]  ;//floor(params[rows_]);
+	 int cols 			= uint_params[MM_COLS]  ;//floor(params[cols_]);
+	 float alphaG		= fp32_params[ALPHA_G];
+	 float betaG 		= fp32_params[BETA_G];
 
 	 int y = x / cols;
 	 x = x % cols;
+	 
+	 int min = 10*cols + cols/2;
+	 if((global_id_u<min+10)&&(global_id_u>min)){
+		 printf("\n global_id_u=1,  rows=%i,  cols=%i,   x=%i,  y=%i,  img_pvt[x]=(%f,%f,%f,%f) ###########", rows, cols, x, y, img_pvt.x, img_pvt.y, img_pvt.z, img_pvt.w );
+		 //img[x].x, img[x].y, img[x].z, img[x].w 
+	 }
+	 
 	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  // needed for wider kernel
 	 
 	 int upoff = -(y != 0)*cols;                   // up, down, left, right offsets, by boolean logic.
@@ -210,27 +209,30 @@ __kernel void  img_grad(
      int lfoff = -(x != 0);
 	 int rtoff = (x < cols-1);
 
-	 //barrier(CLK_GLOBAL_MEM_FENCE);// causes the kernel to crash on Intel Iris Xe GPU.
 	 unsigned int offset = x + y * cols;
 
-	 float pu, pd, pl, pr;                         // rho, photometric difference: up, down, left, right, of grayscale ref image.
+	 float4 pu, pd, pl, pr;                         // rho, photometric difference: up, down, left, right, of grayscale ref image.
 	 float g0x, g0y, g0, g1;
 	 
-	 pr =  base[offset + rtoff];// + base[offset + rtoff +1];					   // NB base = grayscale CV_8UC1 image.
-	 pl =  base[offset + lfoff];// + base[offset + lfoff -1];
-	 pu =  base[offset + upoff];// + base[offset + 2*upoff];
-	 pd =  base[offset + dnoff];// + base[offset + 2*dnoff];
+	 // need to load these to local patch ? or something else?
+/*	 
+	 pr =  img_pvt[offset + rtoff];// + base[offset + rtoff +1];	// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
+	 pl =  img_pvt[offset + lfoff];// + base[offset + lfoff -1];
+	 pu =  img_pvt[offset + upoff];// + base[offset + 2*upoff];
+	 pd =  img_pvt[offset + dnoff];// + base[offset + 2*dnoff];
 
 	 float gx, gy;
-	 gx			= fabs(pr - pl);
-	 gy			= fabs(pd - pu);
+	 gx			= fabs(pr.z - pl.z);	// NB HSV color space.
+	 gy			= fabs(pd.z - pu.z);
+*/	 
+	 g1p[offset]= img_pvt.w;	//exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );
+	 gxp[offset]= img_pvt.x;	//offset;//((float)(offset))/((float)(uint_params[MM_PIXELS]));	//gx;   offset= column
+	 gyp[offset]= img_pvt.y;	//x;//((float)(x))/((float)(uint_params[MM_PIXELS]));		//gy;
 	 
-	 g1p[offset]= exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );
-	 //gxp[offset]= gx; // debugging only.
-	 //gyp[offset]= gy;
-	
+	 
+	 if(global_id_u==1)printf("\n global_id_u=1 ###########");//printf("\n (x=%i,img(%f,%f,%f,%f)), ", x, img[x].x, img[x].y, img[x].z, img[x].w );  //(fmod((float)(x),1000)==0)
 }
-*/
+
 
 
 /*

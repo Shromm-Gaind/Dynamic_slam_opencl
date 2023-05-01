@@ -25,7 +25,7 @@
 //#define ROWS				1	// TODO Can these be #included from a common header for both host and device code?
 //#define COLS				2
 //#define LAYERS				3
-#define MAX_INV_DEPTH		0	// fp16_params indices
+#define MAX_INV_DEPTH		0	// fp32_params indices
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
 #define ALPHA_G				3
