@@ -193,7 +193,7 @@ __kernel void mipmap_flt(																											// Nvidia Geforce GPUs canno
 		 )
 {
 	float global_id 	= get_global_id(0);
-	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	
 	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
@@ -236,6 +236,7 @@ __kernel void mipmap_flt(																											// Nvidia Geforce GPUs canno
 			reduced_pixel += local_img_patch[lid+y + i*patch_length]/9;																// 3x3 box filter, rather than Gaussian
 		}
 	}
+	if (global_id > mipmap_params[MiM_PIXELS]) return;								// for Intel GPU all threads must reach barrier (above).
 	img[ write_index] = reduced_pixel;
 }
 
