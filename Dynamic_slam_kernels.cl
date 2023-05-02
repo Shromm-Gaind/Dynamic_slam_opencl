@@ -112,7 +112,7 @@ __kernel void cvt_color_space(
 	 *     0								if R=G=B
 	 */
 }
-
+/*
 __kernel void mipmap(
 	__global	float4*	img,			//0
 	__global	float* 	gaussian,		//1
@@ -133,39 +133,110 @@ __kernel void mipmap(
 	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
 	
 	uint mm_cols		= uint_params[MM_COLS];
+	uint mm_rows		= uint_params[MM_ROWS];
 	
-	uint read_row    	= 2*global_id/write_cols_;
+	uint read_row    	= global_id/write_cols_; 																					// NB importance of integer division)
+	read_row			*=2;
 	uint read_column 	= 2*fmod(global_id,write_cols_);
 	uint write_row    	= global_id/write_cols_;
 	uint write_column 	= fmod(global_id,write_cols_);
 	uint read_index 	= read_offset_  +  read_row*mm_cols  + read_column ;
 	uint write_index 	= write_offset_ +  write_row*mm_cols + write_column ;
-
-	for (int i=0; i<3; i++){																										// Load local_img_patch
-		local_img_patch[1+ lid + i*patch_length] = img[read_index +i*mm_cols];//temp_half4;
-	}
-	if ((lid==0)||(lid==group_size-1)){
-		int step = (lid==group_size-1)*(patch_length-1);
-		for (int i=0; i<3; i++){
-			int patch_index = step + i*patch_length;
-			int read_index_2 = read_index -3*(lid==0) + 6*(lid==group_size-1) +(i*mm_cols)*3;
-			local_img_patch[patch_index] = img[read_index_2];//temp_half4;
+	float4 temp_float4;
+	
+	if (global_id < mipmap_params[MiM_PIXELS]) {
+		for (int i=0; i<3; i++){																									// Load local_img_patch
+			if ( (1+ lid + i*patch_length) >  49152/16      ||   read_index +i*mm_cols    >= mm_cols*mm_rows )  return;
+			temp_float4 = img[read_index +i*mm_cols]; 
+			local_img_patch[1+ lid + i*patch_length/2] = temp_float4;
+			//local_img_patch[1+ lid + i*patch_length] = img[read_index +i*mm_cols];
 		}
-	}
+		if ((lid==0)||(lid==group_size-1)){
+			int step = (lid==group_size-1)*(patch_length-1);
+			for (int i=0; i<3; i++){
+				int patch_index = step + i*patch_length;
+				int read_index_2 = read_index -3*(lid==0) + 6*(lid==group_size-1) +(i*mm_cols)*3;
+				float4 temp_float4 = img[read_index_2];
+				local_img_patch[patch_index] = temp_float4;//img[read_index_2];//temp_half4;
+	}	}	}
 	barrier(CLK_LOCAL_MEM_FENCE);																									// fence between write & read local mem
 	float4 reduced_pixel4 =0;																										// Gaussian blurr
 	uint patch_read_index4 	 = lid;
-	uint patch_read_index4_2 = 0;
+	//uint patch_read_index4_2 = 0;
+	uint index =0;
 	for (int i=0; i<gaussian_size_; i++){ 
 		for (int j=0; j<gaussian_size_; j++){
-			int index = patch_read_index4 +j;
-			reduced_pixel4 += local_img_patch[index] * gaussian[ j + gaussian_size_*i ];
+			index = patch_read_index4 +j;
+			reduced_pixel4 += local_img_patch[index] ;// * gaussian[ j + gaussian_size_*i ];
 		}	
 		patch_read_index4   += patch_length ;
-		patch_read_index4_2 += patch_length ;
+		//patch_read_index4_2 += patch_length ;
 	}
 	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	//reduced_pixel4.y  = lid;//((float)lid)/(5*(float)group_size);
+	//reduced_pixel4.z  = read_index + mm_cols;//global_id*(640/480)/((float)(write_cols_*write_cols_));
+	reduced_pixel4.w  = 1.0;
+	
 	img[ write_index ]	= reduced_pixel4;
+	//uint sample = 192; // (global_id_u<sample+74 && global_id_u>sample )
+	//if ((lid<4 || lid > 252 ) && global_id_u<2000) printf("\n  global_id_u=%u,  lid=%u, read_index=%i, %i,   mm_cols=%u,   index=%u,  write_index=%i, %i,  read_column=%u,  write_cols_=%u,  read_offset_=%u,  read_row=%u,  mm_cols=%u, reduced_pixel4.x=%f,  reduced_pixel4.z=%f,  reduced_pixel4.y=%f, ### temp_float4=(%f,%f,%f,%f) ", \
+	//	global_id_u, lid, (read_index-read_offset_)/2, read_index, mm_cols, index, write_index-write_offset_, write_index, read_column, write_cols_, read_offset_,  read_row,  mm_cols, reduced_pixel4.x, reduced_pixel4.z, reduced_pixel4.y, temp_float4.x, temp_float4.y, temp_float4.z, temp_float4.w );
+}
+*/
+
+__kernel void mipmap_flt(																											// Nvidia Geforce GPUs cannot use "half"
+	__global float4*	img,			//0
+	__global float* 	gaussian,		//1
+	__global uint*		uint_params,	//2
+	__global uint*		mipmap_params,	//3
+	__local	 float4*	local_img_patch //4
+		 )
+{
+	float global_id 	= get_global_id(0);
+	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint patch_length	= group_size+2;
+	
+	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
+	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	
+	uint read_row    = 2*global_id/write_cols_;
+	uint read_column = 2*fmod(global_id,write_cols_);
+	
+	uint write_row    = global_id/write_cols_;
+	uint write_column = fmod(global_id,write_cols_);
+	
+	uint read_index 	= read_offset_  + 1*( read_row*mm_cols  + read_column  );	// NB 4 channels.
+	uint write_index 	= write_offset_ + 1*( write_row*mm_cols + write_column );
+	
+	for (int i=0; i<3; i++){																										// Load local_img_patch
+		local_img_patch[lid+1 + i*patch_length] = img[ read_index +i*mm_cols];
+	}
+	if (lid==0){
+		for (int i=0; i<3; i++){
+			local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -1];
+		}
+	}
+	if (lid==group_size-1){
+		for (int i=0; i<3; i++){
+			local_img_patch[lid+2 + i*patch_length] = img[ read_index +i*mm_cols +1];
+		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);																									// fence between write & read local mem
+	float4 reduced_pixel = 0;
+	for (int i=0; i<3; i++){
+		for (int y=0; y<3; y++){
+			reduced_pixel += local_img_patch[lid+y + i*patch_length]/9;																// 3x3 box filter, rather than Gaussian
+		}
+	}
+	img[ write_index] = reduced_pixel;
 }
 
 

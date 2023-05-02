@@ -72,7 +72,7 @@ RunCL::RunCL(Json::Value obj_)
 	//updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 			NULL);
 	
 	cvt_color_space_kernel 	= clCreateKernel(m_program, "cvt_color_space", 		NULL);		// New kernels
-	mipmap_kernel			= clCreateKernel(m_program, "mipmap", 				NULL);
+	mipmap_kernel			= clCreateKernel(m_program, "mipmap_flt", 			NULL);		// mipmap
 	img_grad_kernel			= clCreateKernel(m_program, "img_grad", 			NULL);
 	
 	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
@@ -709,7 +709,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 #define MiM_GAUSSIAN_SIZE	5
 */
 void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
-																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
+																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
 	cl_event 			writeEvt, ev;
 	cl_int 				res, status;
 	uint 				mipmap[8];
@@ -726,7 +726,7 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 	res = clSetKernelArg(mipmap_kernel, 1, sizeof(cl_mem), 					 	&gaussian_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	gaussian,		//1
 	res = clSetKernelArg(mipmap_kernel, 2, sizeof(cl_mem), 					 	&uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	uint_params		//2
 	res = clSetKernelArg(mipmap_kernel, 3, sizeof(cl_mem), 					 	&mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	uint_params		//2
-	res = clSetKernelArg(mipmap_kernel, 4, (local_size+2) * 4 * sizeof(cl_half4), NULL);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	uint_params		//2
+	res = clSetKernelArg(mipmap_kernel, 4, (local_size+2) *3*4* sizeof(float), NULL);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	uint_params		//2
 	uint read_rows				= baseImage_size.height;
 	uint write_rows 			= read_rows/2;
 	mipmap[MiM_READ_OFFSET] 	= (mm_margin + (mm_margin * mm_width)); // 3* 
@@ -735,8 +735,8 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 	mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_READ_COLS]/2;
 	mipmap[MiM_GAUSSIAN_SIZE] 	= gaussian_size;
 																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk1"<<flush;}
-	for(int reduction = 0; reduction < num_reductions; reduction++) {
-																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;}
+	for(int reduction = 0; reduction < 3 /*num_reductions*/; reduction++) {
+																																		if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;}
 		mipmap[MiM_PIXELS]		= write_rows*mipmap[MiM_WRITE_COLS];																																	// compute num threads to launch & num_pixels in reduction
 		size_t num_threads		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																						// global_work_size formula  
 		
@@ -759,7 +759,7 @@ void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){ //getFrame();
 		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS] 			= mipmap[MiM_WRITE_COLS] * write_rows;
-																																			if(verbosity>1) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
+																																			if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
 	}
 																																			if(verbosity>0) {
 																																				cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
