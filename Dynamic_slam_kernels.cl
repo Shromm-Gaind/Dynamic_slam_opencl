@@ -93,6 +93,8 @@ __kernel void cvt_color_space(
 	 +     (V==B_float && V!=0)*( 240 + (60*(R_float-G_float) / divisor ))	\
 	 ) / 360;
 	
+	 if (!(H<=1.0 && H>=0.0) || !(S<=1.0 && S>=0.0) || !(V<=1.0 && V>=0.0) ) {H=S=V=0;} ; // to replace any NaNs
+	 
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
 	uint img_row	= base_row + margin;
@@ -245,11 +247,9 @@ __kernel void  img_grad(
 	__global 	float4*	img,			//0 
 	__constant 	uint*	uint_params,	//1
 	__constant 	float*	fp32_params,	//2
-	__global 	float*	gxp,			//3
-	__global 	float*	gyp,			//4
-	__global 	float*	g1p,			//5	 ?single channel  or tripple channel gradients ? prob triple given HSV.
-	
-	__global 	float4*	img_sum				//6
+	__global 	float4*	gxp,			//3
+	__global 	float4*	gyp,			//4
+	__global 	float4*	g1p			//5	 ?single channel  or tripple channel gradients ? prob triple given HSV.
 		 )
 {
 	 uint global_id_u = get_global_id(0);
@@ -269,11 +269,12 @@ __kernel void  img_grad(
 	 x = x % cols;
 	 
 	 int min = 10*cols + cols/2;
+	 /*
 	 if((global_id_u<min+10)&&(global_id_u>min)){
 		 printf("\n global_id_u=1,  rows=%i,  cols=%i,   x=%i,  y=%i,  img_pvt[x]=(%f,%f,%f,%f) ###########", rows, cols, x, y, img_pvt.x, img_pvt.y, img_pvt.z, img_pvt.w );
 		 //img[x].x, img[x].y, img[x].z, img[x].w 
 	 }
-	 
+	 */
 	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  // needed for wider kernel
 	 
 	 int upoff = -(y != 0)*cols;                   // up, down, left, right offsets, by boolean logic.
@@ -284,22 +285,28 @@ __kernel void  img_grad(
 	 unsigned int offset = x + y * cols;
 
 	 float4 pu, pd, pl, pr;                         // rho, photometric difference: up, down, left, right, of grayscale ref image.
-	 float g0x, g0y, g0, g1;
+	 float g0x, g0y, g0;//, g1;
 	 
 	 // need to load these to local patch ? or something else?
-/*	 
-	 pr =  img_pvt[offset + rtoff];// + base[offset + rtoff +1];	// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
-	 pl =  img_pvt[offset + lfoff];// + base[offset + lfoff -1];
-	 pu =  img_pvt[offset + upoff];// + base[offset + 2*upoff];
-	 pd =  img_pvt[offset + dnoff];// + base[offset + 2*dnoff];
+	 
+	 pr =  img[offset + rtoff];// + base[offset + rtoff +1];	// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
+	 pl =  img[offset + lfoff];// + base[offset + lfoff -1];
+	 pu =  img[offset + upoff];// + base[offset + 2*upoff];
+	 pd =  img[offset + dnoff];// + base[offset + 2*dnoff];
 
-	 float gx, gy;
-	 gx			= fabs(pr.z - pl.z);	// NB HSV color space.
-	 gy			= fabs(pd.z - pu.z);
-*/	 
-	 g1p[offset]= img_pvt.w;	//exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );
-	 gxp[offset]= img_pvt.x;	//offset;//((float)(offset))/((float)(uint_params[MM_PIXELS]));	//gx;   offset= column
-	 gyp[offset]= img_pvt.y;	//x;//((float)(x))/((float)(uint_params[MM_PIXELS]));		//gy;
+	 float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0 };	// NB HSV color space.
+	 float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0 };
+	 
+	 float4 g1  = { sqrt(gx.x*gx.x + gy.x*gy.x),  sqrt(gx.y*gx.y + gy.y*gy.y),  sqrt(gx.z*gx.z + gy.z*gy.z),  1.0 };
+	 /*
+	 { exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
+		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
+		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
+		 1.0 };
+	 */
+	 g1p[offset]= g1;   //exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );		// img_pvt.w;	//
+	 gxp[offset]= gx;   // offset= column  // img_pvt.x;	//offset;// ((float)(offset)) / ((float)(uint_params[MM_PIXELS]));	//
+	 gyp[offset]= gy;   // img_pvt.y;	//x;//  ((float)(x))      / ((float)(uint_params[MM_PIXELS]));		//
 	 
 	 
 	 if(global_id_u==1)printf("\n global_id_u=1 ###########");//printf("\n (x=%i,img(%f,%f,%f,%f)), ", x, img[x].x, img[x].y, img[x].z, img[x].w );  //(fmod((float)(x),1000)==0)

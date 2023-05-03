@@ -103,7 +103,7 @@ void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?  // NB a
 	// load a basic image in CV_8UC3, then convert on GPU to 'half'
 	runcl.cvt_color_space( );
 	runcl.mipmap(4,3);// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
-//	runcl.img_gradients();
+	runcl.img_gradients();
 
 // # Get 1st & 2nd order image gradients of MipMap
 // see CostVol::cacheGValues(), RunCL::cacheGValue2 & __kernel void CacheG3

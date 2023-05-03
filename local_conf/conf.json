@@ -26,7 +26,7 @@
     "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
     "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
     "thetaStep":0.87,
-    "beta_g":1.5,               // DTAM paper: beta=0.001 while theta>0.001, else beta=0.0001  // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
+    "beta_g":, 0.1             //my dtam_opencl 1.5 // DTAM paper: beta=0.001 while theta>0.001, else beta=0.0001  // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
     "alpha_g":0.015,
     "epsilon":1.0e-4,                                                   // used in __kernel void UpdateQD	
     "lambda":1.0,                                                       // used in __kernel void UpdateA2
