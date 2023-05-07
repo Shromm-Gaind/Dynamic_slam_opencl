@@ -95,9 +95,9 @@ public:
 	cl_command_queue				m_queue, uload_queue, dload_queue, track_queue; // queue[4]; //
 	cl_program						m_program;
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
-	cl_kernel						cvt_color_space_kernel, mipmap_kernel, img_grad_kernel;
-	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf; // mem[14]; //
-	cl_mem							k2kbuf, half_param_buf, /*fp16_param_buf,*/ fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf;
+	cl_kernel						cvt_color_space_kernel, mipmap_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf, depth_mem; // mem[14]; // NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem							k2kbuf, half_param_buf, /*fp16_param_buf,*/ fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, param_map_mem;
 	
 	//cl_event						;
 	
@@ -144,6 +144,7 @@ public:
 	void updateA ( float lambda, float theta );
 
 	///
+	void precom_param_maps(uint num_reductions=4);		// called by Dynamic_slam::Dynamic_slam(..) constructor
 	void predictFrame();
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();

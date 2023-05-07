@@ -195,8 +195,6 @@ __kernel void mipmap_flt(																											// Nvidia Geforce GPUs canno
 		 )
 {
 	float global_id 	= get_global_id(0);
-	
-	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+2;
@@ -249,80 +247,211 @@ __kernel void  img_grad(
 	__constant 	float*	fp32_params,	//2
 	__global 	float4*	gxp,			//3
 	__global 	float4*	gyp,			//4
-	__global 	float4*	g1p			//5	 ?single channel  or tripple channel gradients ? prob triple given HSV.
+	__global 	float4*	g1p				//5
 		 )
 {
 	 uint global_id_u = get_global_id(0);
 	 int  x = global_id_u;
-	 
 	 if (x > uint_params[MM_PIXELS]) return;
 	 
-	 float4 img_pvt = img[x];		// required to make data in float4 accessible the kernel. 
-	 //img_sum[x] = img_private;
-	 
-	 int rows 			= uint_params[MM_ROWS]  ;//floor(params[rows_]);
-	 int cols 			= uint_params[MM_COLS]  ;//floor(params[cols_]);
+	 float4 img_pvt 	= img[x];							// required to make data in float4 accessible the kernel. 
+	 int rows 			= uint_params[MM_ROWS];
+	 int cols 			= uint_params[MM_COLS];
 	 float alphaG		= fp32_params[ALPHA_G];
 	 float betaG 		= fp32_params[BETA_G];
 
 	 int y = x / cols;
 	 x = x % cols;
-	 
 	 int min = 10*cols + cols/2;
-	 /*
-	 if((global_id_u<min+10)&&(global_id_u>min)){
-		 printf("\n global_id_u=1,  rows=%i,  cols=%i,   x=%i,  y=%i,  img_pvt[x]=(%f,%f,%f,%f) ###########", rows, cols, x, y, img_pvt.x, img_pvt.y, img_pvt.z, img_pvt.w );
-		 //img[x].x, img[x].y, img[x].z, img[x].w 
-	 }
-	 */
-	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  // needed for wider kernel
+	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  	// needed for wider kernel
 	 
-	 int upoff = -(y != 0)*cols;                   // up, down, left, right offsets, by boolean logic.
-	 int dnoff = (y < rows-1) * cols;
-     int lfoff = -(x != 0);
-	 int rtoff = (x < cols-1);
-
-	 unsigned int offset = x + y * cols;
-
-	 float4 pu, pd, pl, pr;                         // rho, photometric difference: up, down, left, right, of grayscale ref image.
-	 float g0x, g0y, g0;//, g1;
+	 int upoff		= -(y != 0)*cols;						// up, down, left, right offsets, by boolean logic.
+	 int dnoff		= (y < rows-1) * cols;
+     int lfoff		= -(x != 0);
+	 int rtoff		= (x < cols-1);
+	 uint offset	= x + y * cols;
 	 
-	 // need to load these to local patch ? or something else?
-	 
-	 pr =  img[offset + rtoff];// + base[offset + rtoff +1];	// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
-	 pl =  img[offset + lfoff];// + base[offset + lfoff -1];
-	 pu =  img[offset + upoff];// + base[offset + 2*upoff];
-	 pd =  img[offset + dnoff];// + base[offset + 2*dnoff];
+	 float4 pu, pd, pl, pr;									// rho, photometric difference: up, down, left, right, of grayscale ref image.
+	 pr =  img[offset + rtoff];								// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
+	 pl =  img[offset + lfoff];
+	 pu =  img[offset + upoff];
+	 pd =  img[offset + dnoff];
 
 	 float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0 };	// NB HSV color space.
 	 float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0 };
 	 
-	 float4 g1  = { sqrt(gx.x*gx.x + gy.x*gy.x),  sqrt(gx.y*gx.y + gy.y*gy.y),  sqrt(gx.z*gx.z + gy.z*gy.z),  1.0 };
-	 /*
-	 { exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
+	 float4 g1  = { \
+		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
 		 1.0 };
-	 */
-	 g1p[offset]= g1;   //exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );		// img_pvt.w;	//
-	 gxp[offset]= gx;   // offset= column  // img_pvt.x;	//offset;// ((float)(offset)) / ((float)(uint_params[MM_PIXELS]));	//
-	 gyp[offset]= gy;   // img_pvt.y;	//x;//  ((float)(x))      / ((float)(uint_params[MM_PIXELS]));		//
-	 
-	 
-	 if(global_id_u==1)printf("\n global_id_u=1 ###########");//printf("\n (x=%i,img(%f,%f,%f,%f)), ", x, img[x].x, img[x].y, img[x].z, img[x].w );  //(fmod((float)(x),1000)==0)
+		 
+	 g1p[offset]= g1;
+	 gxp[offset]= gx;
+	 gyp[offset]= gy;
 }
 
 
 
-/*
-__kernel void  (
-	__global float* k2k,		//0
-	
+__kernel void comp_param_maps(
+	__constant 	uint*	uint_params,	//0
+	__constant 	float*	fp32_params,	//1
+	__global 	uint*	mipmap_params,	//2
+	__global 	float* 	k2k,			//3
+	__global 	float* 	depth_map,		//4
+	__global 	float*	param_map		//5
 		 )
 {
+	float global_id 	= get_global_id(0);
+	if (global_id > mipmap_params[MiM_PIXELS]) return;
 	
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint patch_length	= group_size+2;
+	
+	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	
+	uint read_row		= 2*global_id/write_cols_;
+	uint read_column	= 2*fmod(global_id,write_cols_);
+	uint read_index 	= read_offset_  + 1*( read_row*mm_cols  + read_column  );	//TODO NB 4 channels.
+	
+// SE3 
+	// Rotate 0.001 radians i.e 0.0573  degrees
+	// Translate 0.001 'units' of distance 
+	const float delta_theta = 0.001;
+	const float delta 	  	= 0.001;
+	const float cos_theta   = cos(delta_theta);
+	const float sin_theta   = sin(delta_theta);
+	
+	const float Rx[9] = {1.0, 0.0, 0.0,					0.0, cos_theta, -sin_theta, 		0.0, sin_theta, cos_theta	};
+	const float Ry[9] = {cos_theta, 0.0, sin_theta,		0.0, 1.0, 0.0, 						-sin_theta, 0, cos_theta	};
+	const float Rz[9] = {cos_theta, -sin_theta, 0.0, 	sin_theta, cos_theta, 				0.0, 	0.0, 0.0, 1.0		};
+	
+	const float Tx[16] = {1,0,0,delta, 	0,1,0,0,		0,0,1,0,		0,0,0,1};
+	const float Ty[16] = {1,0,0,0, 		0,1,0,delta,	0,0,1,0,		0,0,0,1};
+	const float Tz[16] = {1,0,0,0, 		0,1,0,0,		0,0,1,delta,	0,0,0,1};
+	
+	// TODO
+	// Move k2k generation to host.
+	// Create a 'reproject' & 'img_grad_sum' kernels 
+	
+	
+	
+	
+	
+	float reduced_pixel; // TODO how many channels ?
+	param_map[read_index] = reduced_pixel;
 	
 }
+
+
+__kernel void se3_grad(
+	__global 	float4*	img,			//0 
+	__constant 	uint*	uint_params,	//1
+	__constant 	float*	fp32_params,	//2
+	__global 	float4*	gxp,			//3
+	__global 	float4*	gyp,			//4
+	__global 	float4*	g1p,			//5
+	__constant 	float*	k2k				//6
+	
+		 )
+{// find gradient wrt SE3 find global sum for each of the 6 DoF
+	
+	
+	
+	
+	
+
+}
+
+
+/* From  BuildCostVolume2(
+ * 	__global float* k2k,		//0
+	__global float* base,		//1  // uchar*
+	__global float* img,		//2  // uchar*
+	__global float* cdata,		//3
+	__global float* hdata,		//4  'w' num times cost vol elem has been updated
+	__global float* lo, 		//5
+	__global float* hi,			//6
+	__global float* a,			//7
+	__global float* d,			//8
+	__constant float* params,	//9 pixels, rows, cols, layers, max_inv_depth, min_inv_depth, inv_d_step, threshold
+	__global float* img_sum)	//10
+	)
+	{
+	int global_id = get_global_id(0);
+
+	int pixels 			= floor(params[pixels_]);
+	int rows 			= floor(params[rows_]);
+	int cols 			= floor(params[cols_]);
+	int layers			= floor(params[layers_]);
+	float max_inv_depth = params[max_inv_depth_];  // not used
+	float min_inv_depth = params[min_inv_depth_];
+	float inv_d_step 	= params[inv_d_step_];
+	float u 			= global_id % cols;														// keyframe pixel coords
+	float v 			= (int)(global_id / cols);
+	int offset_3 		= global_id *3;															// Get keyframe pixel values
+	float3 B;		B.x = base[offset_3];	B.y = base[offset_3];	B.z = base[offset_3];		// pixel from keyframe
+
+	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;			// variables for the cost vol
+	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=global_id,	layer = 0;
+	float3 	c, c_00, c_01, c_10, c_11;
+	float 	c0 = cdata[cv_idx];																	// cost for this elem of cost vol
+	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
+
+	// layer zero, ////////////////////////////////////////////////////////////////////////////////////////
+	// inf depth, roation without paralax, i.e. reproj without translation.
+	// Use depth=1 unit sphere, with rotational-preprojection matrix
+
+	// precalculate depth-independent part of reprojection, h=homogeneous coords.
+	float uh2 = k2k[0]*u + k2k[1]*v + k2k[2]*1;  // +k2k[3]/z
+	float vh2 = k2k[4]*u + k2k[5]*v + k2k[6]*1;  // +k2k[7]/z
+	float wh2 = k2k[8]*u + k2k[9]*v + k2k[10]*1; // +k2k[11]/z
+	//float h/z  = k2k[12]*u + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
+	float uh3, vh3, wh3;
+
+	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	#define MAX_LAYERS 256 //64
+	float cost[MAX_LAYERS];
+	for( layer=0;  layer<layers; layer++ ){
+		cv_idx = global_id + layer*pixels;
+		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
+		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
+		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
+		uh3  = uh2 + k2k[3]*inv_depth;
+		vh3  = vh2 + k2k[7]*inv_depth;
+		wh3  = wh2 + k2k[11]*inv_depth;
+		u2   = uh3/wh3;
+		v2   = vh3/wh3;
+		//if(u==70 && v==470)printf("\n(inv_depth=%f,   ",inv_depth);
+		int_u2 = ceil(u2-0.5);		// nearest neighbour interpolation
+		int_v2 = ceil(v2-0.5);
+
+		if ( !((int_u2<0) || (int_u2>cols-1) || (int_v2<0) || (int_v2>rows-1)) ) {  	// if (not within new frame) skip
+			c=img[(int_v2*cols + int_u2)*3];											// nearest neighbour interpolation
+			float rx=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);					// Compute photometric cost // L2 norm between keyframe & new frame pixels.
+			rho = sqrt( rx*rx + ry*ry + rz*rz )*50;										//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
+			cost[layer] = (cost[layer]*w + rho) / (w + 1);
+			cdata[cv_idx] = cost[layer];  												// CostVol set here ###########
+			hdata[cv_idx] = w + 1;														// Weightdata, counts updates of this costvol element.
+			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
+		}
+	}
+	for( layer=0;  layer<layers; layer++ ){
+		if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
+			minv = cost[layer];															// NB Use array private to this thread.
+			mini = layer;
+		}
+		maxv = fmax(cost[layer], maxv);
+	}
+*/
+
+
+/*	
 __kernel void  (
 	__global float* k2k,		//0
 	
