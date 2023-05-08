@@ -5,54 +5,164 @@
 
 using namespace std;
 
+void RunCL::testOpencl(){
+	cout << "\n\nRunCL::testOpencl() ############################################################\n\n" << flush;
+	cl_platform_id *platforms;
+	cl_uint num_platforms;
+	cl_int i,j, err, platform_index = -1;
+	char* ext_data;
+	
+	size_t ext_size;
+	const char icd_ext[] = "cl_khr_icd";
+	/*
+	cl_int clGetPlatformIDs(	cl_uint num_entries,
+								cl_platform_id *platforms, 
+								cl_uint *num_platforms)
+	*/
+	err = clGetPlatformIDs(1, NULL, &num_platforms);											// Find number of platforms
+	if(err < 0) { perror("Couldn't find any platforms."); exit(1); }
+	
+	platforms = (cl_platform_id*)
+	malloc(sizeof(cl_platform_id) * num_platforms);												// Allocate platform array
+	
+	clGetPlatformIDs(num_platforms, platforms, NULL);											// Initialize platform array
+	cout << "\nnum_platforms="<<num_platforms<<"\n" << flush;
+	
+	for(i=0; i<num_platforms; i++) {
+		cout << "\n##Platform num="<<i<<" #####################################################\n" << flush;
+		char* name_data;
+		/*
+		cl_int clGetPlatformInfo(	cl_platform_id platform,
+									cl_platform_info param_name, 
+									size_t param_value_size,
+									void *param_value, 
+									size_t *param_value_size_ret)
+		*/
+		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &ext_size);			// Find size of name data
+		if(err < 0) { perror("Couldn't read platform name data."); exit(1); }
+		name_data = (char*)malloc(ext_size);	
+		clGetPlatformInfo( platforms[i],  CL_PLATFORM_NAME, ext_size, name_data, NULL);
+		printf("Platform %d name: %s\n", i, name_data);
+		free(name_data);
+		//
+		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_EXTENSIONS, 0, NULL, &ext_size);		// Find size of extension data
+		if(err < 0) { perror("Couldn't read extension data."); exit(1); }
+		ext_data = (char*)malloc(ext_size);							// Readdata extension
+		clGetPlatformInfo( platforms[i],  CL_PLATFORM_EXTENSIONS, ext_size, ext_data, NULL);
+		printf("Platform %d supports extensions: %s\n", i, ext_data);
+		free(ext_data);
+		/*
+		cl_int clGetDeviceIDs(	cl_platform_id platform,
+								cl_device_type device_type, 
+								cl_uint num_entries,
+								cl_device_id *devices, 
+								cl_uint *num_devices)
+		*/
+		cl_uint			num_devices		= 0;													/*Step 2:Query the platform.*//////////////////////////////////
+		cl_device_id    *devices;
+		err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);			// Find number of platforms
+		if(err < 0) { perror("Couldn't find any platforms."); continue; }
+		
+		devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);					// Allocate platform array
+		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);				// Initialize platform array
+		cout << "\nnum_devices="<<num_devices<<"\n" << flush;
+		
+		getDeviceInfoOpencl(platforms[i]);
+	}
+	if(platform_index > -1) printf("Platform %d supports the %s extension.\n", platform_index, icd_ext);
+	else printf("No platforms support the %s extension.\n", icd_ext);
+	free(platforms);
+	cout << "\nRunCL::testOpencl() finished ##################################################\n\n" << flush;
+}
+
+void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
+	cout << "\n#RunCL::getDeviceInfoOpencl("<< platform <<")" << "\n" << flush;
+	cl_device_id *devices;
+	cl_uint num_devices, addr_data;
+	cl_int i, err;
+	char name_data[48], ext_data[4096];
+	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, NULL, &num_devices); 	if(err < 0) {perror("Couldn't find any devices"); exit(1); }
+	devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);
+	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
+	for(i=0; i<num_devices; i++) {
+		err = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name_data), name_data, NULL); 		if(err < 0) {perror("Couldn't read extension data"); exit(1); }
+		clGetDeviceInfo(devices[i], CL_DEVICE_ADDRESS_BITS, sizeof(ext_data), &addr_data, NULL);
+		clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, sizeof(ext_data), ext_data, NULL);
+		printf("\nDevice num: %i \nNAME: %s\nADDRESS_WIDTH: %u\nEXTENSIONS: %s \n", i, name_data, addr_data, ext_data);
+	}
+	free(devices);
+	cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
+}
+
 RunCL::RunCL(Json::Value obj_)
 {
 	obj = obj_;
 	verbosity = obj["verbosity"].asInt();
 	std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
+	testOpencl();																			// Displays available OpenCL Platforms and Devices. 
 																							if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
 	createFolders( );																		/*Step1: Getting platforms and choose an available one.*/////////
 	cl_uint 		numPlatforms;															//the NO. of platforms
 	cl_platform_id 	platform 		= NULL;													//the chosen platform
-	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); }
+	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); };
 	uint			conf_platform	= obj["opencl_platform"].asUInt();						if(verbosity>0) cout << "numPlatforms = " << numPlatforms << ", conf_platform=" << conf_platform << "\n" << flush;
 	
 	if (numPlatforms > conf_platform){														/*Choose the platform.*/
 		cl_platform_id* platforms 	= (cl_platform_id*)malloc(numPlatforms * sizeof(cl_platform_id));
+		
 		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);		if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
-		platform 					= platforms[ conf_platform ];
-		free(platforms);																	if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1] <<", \nplatforms[2] = "<<platforms[2] \
+		
+		platform 					= platforms[ conf_platform ];							if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1] <<", \nplatforms[2] = "<<platforms[2] \
 																												<<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
+		cl_int err;
+		size_t param_value_size;
+		char* platform_name;
+		//size_t* param_value_size_ret;
+		for (int i=0; i<numPlatforms; i++){													if(verbosity>0) cout << "\nRunCL_chk 1\n" << flush;
+			err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &param_value_size);			// Find size of name data
+			if(err < 0) { perror("Couldn't read platform name data."); exit(1); }
+			platform_name = (char*)malloc(param_value_size);	
+			clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, param_value_size, platform_name, NULL);
+			cout << "\n\n platform_name = ";
+			for(int j=0; j<5; j++){ cout << platform_name[j] ; }
+			cout << "\n"<< flush;
+			free(platform_name);
+		}
+		free(platforms);																	
 	} else {cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
-	
+	//////////////
+																							if(verbosity>0) cout << "\nRunCL_chk 2\n" << flush;
+	//
 	cl_uint			numDevices		= 0;													/*Step 2:Query the platform.*//////////////////////////////////
 	cl_device_id    *devices;
-	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\n3 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 	uint conf_device = obj["opencl_device"].asUInt();
+																							if(verbosity>0) cout << "\nRunCL_chk 2.5\n" << flush;
 	
 	if (numDevices > conf_device){															/*Choose the device*/
 		devices = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));
 		status  = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);
-	}																						if (status != CL_SUCCESS) {cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);} 
-
+	}																						if (status != CL_SUCCESS) {cout << "\n4 status = " << checkerror(status) <<"\n"<<flush; exit_(status);} 
+	
+	/////////////
 																							if(verbosity>0) cout << "\nRunCL_chk 3\n" << flush; cout << "cl_device_id  devices = " << devices << "\n" << flush;
 	
 	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};	/*Step 3: Create context.*////////////////////////////////////
-	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) 			{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) 			{cout<<"\n5 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	
 	deviceId  	= devices[conf_device];														/*Step 4: Create command queue & associate context.*///////////
 	cl_command_queue_properties prop[] = { 0 };												//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
-	m_queue 	= clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-	uload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-	dload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-	track_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	m_queue 	= clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n6 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	uload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n7 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	dload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n8 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	track_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n9 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 																							// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
 																							// NB Might want to create command queues on multiple platforms & devices.
 																							// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
 	
 	const char *filename = obj["kernel_filepath"].asCString();								/*Step 5: Create program object*///////////////////////////////
 	string sourceStr;
-	status 						= convertToString(filename, sourceStr);						if(status!=CL_SUCCESS)	{cout<<"\nstatus="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	status 						= convertToString(filename, sourceStr);						if(status!=CL_SUCCESS)	{cout<<"\n10 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	const char 	*source 		= sourceStr.c_str();
 	size_t 		sourceSize[] 	= { strlen(source) };
 	m_program 	= clCreateProgramWithSource(m_context, 1, &source, sourceSize, NULL);

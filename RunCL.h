@@ -125,6 +125,8 @@ public:
 	std::map< std::string, boost::filesystem::path > paths;
 
 	RunCL(Json::Value obj_);
+	void testOpencl();
+	void getDeviceInfoOpencl(cl_platform_id platform);
 	void createFolders();	// Called by RunCL(..) constructor, above.
 	void saveCostVols(float max_range);
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );

@@ -39,7 +39,7 @@ Dynamic_slam::Dynamic_slam(
 	runcl.allocatemem();
 																														if (verbosity>0) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																															<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-	runcl.precom_param_maps(4);
+	//runcl.precom_param_maps(4);
 };
 
 
