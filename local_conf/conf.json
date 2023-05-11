@@ -5,7 +5,9 @@
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
     "":"",
     "out_path":"",                                                      // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
-    "data_path":"/home/hockingsn/Programming/DataSets/computer_vision_data/",      // /home/hockingsn/Programming/computer_vision_data/   // /home/nick/programming/ComputerVision/DataSets
+    "data_path":"/home/hockingsn/Programming/DataSets/computer_vision_data/",      
+    "":"",                                                              // /home/hockingsn/Programming/computer_vision_data/   
+    "":"",                                                              // /home/nick/programming/ComputerVision/DataSets
     "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",
     "data_file_increment":1,
     "data_file_offset":0,       //475;//10;//46;//462;//380;//0;
@@ -26,8 +28,9 @@
     "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
     "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
     "thetaStep":0.87,
-    "beta_g": 1.5,             //my dtam_opencl 1.5 
-    "alpha_g":15,    // can vary 15 to 0.15  // 0.015     // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001  // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
+    "beta_g": 1.5,              //my dtam_opencl 1.5 
+    "alpha_g":15,               // can vary 15 to 0.15  // 0.015     // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001  
+    "":"",                                                              // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
     "epsilon":1.0e-4,                                                   // used in __kernel void UpdateQD	
     "lambda":1.0,                                                       // used in __kernel void UpdateA2
     "L":4.0,                                                            // used in CostVol computeSigmas
@@ -36,7 +39,9 @@
     "kernel_filepath":"../Dynamic_slam_kernels.cl",                     // need file paths for building kernels
     "opencl_platform":2,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices 
     "opencl_device":0,
-    "MipMap_margin":4,
+    "MipMap_margin":1,          // 4
+    "num_reductions":4,
+    "gaussian_size":3,
     "":"",
     "":"",
     "":"",

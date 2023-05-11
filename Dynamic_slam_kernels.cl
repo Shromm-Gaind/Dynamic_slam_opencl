@@ -114,6 +114,59 @@ __kernel void cvt_color_space(
 	 *     0								if R=G=B
 	 */
 }
+
+__kernel void cvt_color_space_linear(										// Writes the first entry in a linear mipmap
+	__global	uchar*	base,			//0
+	__global	float4*	img,			//1
+	__constant	uint*	uint_params		//2
+		 )
+{																			// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
+	int global_id 	= (int)get_global_id(0);
+	uint pixels 	= uint_params[PIXELS];
+	if (global_id > pixels) return;
+	
+	uint cols 		= uint_params[COLS];
+	uint margin 	= uint_params[MARGIN];
+	uint mm_cols	= uint_params[MM_COLS];
+
+	float R_float	= base[global_id*3]  /256.0f;
+	float G_float	= base[global_id*3+1]/256.0f;
+	float B_float	= base[global_id*3+2]/256.0f;
+	
+	float V = max(R_float, max(G_float, B_float) ); 
+	
+	float min_rgb =	min(R_float, min(G_float, B_float));
+	float divisor = V - min_rgb;
+	
+	float S = (V!=0)*(V-min_rgb)/V;
+	
+	float H = (   (V==R_float && V!=0)* (60*(G_float-B_float) / divisor )      \
+	 +     (V==G_float && V!=0)*( 120 + (60*(B_float-R_float) / divisor ))	\
+	 +     (V==B_float && V!=0)*( 240 + (60*(R_float-G_float) / divisor ))	\
+	 ) / 360;
+	
+	 if (!(H<=1.0 && H>=0.0) || !(S<=1.0 && S>=0.0) || !(V<=1.0 && V>=0.0) ) {H=S=V=0;} ; // to replace any NaNs
+	 
+	uint base_row	= global_id/cols ;
+	uint base_col	= global_id%cols ;
+	uint img_row	= base_row + margin;
+	uint img_col	= base_col + margin;
+	uint img_index	= img_row*(cols + 2*margin) + img_col;   								// NB here use cols not mm_cols
+	
+	float4 temp_float4  = {H,S,V,0};											// Note how to load a float4 vector.
+	img[img_index   ] = temp_float4;
+
+	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
+	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
+	 * V = max(R,G,B)
+	 * S = (0, if V=0), otherwise (V-min(RGB))/V
+	 * H = 60(G-B)/(V-min(R,G,B)  			if V=R
+	 *     120 + 60(B-R)/(V-min(R,G,B))		if V=G
+	 *     240 + 60(R-G)/(V-min(R,G,B))		if V=B
+	 *     0								if R=G=B
+	 */
+}
+
 /*
 __kernel void mipmap(
 	__global	float4*	img,			//0
@@ -240,6 +293,67 @@ __kernel void mipmap_flt(																											// Nvidia Geforce GPUs canno
 	img[ write_index] = reduced_pixel;
 }
 
+__kernel void mipmap_linear_flt(																							// Nvidia Geforce GPUs cannot use "half"
+	__global float4*	img,			//0
+	__global float* 	gaussian,		//1
+	__global uint*		uint_params,	//2
+	__global uint*		mipmap_params,	//3
+	__local	 float4*	local_img_patch //4
+		 )
+{
+	float global_id 	= get_global_id(0);
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint patch_length	= group_size+2;
+	
+	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
+	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET]; // = read_offset_ + read_cols_*read_rows for linear MipMap.
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= (read_cols_  + 2*margin ); // uint_params[MM_COLS];
+	
+	uint read_row    = 2*global_id/write_cols_;
+	uint read_column = 2*fmod(global_id,write_cols_);
+	
+	uint write_row    = global_id/write_cols_;
+	uint write_column = fmod(global_id,write_cols_);
+	/*
+	uint read_index 	= read_offset_  + 1*( read_row*mm_cols  + read_column  );	// NB 4 channels.
+	uint write_index 	= write_offset_ + 1*( write_row*mm_cols + write_column );
+	*/
+	uint read_index 	= read_offset_  +  read_row  * read_cols_  + read_column  ;	// NB 4 channels.
+	uint write_index 	= write_offset_ +  write_row * write_cols_ + write_column ;
+	
+	for (int i=0; i<3; i++){																								// Load local_img_patch
+		local_img_patch[lid+1 + i*patch_length] = img[ read_index +i*mm_cols];
+	}
+	if (lid==0){
+		for (int i=0; i<3; i++){
+			local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -1];
+		}
+	}
+	if (lid==group_size-1){
+		for (int i=0; i<3; i++){
+			local_img_patch[lid+2 + i*patch_length] = img[ read_index +i*mm_cols +1];
+		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);																							// fence between write & read local mem
+	float4 reduced_pixel = 0;
+	for (int i=0; i<3; i++){
+		for (int y=0; y<3; y++){
+			reduced_pixel += local_img_patch[lid+y + i*patch_length]/9;														// 3x3 box filter, rather than Gaussian
+		}
+	}
+	if (global_id > mipmap_params[MiM_PIXELS]) return;								// for Intel GPU all threads must reach barrier (above).
+	img[ write_index] = reduced_pixel;
+	/*
+	if (global_id==1) printf("\n global_id==1, mipmap_params[MiM_PIXELS]=%u , read_index=%u , read_offset_=%u , read_row=%u  , read_cols_=%u  , read_column=%u , write_index=%u ,  write_offset_=%u , write_row=%u , write_cols_=%u , write_column=%u ", \
+		mipmap_params[MiM_PIXELS], read_index , read_offset_ , read_row  , read_cols_  , read_column , write_index, write_offset_ , write_row , write_cols_ , write_column  );
+	*/
+}
+
 
 __kernel void  img_grad(
 	__global 	float4*	img,			//0 
@@ -255,11 +369,26 @@ __kernel void  img_grad(
 	 if (x > uint_params[MM_PIXELS]) return;
 	 
 	 float4 img_pvt 	= img[x];							// required to make data in float4 accessible the kernel. 
+	 uint px_per_layer	= uint_params[ROWS] * uint_params[COLS];
+	 uint layer_thresh	= px_per_layer;
 	 int rows 			= uint_params[MM_ROWS];
 	 int cols 			= uint_params[MM_COLS];
 	 float alphaG		= fp32_params[ALPHA_G];
 	 float betaG 		= fp32_params[BETA_G];
 
+	 
+	 bool level[5];
+	 uint layer_offset = 0;
+	 
+	 for (int i=1; i<5; i++){
+		 if(global_id_u < layer_thresh) break;
+		 layer_offset	+=layer_thresh;
+		 rows			/=2;
+		 cols			/=2;
+		 px_per_layer	/=2;
+		 layer_thresh	+=px_per_layer;
+	 }
+	 x -= layer_offset;
 	 int y = x / cols;
 	 x = x % cols;
 	 int min = 10*cols + cols/2;
@@ -269,7 +398,7 @@ __kernel void  img_grad(
 	 int dnoff		= (y < rows-1) * cols;
      int lfoff		= -(x != 0);
 	 int rtoff		= (x < cols-1);
-	 uint offset	= x + y * cols;
+	 uint offset	= x + y * cols + layer_offset;
 	 
 	 float4 pu, pd, pl, pr;									// rho, photometric difference: up, down, left, right, of grayscale ref image.
 	 pr =  img[offset + rtoff];								// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
@@ -290,7 +419,6 @@ __kernel void  img_grad(
 	 gxp[offset]= gx;
 	 gyp[offset]= gy;
 }
-
 
 
 __kernel void comp_param_maps(

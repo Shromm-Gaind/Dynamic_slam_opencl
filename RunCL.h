@@ -95,7 +95,7 @@ public:
 	cl_command_queue				m_queue, uload_queue, dload_queue, track_queue; // queue[4]; //
 	cl_program						m_program;
 	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
-	cl_kernel						cvt_color_space_kernel, mipmap_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_kernel						cvt_color_space_kernel, cvt_color_space_linear_kernel, mipmap_kernel, mipmap_linear_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf, depth_mem; // mem[14]; // NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem							k2kbuf, half_param_buf, /*fp16_param_buf,*/ fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, param_map_mem;
 	
@@ -119,7 +119,7 @@ public:
 	//cl_half				cl_half_k2k[16]			= { cl_half(0) };
 	
 	int 				frame_num;
-	uint 				mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
+	uint 				mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
 	int 				width, height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
@@ -131,6 +131,8 @@ public:
 	void saveCostVols(float max_range);
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show );
+	void DownloadAndSave_3Channel_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
+	//void DownloadAndSave_3Channel_linear_rawMipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, uint num_reductions, bool show );
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
 	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q );
@@ -150,7 +152,8 @@ public:
 	void predictFrame();
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();
-	void mipmap(uint num_reductions, uint gaussian_size);
+	//void mipmap(uint num_reductions, uint gaussian_size);
+	void mipmap_linear(uint num_reductions, uint gaussian_size);
 	void img_gradients();
 	
 	void loadFrameData();
