@@ -21,11 +21,7 @@
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
 
-//#define PIXELS			0	// fp16_params indices
-//#define ROWS				1	// TODO Can these be #included from a common header for both host and device code?
-//#define COLS				2
-//#define LAYERS				3
-#define MAX_INV_DEPTH		0	// fp32_params indices
+#define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
 #define ALPHA_G				3
@@ -37,90 +33,48 @@
 #define LAMBDA				9	//  __kernel void UpdateA2
 #define SCALE_EAUX			10
 
-#define PIXELS				0	// uint_params indices
-#define ROWS				1
+#define PIXELS				0	// uint_params indices, 		when launching one kernel per layer. 	Constant throughout program run.
+#define ROWS				1	// baseimage
 #define COLS				2
 #define LAYERS				3
 #define MARGIN				4
-#define MM_PIXELS			5
-#define MM_ROWS				6
+#define MM_PIXELS			5	// whole mipmap
+#define MM_ROWS				6	
 #define MM_COLS				7
 
-#define MiM_PIXELS			0	// MipMap uint params
-#define MiM_READ_OFFSET		1
+#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer.
+#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data
 #define MiM_WRITE_OFFSET	2
-#define MiM_READ_COLS		3
+#define MiM_READ_COLS		3	// cols without margins
 #define MiM_WRITE_COLS		4
-#define MiM_GAUSSIAN_SIZE	5
+#define MiM_GAUSSIAN_SIZE	5	// filter box size
 
-/*
-#define BASE_MEM 			0	// device memory buffers
-#define IMG_MEM				1
-#define CDATA_BUF			2
-#define HDATA_BUF			3
-#define K2K_BUF				4
-#define D_MEM				5
-#define A_MEM				6
-#define BASEGRAY_MEM		7
-#define GX_MEM				8
-#define GY_MEM				9
-#define LO_MEM				10
-#define HI_MEM				11
-#define PARAM_BUF			12
-#define IMG_SUM_BUF			13
-#define NUM_MEM_BUFS		13
-
-#define COST_KERNEL			0	// kernels
-#define CACHE_KERNEL		1
-#define UPDATE_QD_KERNEL	2
-#define UPDATE_A_KERNEL		3
-#define NUM_KERNELS			3
-
-#define M_QUEUE				0	// comman queues
-#define ULOAD_QUEUE			1
-#define DLOAD_QUEUE			2
-#define TRACK_QUEUE			3
-#define NUM_COMMAND_QUEUES	3
-*/
 using namespace std;
 class RunCL
 {
 public:
 	Json::Value 		obj;
 	int					verbosity;
-	
 	std::vector<cl_platform_id> 	m_platform_ids;
-	cl_context						m_context;
-	cl_device_id					m_device_id;
-	cl_command_queue				m_queue, uload_queue, dload_queue, track_queue; // queue[4]; //
-	cl_program						m_program;
-	cl_kernel						cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel; // kern[4]; //
-	cl_kernel						cvt_color_space_kernel, cvt_color_space_linear_kernel, mipmap_kernel, mipmap_linear_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
-	cl_mem							basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf, depth_mem; // mem[14]; // NB 'depth_mem' is that used by tracking & auto-calibration.
-	cl_mem							k2kbuf, half_param_buf, /*fp16_param_buf,*/ fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, param_map_mem;
-	
-	//cl_event						;
-	
-	
+	cl_context			m_context;
+	cl_device_id		m_device_id;
+	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
+	cl_program			m_program;
+	cl_kernel			cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
+	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, mipmap_kernel, mipmap_linear_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_mem				basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem				k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, param_map_mem;
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
-	uint				uint_params[8] 		= {0};
-	/*
-	cv::float16_t 		fp16_params[16]		= { cv::float16_t(0) };
-	cv::float16_t 		fp16_k2k[16]		= { cv::float16_t(0) };
-	*/
-	float				fp32_params[16]		= { 0 };
-	float				fp32_k2k[16]		= { 0 };
-	
-	//cl_half				cl_half_params[16]		= { cl_half(0) };
-	//cl_half				cl_half_k2k[16]			= { cl_half(0) };
-	
+	uint				uint_params[8] 	= {0};
+	float				fp32_params[16]	= {0};
+	float				fp32_k2k[16]	= {0};
 	int 				frame_num;
 	uint 				mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
-	int 				width, height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
+	int 				baseImage_width, baseImage_height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
 
@@ -132,16 +86,13 @@ public:
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show );
 	void DownloadAndSave_3Channel_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
-	//void DownloadAndSave_3Channel_linear_rawMipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, uint num_reductions, bool show );
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
-	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q );
-	void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q);
+	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q);
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
-	
-	void computeSigmas(float epsilon, float theta, float L, cl_half       &sigma_d, cl_half       &sigma_q);
+	//void computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q);
 
-	void allocatemem();//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data);
+	void allocatemem();
 	void calcCostVol(float* k2k, cv::Mat &image);
 	void cacheGValue2(cv::Mat &bgray, float theta);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d);
@@ -322,7 +273,7 @@ public:
 	}
 
 	void ReadOutput(uchar* outmat) {
-		ReadOutput(outmat, amem,  (width * height * sizeof(float)) );
+		ReadOutput(outmat, amem,  (baseImage_width * baseImage_height * sizeof(float)) );
 	}
 
 	void ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0) {

@@ -1,7 +1,7 @@
 {
     "verbosity":1,                                                      // -1= none, 0=errors only, 1=basic, 2=lots.
     "imagesPerCV":7,
-    "max_frame_count":30,                                               // how many frames to run for. NB -1 -> run indefinitely.
+    "max_frame_count":1,//30,                                               // how many frames to run for. NB -1 -> run indefinitely.
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
     "":"",
     "out_path":"",                                                      // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
@@ -20,7 +20,8 @@
     "min_depth":70.0,           //70.0;//3289.0;
     "occlusionThreshold":0.05,
     "startAt":0,
-    "":"",//"max_opt_count":60,
+    "":"",                      //
+    "max_opt_count":60,
     "":"",
     "initialCost":1.0,          //3.0,
     "initialWeight":0.0000001,  // 0.00006103515625 smallest positive normal number in FP16

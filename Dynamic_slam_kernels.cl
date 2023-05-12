@@ -34,7 +34,7 @@
 #define margin_			15
 */
 
-#define MAX_INV_DEPTH		0	// fp32_params indices
+#define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
 #define ALPHA_G				3
@@ -46,21 +46,21 @@
 #define LAMBDA				9	//  __kernel void UpdateA2
 #define SCALE_EAUX			10
 
-#define PIXELS				0	// uint_params indices
-#define ROWS				1	
+#define PIXELS				0	// uint_params indices, 		when launching one kernel per layer. 	Constant throughout program run.
+#define ROWS				1	// baseimage
 #define COLS				2
 #define LAYERS				3
 #define MARGIN				4
-#define MM_PIXELS			5
+#define MM_PIXELS			5	// whole mipmap
 #define MM_ROWS				6	
 #define MM_COLS				7
 
-#define MiM_PIXELS			0	// for mipmap_buf
-#define MiM_READ_OFFSET		1
+#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer.
+#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data
 #define MiM_WRITE_OFFSET	2
-#define MiM_READ_COLS		3
+#define MiM_READ_COLS		3	// cols without margins
 #define MiM_WRITE_COLS		4
-#define MiM_GAUSSIAN_SIZE	5
+#define MiM_GAUSSIAN_SIZE	5	// filter box size
 
 
 __kernel void cvt_color_space(
@@ -301,30 +301,29 @@ __kernel void mipmap_linear_flt(																							// Nvidia Geforce GPUs ca
 	__local	 float4*	local_img_patch //4
 		 )
 {
-	float global_id 	= get_global_id(0);
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+2;
 	
 	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
 	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET]; // = read_offset_ + read_cols_*read_rows for linear MipMap.
+	
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
 	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
-	uint gaussian_size_ = mipmap_params[MiM_GAUSSIAN_SIZE];
+	
 	uint margin 		= uint_params[MARGIN];
-	uint mm_cols		= (read_cols_  + 2*margin ); // uint_params[MM_COLS];
+	uint mm_cols		= uint_params[MM_COLS];   // whole mipmap                       // = (read_cols_  + 2*margin ); // uint_params[MM_COLS];
 	
-	uint read_row    = 2*global_id/write_cols_;
-	uint read_column = 2*fmod(global_id,write_cols_);
+	uint write_row   	= global_id_u / write_cols_ ;			//  global_id/write_cols_;	gentype fract(gentype x, __private gentype *iptr)
+	uint write_column 	= fmod(global_id_flt, write_cols_);
 	
-	uint write_row    = global_id/write_cols_;
-	uint write_column = fmod(global_id,write_cols_);
-	/*
-	uint read_index 	= read_offset_  + 1*( read_row*mm_cols  + read_column  );	// NB 4 channels.
-	uint write_index 	= write_offset_ + 1*( write_row*mm_cols + write_column );
-	*/
-	uint read_index 	= read_offset_  +  read_row  * read_cols_  + read_column  ;	// NB 4 channels.
-	uint write_index 	= write_offset_ +  write_row * write_cols_ + write_column ;
+	uint read_row    	= 2*write_row;
+	uint read_column 	= 2*write_column;
+	
+	uint read_index 	= read_offset_  +  read_row  * (read_cols_+2*margin)  + read_column  ;		// NB 4 channels.
+	uint write_index 	= write_offset_ +  write_row * (write_cols_+margin) + write_column ;
 	
 	for (int i=0; i<3; i++){																								// Load local_img_patch
 		local_img_patch[lid+1 + i*patch_length] = img[ read_index +i*mm_cols];
@@ -346,12 +345,12 @@ __kernel void mipmap_linear_flt(																							// Nvidia Geforce GPUs ca
 			reduced_pixel += local_img_patch[lid+y + i*patch_length]/9;														// 3x3 box filter, rather than Gaussian
 		}
 	}
-	if (global_id > mipmap_params[MiM_PIXELS]) return;								// for Intel GPU all threads must reach barrier (above).
+	if (global_id_u > mipmap_params[MiM_PIXELS]) return;	// num pixels to b written & num threads to really use.				// for Intel GPU all threads must reach barrier (above).
 	img[ write_index] = reduced_pixel;
-	/*
-	if (global_id==1) printf("\n global_id==1, mipmap_params[MiM_PIXELS]=%u , read_index=%u , read_offset_=%u , read_row=%u  , read_cols_=%u  , read_column=%u , write_index=%u ,  write_offset_=%u , write_row=%u , write_cols_=%u , write_column=%u ", \
-		mipmap_params[MiM_PIXELS], read_index , read_offset_ , read_row  , read_cols_  , read_column , write_index, write_offset_ , write_row , write_cols_ , write_column  );
-	*/
+	
+	// (global_id==0 || global_id==1)
+	if (write_column<2 && write_row<4) printf("\n global_id=%u, mipmap_params[MiM_PIXELS]=%u , read_index=%u , read_row=%u , read_column=%u , write_index=%u , write_row=%u , write_column=%u ,     read_offset_=%u , read_cols_=%u  ,  write_offset_=%u , write_cols_=%u , margin=%u , mm_cols=%u", \
+												  global_id_u,    mipmap_params[MiM_PIXELS],     read_index ,    read_row  ,   read_column ,    write_index,     write_row ,    write_column ,        read_offset_ ,    read_cols_  ,     write_offset_ ,    write_cols_ ,    margin ,    mm_cols );
 }
 
 
