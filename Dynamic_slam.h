@@ -5,29 +5,40 @@
 #include <fstream>
 #include <set>
 
-//#include "utils/utils.hpp"
 #include "RunCL.h"
+
+#define BOOST_FILESYSTEM_VERSION          3
+#define BOOST_FILESYSTEM_NO_DEPRECATED 
+
+#define Rx	0
+#define Ry  1
+#define Rz	2
+#define Tx	3
+#define Ty	4
+#define Tz	5
 
 namespace fs = ::boost::filesystem;
 
 class Dynamic_slam
 {
-public:
+  public:
     ~Dynamic_slam();
-    Dynamic_slam(
-        Json::Value obj_
-    );
+    Dynamic_slam( Json::Value obj_ );
     
     Json::Value obj;
     RunCL runcl;
     int verbosity;
     
-    cv::Mat image, R, T, d, cameraMatrix;
+    // camera & pose params
+    cv::Matx44f K, inv_K, pose, inv_pose;
+    cv::Mat image, R, T, d, cameraMatrix, projection;
+        
+    // lens distortion params
+    
+    
     // image parameters
     cv::Size    base_image_size;
     int         base_image_type;
-    
-    
     
     
     // data files
@@ -42,6 +53,8 @@ public:
     void predictFrame();
     void getFrame();
     void getFrameData();
+    void generate_invK();
+    void generate_SO3_k2k( float _SO3_k2k[96] );
     void estimateSO3();
     void estimateSE3();
     void estimateCalibration();
@@ -51,37 +64,32 @@ public:
     void ExhaustiveSearch();
     
     void getResult();
-    
-    
-    #define BOOST_FILESYSTEM_VERSION 3
-#define BOOST_FILESYSTEM_NO_DEPRECATED 
-// return the filenames of all files that have the specified extension
-// in the specified directory and all subdirectories
-void get_all(const fs::path& root , const string& ext, vector<fs::path>& ret )
-{  
-  if (!fs::exists(root))        return;
-  if (fs::is_directory(root))   {
-    typedef std::set<boost::filesystem::path> Files;
-    Files files;
-    fs::recursive_directory_iterator it0(root);
-    fs::recursive_directory_iterator endit0;
-    std::copy(it0, endit0, std::inserter(files, files.begin()));
-    Files::iterator it= files.begin();
-    Files::iterator endit= files.end();
-    
-    while(it != endit)
-    {
-      if (fs::is_regular_file(*it) && (*it).extension() == ext)
-      {
-        ret.push_back(*it);
+  
+    // return the filenames of all files that have the specified extension
+    // in the specified directory and all subdirectories
+    void get_all(const fs::path& root , const string& ext, vector<fs::path>& ret ) {  
+      if (!fs::exists(root))        return;
+      if (fs::is_directory(root))   {
+        typedef std::set<boost::filesystem::path> Files;
+        Files files;
+        fs::recursive_directory_iterator it0(root);
+        fs::recursive_directory_iterator endit0;
+        std::copy(it0, endit0, std::inserter(files, files.begin()));
+        Files::iterator it= files.begin();
+        Files::iterator endit= files.end();
+        
+        while(it != endit)
+        {
+          if (fs::is_regular_file(*it) && (*it).extension() == ext)
+          {
+            ret.push_back(*it);
+          }
+          ++it;
+        }
       }
-      ++it;
     }
-  }
-}
-    
     //void get_all(fs::path& root, const string& ext, vector<fs::path>& ret);
     
-private:
-    
+  private:
+
 };

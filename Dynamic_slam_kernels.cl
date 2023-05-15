@@ -195,7 +195,6 @@ __kernel void  img_grad(
 	
 	uint read_row    	= global_id_u / read_cols_;
 	uint read_column 	= fmod(global_id_flt, read_cols_);
-	
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;						// NB 4 channels.  + margin
 	
 	/// adapted
@@ -232,14 +231,15 @@ __kernel void  img_grad(
 __kernel void compute_param_maps(
 	__constant 	uint*	uint_params,	//0
 	__constant 	float*	fp32_params,	//1
-	__global 	uint*	mipmap_params,	//2
-	__global 	float* 	k2k,			//3
+	__global 	float* 	k2k,			//2
+	__global 	uint*	mipmap_params,	//3
 	__global 	float* 	depth_map,		//4
 	__global 	float*	param_map		//5
 		 )
 {
-	float global_id 	= get_global_id(0);
-	if (global_id > mipmap_params[MiM_PIXELS]) return;
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	
 	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
@@ -247,15 +247,15 @@ __kernel void compute_param_maps(
 	
 	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	
-	uint read_row		= 2*global_id/write_cols_;
-	uint read_column	= 2*fmod(global_id,write_cols_);
-	uint read_index 	= read_offset_  + 1*( read_row*mm_cols  + read_column  );	//TODO NB 4 channels.
+	uint read_row    	= global_id_u / read_cols_;
+	uint read_column 	= fmod(global_id_flt, read_cols_);
+	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;	//TODO NB 4 channels.
 	
-// SE3 
+	// SE3 
 	// Rotate 0.001 radians i.e 0.0573  degrees
 	// Translate 0.001 'units' of distance 
 	const float delta_theta = 0.001;
@@ -265,7 +265,7 @@ __kernel void compute_param_maps(
 	
 	const float Rx[9] = {1.0, 0.0, 0.0,					0.0, cos_theta, -sin_theta, 		0.0, sin_theta, cos_theta	};
 	const float Ry[9] = {cos_theta, 0.0, sin_theta,		0.0, 1.0, 0.0, 						-sin_theta, 0, cos_theta	};
-	const float Rz[9] = {cos_theta, -sin_theta, 0.0, 	sin_theta, cos_theta, 				0.0, 	0.0, 0.0, 1.0		};
+	const float Rz[9] = {cos_theta, -sin_theta, 0.0, 	sin_theta, cos_theta, 0.0, 			0.0, 0.0, 1.0				};
 	
 	const float Tx[16] = {1,0,0,delta, 	0,1,0,0,		0,0,1,0,		0,0,0,1};
 	const float Ty[16] = {1,0,0,0, 		0,1,0,delta,	0,0,1,0,		0,0,0,1};
@@ -280,6 +280,8 @@ __kernel void compute_param_maps(
 	
 	
 	float reduced_pixel; // TODO how many channels ?
+	
+	if (global_id_u > mipmap_params[MiM_PIXELS]) return;
 	param_map[read_index] = reduced_pixel;
 	
 }

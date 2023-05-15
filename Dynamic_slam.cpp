@@ -116,6 +116,134 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	
 }
 
+void Dynamic_slam::generate_invK(){ // TODO hack this to work here 
+	K = K.zeros();																			// NB currently "cameraMatrix" found by convertAhandPovRay, called by fileLoader
+	for (int i=0; i<9; i++) K.operator()(i/3,i%3) = _cameraMatrix.at<float>(i/3,i%3);		// TODO later, restructure mainloop to build costvol continuously...
+	K.operator()(3,3)  = 1;
+																							if(verbosity>1) {
+																								cv::Matx44f test_pose = pose * inv_pose;
+																								cout<<"\n\ninv_pose\n";									// Verify inv_pose:////////////////////////////////////////////////////
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<inv_pose.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								cout<<"\n\ntest_pose inversion: pose * inv_pose;\n";
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<test_pose.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								cout<<"\n\ntest_pose inversion: inv_pose * pose;\n";
+																								test_pose = inv_pose * pose;
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<test_pose.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								for (int i=0; i<9; i++) {
+																									cout<<"\ni="<<i<<","<<flush;
+																									cout<<"\tK.operator()(i/3,i%3)="<<K.operator()(i/3,i%3)<<","<<flush;
+																									cout<<"\tcameraMatrix.at<float>(i/3,i%3)="<<_cameraMatrix.at<float>(i/3,i%3)<<","<<flush;
+																								}
+																							}
+																							if(verbosity>0) cout << "\n\nCostVol_chk 4\n" << flush;
+	float fx   =  K.operator()(0,0);
+	float fy   =  K.operator()(1,1);
+	float skew =  K.operator()(0,1);
+	float cx   =  K.operator()(0,2);
+	float cy   =  K.operator()(1,2);														if(verbosity>0) {
+																								cout<<"\nfx="<<fx <<"\nfy="<<fy <<"\nskew="<<skew <<"\ncx="<<cx <<"\ncy= "<<cy;
+																								cout << "\n\nCostVol_chk 5\n" << flush;
+																							}
+	///////////////////////////////////////////////////////////////////// Inverse camera intrinsic matrix, see:
+	// https://www.imatest.com/support/docs/pre-5-2/geometric-calibration-deprecated/projective-camera/#:~:text=Inverse,lines%20from%20the%20camera%20center.
+	inv_K = inv_K.zeros();
+	inv_K.operator()(0,0)  = 1.0/fx;  cout<<"\n1.0/fx="<<1.0/fx;
+	inv_K.operator()(1,1)  = 1.0/fy;  cout<<"\n1.0/fy="<<1.0/fy;
+	inv_K.operator()(2,2)  = 1.0;
+	inv_K.operator()(3,3)  = 1.0;
+
+	inv_K.operator()(0,1)  = -skew/(fx*fy);
+	inv_K.operator()(0,2)  = (cy*skew - cx*fy)/(fx*fy);
+	inv_K.operator()(1,2)  = -cy/fy;
+																							if(verbosity>1) {
+																								cv::Matx44f test_K = inv_K * K;
+																								cout<<"\n\ntest_camera_intrinsic_matrix inversion\n";	// Verify inv_K:
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<test_K.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								std::cout << std::fixed << std::setprecision(-1);		// Inspect values in matricies ///////
+																								cout<<"\n\npose\n";
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<pose.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								cout<<"\n\ninv_pose\n";
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<inv_pose.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								cout<<"\n\nK\n";
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<K.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+
+																								cout<<"\n\ninv_K\n";
+																								for(int i=0; i<4; i++){
+																									for(int j=0; j<4; j++){
+																										cout<<"\t"<< std::setw(5)<<inv_K.operator()(i,j);
+																									}cout<<"\n";
+																								}cout<<"\n";
+																							}
+	
+	
+}
+
+void Dynamic_slam::generate_SO3_k2k(float _SO3_k2k[6*16])
+{
+	// SE3 
+	// Rotate 0.001 radians i.e 0.0573  degrees
+	// Translate 0.001 'units' of distance 
+	const float delta_theta = 0.001;
+	const float delta 	  	= 0.001;
+	const float cos_theta   = cos(delta_theta);
+	const float sin_theta   = sin(delta_theta);
+	
+	cv::Matx44f transform[6];
+	
+	transform[Rx] = cv::Matx44f(1,         0,          0,          0,				0,         cos_theta, -sin_theta, 0,				0,           sin_theta, cos_theta, 0,				0, 0, 0, 1);
+	transform[Ry] = cv::Matx44f(cos_theta, 0,          sin_theta,  0,				0,         1,         0,          0,				-sin_theta,  0,         cos_theta, 0,				0, 0, 0, 1);
+	transform[Rz] = cv::Matx44f(cos_theta, -sin_theta, 0,          0, 				sin_theta, cos_theta, 0,          0,				0,           0,         1,         0,				0, 0, 0, 1);
+	
+	transform[Tx] = cv::Matx44f(1,0,0,delta, 	0,1,0,0,		0,0,1,0,		0,0,0,1);
+	transform[Ty] = cv::Matx44f(1,0,0,0, 		0,1,0,delta,	0,0,1,0,		0,0,0,1);
+	transform[Tz] = cv::Matx44f(1,0,0,0, 		0,1,0,0,		0,0,1,delta,	0,0,0,1);
+	
+	cv::Matx44f cam2cam[6];
+	for (int i=0; i<6; i++) { cam2cam[i] = K*transform[i]*inv_K; }		// cam2cam pixel transform, NB requires Pixel=(u,v,1,1/z)^T
+	
+	for (int i=0; i<6; i++) {
+		for (int row=0; row<4; row++) {
+			for (int col; col<4; col++){
+				_SO3_k2k[i*16 + row] 	= cam2cam[i].operator()(row,col);
+			}
+		}
+	}
+}
+
 
 void Dynamic_slam::estimateSO3()
 {
