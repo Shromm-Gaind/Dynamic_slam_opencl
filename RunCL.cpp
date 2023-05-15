@@ -169,21 +169,18 @@ RunCL::RunCL(Json::Value obj_)
 		exit_(status);
 	}
 	
-	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);					/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
+	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);				/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
 	//cache3_kernel   = clCreateKernel(m_program, "CacheG3", 			NULL);
 	//updateQD_kernel = clCreateKernel(m_program, "UpdateQD", 			NULL);
 	//updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 			NULL);
-	
-	cvt_color_space_kernel 			= clCreateKernel(m_program, "cvt_color_space", 				NULL);		// New kernels
+																											// New kernels
 	cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
-	mipmap_kernel					= clCreateKernel(m_program, "mipmap_flt", 					NULL);		// mipmap
 	mipmap_linear_kernel			= clCreateKernel(m_program, "mipmap_linear_flt", 			NULL);
 	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					NULL);
-	comp_param_maps_kernel			= clCreateKernel(m_program, "comp_param_maps", 				NULL);
+	comp_param_maps_kernel			= clCreateKernel(m_program, "compute_param_maps", 			NULL);
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
-
 	
-	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
+	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem=gymem=g1mem=lomem=himem=0;			// set device pointers to zero
 																							if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
 }
 
@@ -349,283 +346,6 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			cv::imwrite(folder_png.string(), (outMat) );
 		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
 }
-/*
-void RunCL::DownloadAndSave_3Channel_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show=false ){
-	int local_verbosity_threshold = 0;
-	boost::filesystem::path 	folder_png = folder_tiff;
-	stringstream png_ss;
-	png_ss		<<"/png/"<<folder_tiff.filename().string()<<"_"<<count;
-	folder_png  += png_ss.str();
-	folder_png  += "_raw0.png";
-	
-	uint 		rows			= baseImage_height;
-	uint 		cols			= baseImage_width;
-	uint read_cols_with_margin 	= mm_width ;
-	
-	cv::Size	size_tempMat	= cv::Size(mm_width, mm_height);
-	cv::Mat 	tempMat			= cv::Mat::zeros (size_tempMat, type_mat);
-	uint 		size_mat_raw	= mm_height*mm_width * 4 * sizeof(float);
-	
-	cv::Size	size_tempMat2	= cv::Size(mm_width*1.5, mm_height);					// space to display mipmap in single image
-	cv::Mat 	tempMat2		= cv::Mat::zeros (size_tempMat2, type_mat);
-	
-	uint 		start_rows		= 0;
-	uint 		start_cols		= 0;
-	uint 		offset			= 0; //mm_margin*mm_width * 4 * sizeof(float);
-	
-	cv::Range 	rowRange (start_rows  ,  rows) ; 
-	cv::Range 	colRange (start_cols  ,  cols) ;
-	
-	ReadOutput(tempMat.data, buffer, size_mat_raw, offset);
-	
-	cv::Mat 	subMat			= tempMat2(rowRange, colRange);
-	tempMat.copyTo(subMat);
-	
-	tempMat *= 256;
-	std::vector<cv::Mat> matChannels;
-	cv::split(tempMat, matChannels);
-	matChannels.at(3)=255;
-	cv::merge(matChannels, tempMat);
-	tempMat.convertTo(tempMat, CV_8U);
-																						if(verbosity>local_verbosity_threshold) cv::imwrite(folder_png.string(), tempMat);
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   chk_1"<<flush;
-	start_cols			= cols;
-	
-	for (int level = 0 ; level < 1; level++){  // mm_num_reductions
-		stringstream png_ss2 ;
-		png_ss2 << png_ss.str() << "_raw"<<level+1<<".png" ;
-		folder_png = folder_tiff;
-		folder_png  += png_ss2.str();
-		offset += rows*cols * 4 * sizeof(float);
-		rows /=2;
-		cols /=2;
-		size_mat_raw 	= rows*cols * 4 * sizeof(float);
-		size_tempMat 	= cv::Size(cols, rows);
-		tempMat			= cv::Mat::zeros (size_tempMat, type_mat);
-		
-		cv::Range 		rowRange(start_rows  ,  start_rows+rows) ; 
-		cv::Range 		colRange(start_cols  ,  start_cols+cols) ;
-		cv::Mat			subMat = tempMat2(rowRange, colRange);
-		
-		ReadOutput(tempMat.data, buffer, size_mat_raw, offset);
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   chk_2"<<flush;
-		tempMat.copyTo(subMat);
-		tempMat *= 256;
-		cv::split(tempMat, matChannels);
-		matChannels.at(3)=255;
-		cv::merge(matChannels, tempMat);
-		tempMat.convertTo(tempMat, CV_8U);
-																						if(verbosity>local_verbosity_threshold) cv::imwrite(folder_png.string(), tempMat);
-		start_rows		+= rows;
-	}
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   chk_3"<<flush;
-	tempMat2 *= 256;
-	cv::split(tempMat2, matChannels);
-	matChannels.at(3)=255;
-	cv::merge(matChannels, tempMat2);
-	tempMat2.convertTo(tempMat2, CV_8U);
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   chk_4"<<flush;
-	stringstream png_ss2 ;
-	png_ss2 << png_ss.str() << "_mipmap.png" ;
-	folder_png = folder_tiff;
-	folder_png  += png_ss2.str();
-	cv::imwrite(folder_png.string(), tempMat2);
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   chk_5"<<flush;
-	if(show==true)cv::imshow(folder_png.string(), tempMat2);
-																						if(verbosity>local_verbosity_threshold) cout<<"\n\n DownloadAndSave_3Channel_linear_rawMipmap   finished"<<flush;
-}
-*/
-/*
-void RunCL::DownloadAndSave_3Channel_linearMipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, uint num_reductions=4, bool show=false ){
-																				if(verbosity>0) cout<<"\n\nDownloadAndSave_3Channel_linearMipmap filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
-		boost::filesystem::path 	folder_png = folder_tiff, 	folder_png_sub = folder_tiff;
-		stringstream png_ss;
-		png_ss		<<"/"<<folder_tiff.filename().string()<<"_"<<count;
-		folder_png  += "/png/";
-		folder_png  += png_ss.str();
-		folder_png  += ".png";
-		
-		cv::Mat temp_mat 	= cv::Mat::zeros (size_mat, type_mat);
-		uint start_rows		= 0;
-		uint start_cols 	= 0;
-		uint rows			= baseImage_size.height;
-		uint cols 			= baseImage_size.width;
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk1"<<flush;}
-		cv::Range 	rowRange(start_rows  ,  rows) ; 
-		cv::Range 	colRange(start_cols  ,  cols) ;
-		cv::Mat 	subMat 				= temp_mat(rowRange, colRange);
-		uint 		subMat_dataSize 	= rows*cols * 4 * sizeof(float);
-		uint 		offset 				= 0;
-		int 		level				= 0;
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk2  level="<< level << ", "<<flush;}
-																				if(verbosity>0) {cout<<"\n\noffset="<<offset<<"  , rows="<<rows<<"   ,  cols="<<cols<<",    "<<flush;}
-																				if(verbosity>0) {cout<<"\n\nrowRange="<<rowRange.start<<", "<<rowRange.end <<"  , colRange="<<colRange.start<< ", "<<colRange.end <<",  subMat.total()="<<subMat.total()<<",  subMat_dataSize="<<subMat_dataSize<<flush;}
-																				
-		ReadOutput(subMat.data, buffer, subMat_dataSize, offset);
-		// cv::imshow("level_0", subMat);
-		// int k = cv::waitKey(0);
-		{
-			stringstream subMat_ss;
-			subMat_ss << png_ss.str();
-			subMat_ss << "level_" << level ;
-			cv::imshow(subMat_ss.str(), subMat);
-			//
-			folder_png_sub = folder_tiff;
-			folder_png_sub += subMat_ss.str();
-			//
-			cv::Mat subMat_copy;
-			subMat.copyTo(subMat_copy);
-			subMat_copy *= 256;
-			subMat_copy.convertTo(subMat_copy, CV_8U);
-			std::vector<cv::Mat> matChannels;
-			cv::split(subMat_copy, matChannels);
-			matChannels.at(3)=255;
-			cv::merge(matChannels, subMat_copy);
-			folder_png_sub += ".png";
-			cv::imwrite(folder_png_sub.string(), (subMat_copy) );
-			cout << "\nfolder_png_sub.string() = "<<folder_png_sub.string()<<"\n"<<flush;
-			//
-			//
-			cv::Mat outMat;
-			temp_mat.copyTo(outMat);
-			//subMat *= (256*(level+1)/(num_reductions+1) );					// set brightness by level.
-			subMat += ((level+1)/(num_reductions+1) );
-			outMat *= 256;
-			outMat.convertTo(outMat, CV_8U);
-			//
-			cv::split(outMat, matChannels);
-			matChannels.at(3)=255;
-			cv::merge(matChannels, outMat);
-			folder_png_sub = folder_tiff;
-			folder_png_sub += subMat_ss.str();
-			folder_png_sub += "_whole.png";
-			cv::imwrite(folder_png_sub.string(), (outMat) );
-		}
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk3"<<flush;}
-		start_cols = cols;
-		
-		for (level=1; level<num_reductions+1; level++){
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk4  level="<< level <<flush;}
-			offset += rows*cols;
-			rows /=2;
-			cols /=2;
-																				if(verbosity>0) {cout<<"\n\noffset="<<offset<<"  , rows="<<rows<<"   ,  cols="<<cols<<",   "<<flush;}
-			cv::Range 	rowRange(start_rows  ,  start_rows+rows) ; 
-			cv::Range 	colRange(start_cols  ,  start_cols+cols) ;
-			subMat 					= temp_mat(rowRange, colRange);
-			uint subMat_dataSize_ 	= rows*cols * 4 * sizeof(float);
-																				if(verbosity>0) {cout<<"\n\nrowRange="<<rowRange.start<<", "<<rowRange.end <<"  , colRange="<<colRange.start<< ", "<<colRange.end <<",  subMat.total()="<<subMat.total()<<",  subMat_dataSize="<<subMat_dataSize<<flush;}
-			ReadOutput(subMat.data, buffer, subMat_dataSize_, offset);
-			// / *
-			{
-				stringstream subMat_ss;
-				subMat_ss << png_ss.str() << "level_" << level << ".png";
-				cv::imshow(subMat_ss.str(), subMat);
-				int k = cv::waitKey(0);
-				folder_png_sub += subMat_ss.str();
-				
-				cv::Mat outMat;
-				std::vector<cv::Mat> matChannels;
-				cv::split(outMat, matChannels);
-				matChannels.at(3)=255;
-				cv::merge(matChannels, outMat);
-				cv::imwrite(folder_png.string(), (outMat) );
-			}
-			// * /
-			{
-				stringstream subMat_ss;
-				subMat_ss << png_ss.str();
-				subMat_ss << "level_" << level ;
-				cv::imshow(subMat_ss.str(), subMat);
-				//
-				folder_png_sub = folder_tiff;
-				folder_png_sub += subMat_ss.str();
-				//
-				cv::Mat subMat_copy;
-				subMat.copyTo(subMat_copy);
-				subMat_copy *= 256;
-				subMat_copy.convertTo(subMat_copy, CV_8U);
-				std::vector<cv::Mat> matChannels;
-				cv::split(subMat_copy, matChannels);
-				matChannels.at(3)=255;
-				cv::merge(matChannels, subMat_copy);
-				folder_png_sub += ".png";
-				cv::imwrite(folder_png_sub.string(), (subMat_copy) );
-				cout << "\nfolder_png_sub.string() = "<<folder_png_sub.string()<<"\n"<<flush;
-				///
-				cv::Mat outMat;
-				temp_mat.copyTo(outMat);
-				//subMat *= (256*(level+1)/(num_reductions+1) );					// set brightness by level.
-				
-				cv::Mat add_mat = cv::Mat::ones(subMat.size(), subMat.type() );
-				add_mat *= 0.4;//(level+1)/(num_reductions+1);
-				subMat  += add_mat;
-				outMat  *= 256;
-				outMat.convertTo(outMat, CV_8U);
-				//
-				cv::split(outMat, matChannels);
-				matChannels.at(3)=255;
-				cv::merge(matChannels, outMat);
-				folder_png_sub = folder_tiff;
-				folder_png_sub += subMat_ss.str();
-				folder_png_sub += "_whole.png";
-				cv::imwrite(folder_png_sub.string(), (outMat) );
-				cout << "\nfolder_png_sub.string() = "<<folder_png_sub.string()<<"\n"<<flush;
-			}
-			start_rows += rows;
-		}
-		int k = cv::waitKey(0);
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk5"<<flush;}
-		if (type_mat == CV_16FC3)	{temp_mat.convertTo(temp_mat, CV_32FC3); }	// NB conversion to FP32 req for cv::sum(..).
-																				if(verbosity>0) {cout<<"\n\nDownloadAndSave_3Channel_linearMipmap(..)_chk6"<<flush;}
-		
-		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
-		string 		type_string=checkCVtype(type_mat);
-		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
-		cv::Point 	minLoc[3]={{0,0},{0,0},{0,0}}, 		maxLoc[3]={{0,0},{0,0},{0,0}};
-		vector<cv::Mat> spl;
-		split(temp_mat, spl);													// process - extract only the correct channel
-		double max = 0;
-		for (int i =0; i < 3; ++i){
-			cv::minMaxLoc(spl[i], &minVal[i], &maxVal[i], &minLoc[i], &maxLoc[i]);
-			if (maxVal[i] > max) max = maxVal[i];
-		}
-		
-		stringstream ss;
-		ss<<"/"<<folder_tiff.filename().string()<<"_"<<count<<"_sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
-		folder_tiff += ss.str();
-		folder_tiff += ".tiff";
-		
-		if(show){
-			cv::Mat temp;
-			temp_mat.convertTo(temp, CV_8U);									// NB need CV_U8 for imshow(..)
-			cv::imshow( ss.str(), temp);
-		}
-		cv::Mat outMat;
-		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
-			cv::imwrite(folder_tiff.string(), temp_mat );
-			temp_mat *=256;
-			temp_mat.convertTo(outMat, CV_8U);
-			if (type_mat == CV_32FC4){
-				std::vector<cv::Mat> matChannels;
-				cv::split(outMat, matChannels);
-				matChannels.at(3)=255;
-				cv::merge(matChannels, outMat);
-			}
-			cv::imwrite(folder_png.string(), (outMat) );					// Has "Grayscale 16-bit gamma integer"
-		}else if (type_mat == CV_8UC3){
-			cv::imwrite(folder_tiff.string(), temp_mat );
-			cv::imwrite(folder_png.string(),  temp_mat );
-		}else if (type_mat == CV_16FC3) {									// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
-			temp_mat *=256;
-			cv::imwrite(folder_tiff.string(), temp_mat );
-			temp_mat.convertTo(outMat, CV_8UC3);
-			cv::imwrite(folder_png.string(), (outMat) );
-		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
-}
-*/
-
-
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
@@ -687,28 +407,17 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		if(show) cv::imshow( ss.str(), outMat );
 	}
 }
-/*
-void RunCL::computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q ){
-		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
-		sigma_d		= cv::float16_t( mu / (2.0/ theta)  );
-		sigma_q 	= cv::float16_t( mu / (2.0*epsilon) );
-}
-*/
+
 void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
 		sigma_d		=  mu / (2.0/ theta)  ;
 		sigma_q 	=  mu / (2.0*epsilon) ;
 }
-/*
-void RunCL::computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q ){
-		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
-		sigma_d		= cl_half( mu / (2.0/ theta)  );
-		sigma_q 	= cl_half( mu / (2.0*epsilon) );
-}
-*/
+
 void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::Mat &baseImage, float *cdata, float *hdata, float *img_sum_data)
 {
-																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk0\n\n" << flush;
+	int local_verbosity_threshold = 1;
+																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk0\n\n" << flush;
 																																		if(baseImage.empty()){cout <<"\nError RunCL::allocatemem() : runcl.baseImage.empty()"<<flush; exit(0); }
 	stringstream 		ss;
 	ss << "allocatemem";
@@ -739,21 +448,21 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cv::Mat temp2(mm_height, mm_width, CV_32FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
-																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk1\n\n" << flush;
 																																		// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
-	status = clGetKernelWorkGroupInfo(cvt_color_space_kernel, deviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local_work_size), &local_work_size, NULL); 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
-																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk1.1,\t local_work_size="<< local_work_size <<"\n\n" << flush;
+	status = clGetKernelWorkGroupInfo(cvt_color_space_linear_kernel, deviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local_work_size), &local_work_size, NULL); 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk1.1,\t local_work_size="<< local_work_size <<"\n\n" << flush;
 																																		// Number of total work items, calculated here after 1st image is loaded &=> know the size.
 																																		// NB localSize must be devisor
 																																		// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
 	global_work_size 	= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
 	mm_global_work_size = ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
-																																		if(verbosity>0){ 
+																																		if(verbosity>local_verbosity_threshold){ 
 																																			cout << "\n\nRunCL::allocatemem_chk1.2,\t global_work_size="<<global_work_size<<",\t mm_global_work_size="<<mm_global_work_size <<"\n" << flush;
 																																			cout << "layerstep="<<layerstep <<",\t mm_layerstep"<< mm_layerstep<<"\n\n" << flush;
 																																		}
 																																		//local_work_size=32; // trial for nvidia
-																																		if(verbosity>0){
+																																		if(verbosity>local_verbosity_threshold){
 																																			cout << "\n\nRunCL::allocatemem_chk2\n\n" << flush;
 																																			cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
 																																			cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
@@ -788,23 +497,17 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cdatabuf			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	hdatabuf 			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	img_sum_buf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 2 * mm_vol_size_bytes,0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
-	/*
-	//half_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	//fp16_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	//k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	*/
+	
 	fp32_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	uint_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	mipmap_buf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	/*
-	//gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * fp16_size,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
-	*/
+	
 	gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
 	
 	param_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-																																		if(verbosity>0) {
+																																		if(verbosity>local_verbosity_threshold) {
 																																			cout << "\n\nRunCL::allocatemem_chk3\n\n" << flush;
 																																			cout << ",dmem = " 			<< dmem << endl;
 																																			cout << ",amem = " 			<< amem << endl;
@@ -840,21 +543,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cv::Mat img_sum		= cv::Mat::zeros(costVolLayers, mm_height * mm_width, CV_32FC1);												//img_sum.convertTo(	img_sum,	temp.type() );
 	cv::Mat gxy			= cv::Mat::ones (mm_height, mm_width, CV_32FC4);
 																																		cout << "\n\nmm_vol_size_bytes="<<mm_vol_size_bytes<< ",\t cost.total()*cost.elemSize()="<< cost.total()*cost.elemSize() <<" .\n\n"<<flush; 
-																																		//cv::imshow("cost", cost); cv::waitKey(5000);
-	/*
-	fp16_params[MAX_INV_DEPTH]	= cv::float16_t( 1/obj["min_depth"].asFloat()		);													// This works: Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
-	fp16_params[MIN_INV_DEPTH]	= cv::float16_t( 1/obj["max_depth"].asFloat()		);
-				//INV_DEPTH_STEP	;
-	fp16_params[ALPHA_G]		= cv::float16_t(   obj["alpha_g"].asFloat()			);
-	fp16_params[BETA_G]			= cv::float16_t(   obj["beta_g"].asFloat()			);
-	fp16_params[EPSILON]		= cv::float16_t(   obj["epsilon"].asFloat()			);
-				//SIGMA_Q ;
-				//SIGMA_D ;
-	fp16_params[THETA]			= cv::float16_t(   obj["thetaStart"].asFloat()		);
-	fp16_params[LAMBDA]			= cv::float16_t(   obj["lambda"].asFloat()			);
-	fp16_params[SCALE_EAUX]		= cv::float16_t(   obj["scale_E_aux"].asFloat()		);
-	*/
-	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;													// This works: Initialize 'params[]' from conf.json . 
+	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																	// This works: Initialize 'params[]' from conf.json . 
 	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
 				//INV_DEPTH_STEP	;
 	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
@@ -865,44 +554,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	fp32_params[THETA]			=    obj["thetaStart"].asFloat()	;
 	fp32_params[LAMBDA]			=    obj["lambda"].asFloat()		;
 	fp32_params[SCALE_EAUX]		=    obj["scale_E_aux"].asFloat()	;
-																																		if(verbosity>0) cout <<"\n\nRunCL::allocatemem_chk3.8\n\n" << flush;
-	/* 
-	cl_half_params[MAX_INV_DEPTH]	= cl_half( 1/obj["min_depth"].asFloat()		);														// Does not work : Initialize 'params[]' from conf.json . # TODO ? separate 16 bit uint params ? to avoid floor() conversions.
-	cl_half_params[MIN_INV_DEPTH]	= cl_half( 1/obj["max_depth"].asFloat()		);
-	//INV_DEPTH_STEP	;
-	cl_half_params[ALPHA_G]			= cl_half(   obj["alpha_g"].asFloat()		);
-	cl_half_params[BETA_G]			= cl_half(   obj["beta_g"].asFloat()		);
-	cl_half_params[EPSILON]			= cl_half(   obj["epsilon"].asFloat()		);
-	//SIGMA_Q ;
-	//SIGMA_D ;
-	cl_half_params[THETA]			= cl_half(   obj["thetaStart"].asFloat()	);
-	cl_half_params[LAMBDA]			= cl_half(   obj["lambda"].asFloat()		);
-	cl_half_params[SCALE_EAUX]		= cl_half(   obj["scale_E_aux"].asFloat()	);
-	*/
-/*
-																																		if(verbosity>local_verbosity_threshold){
-																																			float test_float = 12.06;							// NB half has approximately 3 decimal significat figures, and +/-5 decimal orders of magnitude
-																																			cl_half test_half = cl_half(test_float);
-																																			cout << "\n\nTesting cl_half:"<<flush;
-																																			cout << "\ntest_float="<<test_float<<flush;
-																																			cout << "\ntest_half="<<test_half<<flush;
-																																			cout << "\nfloat(test_half)="<<float(test_half)<<flush;
-																																			test_half = test_float;
-																																			cout << "\ntest_half="<<test_half<<flush;
-																																			cout << "\n"<<flush;
-																																			test_half=cv::float16_t(test_float);
-																																			cout << "\ntest_half="<<test_half<<flush;
-																																			cv::float16_t test_cvfp16 = cv::float16_t(test_float);
-																																			cout << "\ntest_cvfp16="<<test_cvfp16<<flush;
-																																			cout << "\ntest_cvfp16="<<float(test_cvfp16)<<flush;
-																																			cout << "\n";
-																																			cout << "Oct content, test_float, test_half, test_cvfp16\n";
-																																			cout << std::oct << test_float << endl;
-																																			cout << std::oct << test_half << endl;
-																																			cout << std::oct << test_cvfp16 << endl;
-																																			cout << "\n\n"<<flush;
-																																		}
-*/
+																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk3.8\n\n" << flush;
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;
 	uint_params[COLS]			= 	baseImage_width ;
@@ -911,10 +563,10 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	uint_params[MM_PIXELS]		= 	mm_height * mm_width ;
 	uint_params[MM_ROWS]		= 	mm_height ;
 	uint_params[MM_COLS]		= 	mm_width ;
-																																		if(verbosity>0) cout <<"\n\nRunCL::allocatemem_chk3.9\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk3.9\n\n" << flush;
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																		//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
-																																		if(verbosity>0){
+																																		if(verbosity>local_verbosity_threshold){
 																																			cout << "\n\nChecking fp32_params[]";
 																																			cout << "\nfp32_params[0 MAX_INV_DEPTH]="	<<fp32_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
 																																			cout << "\nfp32_params[1 MIN_INV_DEPTH]="	<<fp32_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
@@ -928,57 +580,29 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << "\nfp32_params[9 LAMBDA]="			<<fp32_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
 																																			cout << "\nfp32_params[10 SCALE_EAUX]="		<<fp32_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
 																																			cout << "\n" << flush;
-																																			/*
-																																			cout << "\n\nChecking cl_half_params[]";
-																																			cout << "\ncl_half_params[MAX_INV_DEPTH]="	<<cl_half_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
-																																			cout << "\ncl_half_params[MIN_INV_DEPTH]="	<<cl_half_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
-																																			cout << "\ncl_half_params[INV_DEPTH_STEP]="	<<cl_half_params[INV_DEPTH_STEP];
-																																			cout << "\ncl_half_params[ALPHA_G]="		<<cl_half_params[ALPHA_G]			<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
-																																			cout << "\ncl_half_params[BETA_G]="			<<cl_half_params[BETA_G]			<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
-																																			cout << "\ncl_half_params[EPSILON]="		<<cl_half_params[EPSILON]			<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
-																																			cout << "\ncl_half_params[SIGMA_Q]="		<<cl_half_params[SIGMA_Q];
-																																			cout << "\ncl_half_params[SIGMA_D]="		<<cl_half_params[SIGMA_D];
-																																			cout << "\ncl_half_params[THETA]="			<<cl_half_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
-																																			cout << "\ncl_half_params[LAMBDA]="			<<cl_half_params[LAMBDA]			<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
-																																			cout << "\ncl_half_params[SCALE_EAUX]="		<<cl_half_params[SCALE_EAUX]		<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
-																																			cout << "\n";
-																																			*/
 																																		}
-	/*
-	fp16_k2k[0]  = cv::float16_t( 1.0 );																									// initialize fp16_k2k as 'unity' transform, i.e. zero rotation & zero translation.
-	fp16_k2k[5]  = cv::float16_t( 1.0 );
-	fp16_k2k[10] = cv::float16_t( 1.0 );
-	*/
-	fp32_k2k[0]  =  1.0 ;																									// initialize fp16_k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	fp32_k2k[0]  =  1.0 ;																												// initialize fp32_k2k as 'unity' transform, i.e. zero rotation & zero translation.
 	fp32_k2k[5]  =  1.0 ;
 	fp32_k2k[10] =  1.0 ;
-	/*
-	cl_half_k2k[0]  = cl_half( 1.0 );																									// initialize cl_half_k2k as 'unity' transform, i.e. zero rotation & zero translation.
-	cl_half_k2k[5]  = cl_half( 1.0 );
-	cl_half_k2k[10] = cl_half( 1.0 );
-	*/
-																																		if(verbosity>0) cout << "\n\nRunCL::allocatemem_chk4\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk4\n\n" << flush;
 	status = clEnqueueWriteBuffer(uload_queue, gxmem, 			CL_FALSE, 0, mm_size_bytes_C4, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, gymem, 			CL_FALSE, 0, mm_size_bytes_C4, 	gxy.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																																		if(verbosity>0) cout <<"\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
-	/*
-	//status = clEnqueueWriteBuffer(uload_queue, fp16_param_buf, 	CL_FALSE, 0, 16 * fp16_size, 	fp16_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	//status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * fp16_size, 	fp16_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	*/
+																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
+	
 	status = clEnqueueWriteBuffer(uload_queue, fp32_param_buf, 	CL_FALSE, 0, 16 * sizeof(float), fp32_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, uint_param_buf,	CL_FALSE, 0,  8 * sizeof(uint),	uint_params, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																																		if(verbosity>0) cout <<"\n\nRunCL::allocatemem_chk4.2\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.2\n\n" << flush;
 
 	status = clEnqueueWriteBuffer(uload_queue, cdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, cost.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-																																		if(verbosity>0) cout <<"\n\nRunCL::allocatemem_chk4.3\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.3\n\n" << flush;
 
 	status = clEnqueueWriteBuffer(uload_queue, hdatabuf, 		CL_FALSE, 0, mm_vol_size_bytes, hit.data, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, img_sum_buf, 	CL_FALSE, 0, mm_vol_size_bytes, img_sum.data, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, basemem, 		CL_FALSE, 0, image_size_bytes, 	baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	clFlush(uload_queue); status = clFinish(uload_queue); 																				if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
 																																		
-																																		if(verbosity>0) {
+																																		if(verbosity>local_verbosity_threshold) {
 																																			cout << "\n\nRunCL::allocatemem_chk5\n\n" << flush;
 																																			cout << ",mm_Image_size = " << mm_Image_size << endl;
 																																			cout << ",mm_Image_type = "	<< mm_Image_type << endl;
@@ -992,10 +616,10 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
 																																			cout << "\n" << flush;
 																																		}
-																																		if(verbosity>0) {
-																																			DownloadAndSave_3Channel( 	basemem,	ss.str(), paths.at("basemem"),		image_size_bytes, 	baseImage_size, 	baseImage_type, false );		// DownloadAndSave_3Channel(basemem,..) verify uploads.
-																																			DownloadAndSave( 			gxmem,		ss.str(), paths.at("gxmem"), 		mm_size_bytes_C1, 	mm_Image_size, 		CV_32FC1, 		false /*true*/, 1);
-																																			DownloadAndSaveVolume(		cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size, 		CV_32FC1,  		false  , 1 /*max_range*/);
+																																		if(verbosity>local_verbosity_threshold) {
+																																			DownloadAndSave_3Channel( 	basemem,	ss.str(), paths.at("basemem"),		image_size_bytes, 	baseImage_size, 	baseImage_type, false );
+																																			DownloadAndSave( 			gxmem,		ss.str(), paths.at("gxmem"), 		mm_size_bytes_C1, 	mm_Image_size, 		CV_32FC1, 		false , 1);
+																																			DownloadAndSaveVolume(		cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size, 		CV_32FC1,  		false , 1);
 																																		}
 	/*	// TODO  update and reactivate the old kernels
 	// set kernelArg. NB "0 &k2kbuf" & "2 &imgmem" set in calcCostVol(..)
@@ -1009,7 +633,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	res = clSetKernelArg(cost_kernel, 9, sizeof(cl_mem),  &fp16_param_buf);	if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "		<<checkerror(res)<<"\n"<<flush;exit_(res);} // param_buf
 	res = clSetKernelArg(cost_kernel,10, sizeof(cl_mem),  &img_sum_buf);	if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);} // cdata
 	*/
-																																		if(verbosity>0) {
+																																		if(verbosity>local_verbosity_threshold) {
 																																			cout << "\n\nRunCL::allocatemem_chk6\n\n" << flush;
 																																			cout << ",mm_Image_size = " << mm_Image_size << endl;
 																																			cout << ",mm_Image_type = "	<< mm_Image_type << endl;
@@ -1023,9 +647,8 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 																																			cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
 																																			cout << "\n" << flush;
 																																		}
-																																		if(verbosity>0) cout << "RunCL::allocatemem_finished\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout << "RunCL::allocatemem_finished\n\n" << flush;
 }
-
 
 void RunCL::predictFrame(){ //predictFrame();
 
@@ -1045,7 +668,7 @@ void RunCL::loadFrame(cv::Mat image){ //getFrame();
 }
 
 void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV), NB we will use basemem for image upload, and imgmem for the MipMap. RGB is default for .png standard.
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																															if(verbosity>local_verbosity_threshold) {
 																																cout<<"\n\nRunCL::cvt_color_space()_chk0"<<flush;
 																																cout << "\n";
@@ -1101,74 +724,18 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 }
 
 /*
-#define MiM_PIXELS			0
-#define MiM_READ_OFFSET		1
+#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer.
+#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data
 #define MiM_WRITE_OFFSET	2
-#define MiM_READ_COLS		3
+#define MiM_READ_COLS		3	// cols without margins
 #define MiM_WRITE_COLS		4
-#define MiM_GAUSSIAN_SIZE	5
+#define MiM_GAUSSIAN_SIZE	5	// filter box size
+#define MiM_READ_ROWS		6	// rows without margins
+#define MiM_WRITE_ROWS		7
 */
-/*
-void RunCL::mipmap(uint num_reductions=4, uint gaussian_size=3){
+
+void RunCL::mipmap_linear(){
 	int local_verbosity_threshold = 1;																																						if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
-	cl_event 			writeEvt, ev;
-	cl_int 				res, status;
-	uint 				mipmap[8];
-	float		a = float(0.0625);
-	float		b = float(0.125);
-	float		c = float(0.25);
-	float 		gaussian[9] = {a, b, a, b, c, b, a , b, a };																																//  TODO load gaussian kernel & size from conf.json .
-	if (gaussian_size!=3) {cout<<"Error: (gaussian_size!=3). Need to add code to malloc gaussian array. Probably with jsoncpp from 'conf.json' file." <<flush; exit(0); }
-	
-	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, gaussian_size*gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
-	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	size_t local_size = local_work_size;																																							// set kernel args
-	res = clSetKernelArg(mipmap_kernel, 0, sizeof(cl_mem), 					 	&imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float4*	img,			//0	
-	res = clSetKernelArg(mipmap_kernel, 1, sizeof(cl_mem), 					 	&gaussian_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float*	gaussian,		//1
-	res = clSetKernelArg(mipmap_kernel, 2, sizeof(cl_mem), 					 	&uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global uint*	uint_params,	//2
-	res = clSetKernelArg(mipmap_kernel, 3, sizeof(cl_mem), 					 	&mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global uint*	mipmap_params,	//3
-	res = clSetKernelArg(mipmap_kernel, 4, (local_size+2) *3*4* sizeof(float), 	NULL);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local  float4*	local_img_patch //4
-	uint read_rows				= baseImage_size.height;
-	uint write_rows 			= read_rows/2;
-	mipmap[MiM_READ_OFFSET] 	= (mm_margin + (mm_margin * mm_width));
-	mipmap[MiM_WRITE_OFFSET] 	= (baseImage_size.width + ( 3 * mm_margin) + (mm_margin * mm_width) ); 
-	mipmap[MiM_READ_COLS] 		= baseImage_size.width;
-	mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_READ_COLS]/2;
-	mipmap[MiM_GAUSSIAN_SIZE] 	= gaussian_size;
-																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk1"<<flush;}
-	for(int reduction = 0; reduction < num_reductions; reduction++) {																														if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;}
-		mipmap[MiM_PIXELS]		= write_rows*mipmap[MiM_WRITE_COLS];																														// compute num threads to launch & num_pixels in reduction
-		size_t num_threads		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																			// global_work_size formula  
-																																															// write mipmap_buf
-		status = clEnqueueWriteBuffer(uload_queue, mipmap_buf, 	CL_FALSE, 0, 8 * sizeof(uint), 	mipmap, 0, NULL, &writeEvt);	
-		if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-		res = clSetKernelArg(mipmap_kernel, 3, sizeof(cl_mem), &mipmap_buf);	
-											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;																//__global uint*	mipmap_params	//3
-		status = clFlush(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}						// clEnqueueNDRangeKernel
-		status = clFinish(m_queue); 		if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
-		
-		res = clEnqueueNDRangeKernel(m_queue, mipmap_kernel, 1, 0, &num_threads, &local_work_size, 0, NULL, &ev); 																			// run mipmap_kernel, NB wait for own previous iteration.
-		if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-		status = clFlush(m_queue);			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
-		status = clWaitForEvents (1, &ev);	if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}		// update read&write rows&cols
-		read_rows					= write_rows;
-		write_rows 					= write_rows/2;
-		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
-		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + ( (read_rows + 2*mm_margin) * mm_width);
-		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
-		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
-		mipmap[MiM_PIXELS] 			= mipmap[MiM_WRITE_COLS] * write_rows;
-																																															if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
-	}
-																																			if(verbosity>0) {
-																																				cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
-																																				stringstream ss;	ss << frame_num << "_mipmap";
-																																				DownloadAndSave_3Channel(	imgmem, ss.str(), paths.at("imgmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
-																																			}
-}
-*/
-void RunCL::mipmap_linear(uint num_reductions=4, uint gaussian_size=3){
-	int local_verbosity_threshold = 0;																																						if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
 	cl_event 	writeEvt, ev;
 	cl_int 		res, status;
 	uint 		mipmap[8];
@@ -1176,9 +743,9 @@ void RunCL::mipmap_linear(uint num_reductions=4, uint gaussian_size=3){
 	float		b = float(0.125);
 	float		c = float(0.25);
 	float 		gaussian[9] = {a, b, a, b, c, b, a , b, a };																																//  TODO load gaussian kernel & size from conf.json .
-	if (gaussian_size!=3) {cout<<"Error: (gaussian_size!=3). Need to add code to malloc gaussian array. Probably with jsoncpp from 'conf.json' file." <<flush; exit(0); }
+	if (mm_gaussian_size!=3) {cout<<"Error: (mm_gaussian_size!=3). Need to add code to malloc gaussian array. Probably with jsoncpp from 'conf.json' file." <<flush; exit(0); }
 	
-	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, gaussian_size*gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
+	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, mm_gaussian_size*mm_gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
 	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	size_t local_size = local_work_size;																																							// set kernel args
 	res = clSetKernelArg(mipmap_linear_kernel, 0, sizeof(cl_mem), 					 	&imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global float4*	img,			//0	
@@ -1201,12 +768,13 @@ void RunCL::mipmap_linear(uint num_reductions=4, uint gaussian_size=3){
 	mipmap[MiM_READ_COLS] 		= baseImage_width;
 	mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_READ_COLS]/2;
 	
-	mipmap[MiM_GAUSSIAN_SIZE] 	= gaussian_size;
+	mipmap[MiM_GAUSSIAN_SIZE] 	= mm_gaussian_size;
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk1"<<flush;}
-	for(int reduction = 0; reduction < num_reductions; reduction++) {																														if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;
-		cout << "\nreduction="<< reduction << " , read_rows=" << read_rows  << " ,  write_rows=" <<  write_rows  << " ,  read_cols_with_margin=" << 	read_cols_with_margin  << " ,  read_rows_with_margin=" <<  read_rows_with_margin  << " ,  margin=" << 	margin  << " ,   mipmap[MiM_READ_OFFSET]=" <<  mipmap[MiM_READ_OFFSET]  << " ,  mipmap[MiM_WRITE_OFFSET]=" <<  mipmap[MiM_WRITE_OFFSET]	  << " ,  mipmap[MiM_READ_COLS]=" <<   mipmap[MiM_READ_COLS]  << " ,   mipmap[MiM_WRITE_COLS]=" <<    mipmap[MiM_WRITE_COLS]  << " ,   mipmap[MiM_GAUSSIAN_SIZE]=" <<    mipmap[MiM_GAUSSIAN_SIZE] << endl << flush; 
-		}
-		
+	for(int reduction = 0; reduction < mm_num_reductions; reduction++) {
+																																															if(verbosity>local_verbosity_threshold) {
+																																																cout<<"\n\nRunCL::mipmap(..)_chk2"<<flush;
+																																																cout << "\nreduction="<< reduction << " , read_rows=" << read_rows  << " ,  write_rows=" <<  write_rows  << " ,  read_cols_with_margin=" << 	read_cols_with_margin  << " ,  read_rows_with_margin=" <<  read_rows_with_margin  << " ,  margin=" << 	margin  << " ,   mipmap[MiM_READ_OFFSET]=" <<  mipmap[MiM_READ_OFFSET]  << " ,  mipmap[MiM_WRITE_OFFSET]=" <<  mipmap[MiM_WRITE_OFFSET]	  << " ,  mipmap[MiM_READ_COLS]=" <<   mipmap[MiM_READ_COLS]  << " ,   mipmap[MiM_WRITE_COLS]=" <<    mipmap[MiM_WRITE_COLS]  << " ,   mipmap[MiM_GAUSSIAN_SIZE]=" <<    mipmap[MiM_GAUSSIAN_SIZE] << endl << flush; 
+																																															}
 		mipmap[MiM_PIXELS]		= write_rows*mipmap[MiM_WRITE_COLS];																														// compute num threads to launch & num_pixels in reduction
 		size_t num_threads		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																			// global_work_size formula  
 																																															// write mipmap_buf
@@ -1234,65 +802,59 @@ void RunCL::mipmap_linear(uint num_reductions=4, uint gaussian_size=3){
 		mipmap[MiM_PIXELS]			= mipmap[MiM_WRITE_COLS] * write_rows;
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk2.6 Finished one loop"<<flush;}
 	}
-																																			if(verbosity>0) {
-																																				cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
-																																				stringstream ss;	ss << frame_num << "_mipmap";
-																																				//DownloadAndSave_3Channel_linear_Mipmap(	imgmem, ss.str(), paths.at("imgmem"),  CV_32FC4, false );
-																																				
-																																				if(verbosity>local_verbosity_threshold) {
-																																					cv::Size new_Image_size = cv::Size(mm_width, mm_height);
-																																					size_t   new_size_bytes = mm_width * mm_height * 4*4;
-																																					ss << "_raw_";
-																																					DownloadAndSave_3Channel(	imgmem, ss.str(), paths.at("imgmem"), new_size_bytes/*mm_size_bytes_C4*/, new_Image_size/*mm_Image_size*/,  CV_32FC4 /*mm_Image_type*/, 	false );
-																																					
-																																				}
-																																			}
-																																															if(verbosity>0) {cout<<"\n\nRunCL::mipmap(..)_chk4 Finished"<<flush;}
+																																															if(verbosity>local_verbosity_threshold) {
+																																																cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
+																																																stringstream ss;	ss << frame_num << "_mipmap";
+																																																cv::Size new_Image_size = cv::Size(mm_width, mm_height);
+																																																size_t   new_size_bytes = mm_width * mm_height * 4*4;
+																																																ss << "_raw_";
+																																																DownloadAndSave_3Channel( imgmem, ss.str(), paths.at("imgmem"), new_size_bytes, new_Image_size, CV_32FC4, false );
+																																															}
+																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk4 Finished"<<flush;}
 }
 
-
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){
-	int local_verbosity_threshold = 0;														if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_call_kernel(cl_kernel "<<kernel_to_call<<", cl_command_queue "<<queue_to_call<<")_chk0"<<flush;}
-	cl_event					writeEvt, ev;
-	cl_int						res, status;
-	uint 						mipmap[8];
-	mipmap[MiM_READ_ROWS] 		= baseImage_height; /*read_rows*/				
-	uint write_rows 			= mipmap[MiM_READ_ROWS] /2; /*read_rows*/
-	uint margin					= mm_margin;
-	uint read_cols_with_margin 	= mm_width ;
-	uint read_rows_with_margin	= mipmap[MiM_READ_ROWS] + margin; /*read_rows*/ 
+	int local_verbosity_threshold = 0;
+																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_call_kernel(cl_kernel "<<kernel_to_call<<", cl_command_queue "<<queue_to_call<<")_chk0"<<flush;}
+	cl_event						writeEvt, ev;
+	cl_int							res, status;
+	uint 							mipmap[8];
+	mipmap[MiM_READ_ROWS] 			= baseImage_height; /*read_rows*/				
+	uint write_rows 				= mipmap[MiM_READ_ROWS] /2; /*read_rows*/
+	uint margin						= mm_margin;
+	uint read_cols_with_margin 		= mm_width ;
+	uint read_rows_with_margin		= mipmap[MiM_READ_ROWS] + margin; /*read_rows*/ 
 	
-	mipmap[MiM_READ_OFFSET]		= margin*mm_width + margin;
-	mipmap[MiM_WRITE_OFFSET]	= read_cols_with_margin * read_rows_with_margin + mipmap[MiM_READ_OFFSET];
+	mipmap[MiM_READ_OFFSET]			= margin*mm_width + margin;
+	mipmap[MiM_WRITE_OFFSET]		= read_cols_with_margin * read_rows_with_margin + mipmap[MiM_READ_OFFSET];
 	
-	mipmap[MiM_READ_COLS]		= baseImage_width;
-	mipmap[MiM_WRITE_COLS]		= mipmap[MiM_READ_COLS]/2;
-	mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
+	mipmap[MiM_READ_COLS]			= baseImage_width;
+	mipmap[MiM_WRITE_COLS]			= mipmap[MiM_READ_COLS]/2;
+	mipmap[MiM_PIXELS]				= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_call_kernel(..)_chk1"<<flush;}
-	for(int reduction = 0; reduction < mm_num_reductions+1; reduction++) {																														if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_call_kernel(..)_chk2"<<flush;
-		cout << "\nreduction="<< reduction << " , read_rows=" << mipmap[MiM_READ_ROWS] /*read_rows*/  << " ,  write_rows=" <<  write_rows  << " ,  read_cols_with_margin=" << 	read_cols_with_margin  << " ,  read_rows_with_margin=" <<  read_rows_with_margin  << " ,  margin=" << 	margin  << " ,   mipmap[MiM_READ_OFFSET]=" <<  mipmap[MiM_READ_OFFSET]  << " ,  mipmap[MiM_WRITE_OFFSET]=" <<  mipmap[MiM_WRITE_OFFSET]	  << " ,  mipmap[MiM_READ_COLS]=" <<   mipmap[MiM_READ_COLS]  << " ,   mipmap[MiM_WRITE_COLS]=" <<    mipmap[MiM_WRITE_COLS]  << " ,   mipmap[MiM_GAUSSIAN_SIZE]=" <<    mipmap[MiM_GAUSSIAN_SIZE] << endl << flush; 
-		}
+	for(int reduction = 0; reduction < mm_num_reductions+1; reduction++) {
+																																															if(verbosity>local_verbosity_threshold) {
+																																																cout<<"\n\nRunCL::mipmap_call_kernel(..)_chk2"<<flush;
+																																																cout << "\nreduction="<< reduction << " , read_rows=" << mipmap[MiM_READ_ROWS] /*read_rows*/  << " ,  write_rows=" <<  write_rows  << " ,  read_cols_with_margin=" << 	read_cols_with_margin  << " ,  read_rows_with_margin=" <<  read_rows_with_margin  << " ,  margin=" << 	margin  << " ,   mipmap[MiM_READ_OFFSET]=" <<  mipmap[MiM_READ_OFFSET]  << " ,  mipmap[MiM_WRITE_OFFSET]=" <<  mipmap[MiM_WRITE_OFFSET]	  << " ,  mipmap[MiM_READ_COLS]=" <<   mipmap[MiM_READ_COLS]  << " ,   mipmap[MiM_WRITE_COLS]=" <<    mipmap[MiM_WRITE_COLS]  << " ,   mipmap[MiM_GAUSSIAN_SIZE]=" <<    mipmap[MiM_GAUSSIAN_SIZE] << endl << flush; 
+																																															}
 																																															// compute num threads to launch & num_pixels in reduction
-		size_t num_threads		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																			// global_work_size formula  
+		size_t num_threads			= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;																			// global_work_size formula  
 																																															// write mipmap_buf
-		status = clEnqueueWriteBuffer(uload_queue, mipmap_buf, 	CL_FALSE, 0, 8 * sizeof(uint), 	mipmap, 0, NULL, &writeEvt);	
-		if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap_call_kernel, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-		res = clSetKernelArg(kernel_to_call, 3, sizeof(cl_mem), &mipmap_buf);	
-											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;																//__global uint*	mipmap_params	//3
-		status = clFlush(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}						// clEnqueueNDRangeKernel
-		status = clFinish(m_queue); 		if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
+		status 	= clEnqueueWriteBuffer(uload_queue, mipmap_buf, 	CL_FALSE, 0, 8 * sizeof(uint), 	mipmap, 0, NULL, &writeEvt);	
+																																			if (status != CL_SUCCESS)	{ cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap_call_kernel, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+		res 	= clSetKernelArg(kernel_to_call, 3, sizeof(cl_mem), &mipmap_buf);															if(res!=CL_SUCCESS)			{cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global uint*	mipmap_params	//3
+		status 	= clFlush(m_queue); 																										if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}	// clEnqueueNDRangeKernel
+		status 	= clFinish(m_queue); 																										if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
 		
 		res = clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &num_threads, &local_work_size, 0, NULL, &ev); 																	// run mipmap_linear_kernel, NB wait for own previous iteration.
-		if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-		status = clFlush(queue_to_call);			if (status != CL_SUCCESS)	{ cout << "\nclFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
-		status = clWaitForEvents (1, &ev);	if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}		// update read&write rows&cols
+																																			if (res != CL_SUCCESS)		{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
+		status = clFlush(queue_to_call);																									if (status != CL_SUCCESS)	{ cout << "\nclFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
+		status = clWaitForEvents (1, &ev);																									if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}		
 		
 		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
 		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + read_cols_with_margin * (margin + write_rows);
-		
-		mipmap[MiM_READ_ROWS] 		=  write_rows;	/*read_rows*/	// margin +
+		mipmap[MiM_READ_ROWS] 		= write_rows;
 		write_rows					= write_rows/2;
-		
 		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
@@ -1300,42 +862,26 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 	}
 }
 
-
 void RunCL::img_gradients(){ //getFrame();
 	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
-	cl_event 			ev;
-	cl_int 				res, status;
+	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
-	
-	cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;  // <<" ,   =" <<
-	
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
 	res = clSetKernelArg(img_grad_kernel, 0, sizeof(cl_mem), &imgmem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global float4*	img,			//0	
 	res = clSetKernelArg(img_grad_kernel, 1, sizeof(cl_mem), &uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*	uint_params		//2
 	res = clSetKernelArg(img_grad_kernel, 2, sizeof(cl_mem), &fp32_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*	uint_params		//2
-	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global uint*	mipmap_params,	//3
-	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &gxmem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	res = clSetKernelArg(img_grad_kernel, 5, sizeof(cl_mem), &gymem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &g1mem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*	mipmap_params,	//3
+	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &gxmem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float4*	gxp,			//4
+	res = clSetKernelArg(img_grad_kernel, 5, sizeof(cl_mem), &gymem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float4*	gyp,			//5
+	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &g1mem);		 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float4*	g1p				//6
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
-	/*
-	res = clEnqueueNDRangeKernel(m_queue, img_grad_kernel, 1, 0, &num_threads, &local_work_size, 0, NULL, &ev); 																					// run mipmap_kernel, NB wait for own previous iteration.
-	if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-	status = clFlush(m_queue);			if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
-	status = clWaitForEvents (1, &ev);	if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}					// update read&write rows&cols
-	*/
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk3 Finished all loops."<<flush;
 																																				stringstream ss;	ss << frame_num << "_img_grad";
-																																				//DownloadAndSave_3Channel_linear_Mipmap(	gxmem, ss.str(), paths.at("gxmem"),  CV_32FC4, false );
-																																				//DownloadAndSave_3Channel_linear_Mipmap(	gymem, ss.str(), paths.at("gymem"),  CV_32FC4, false );
-																																				//DownloadAndSave_3Channel_linear_Mipmap(	g1mem, ss.str(), paths.at("g1mem"),  CV_32FC4, false );
-																																				//
 																																				DownloadAndSave_3Channel(	gxmem, ss.str(), paths.at("gxmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
 																																				DownloadAndSave_3Channel(	gymem, ss.str(), paths.at("gymem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
 																																				DownloadAndSave_3Channel(	g1mem, ss.str(), paths.at("g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
-																																			}//(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range )
-																
-																
+																																			}
 }
 
 void RunCL::loadFrameData(){ //getFrameData();
@@ -1440,13 +986,10 @@ void RunCL::estimateCalibration(){ //estimateCalibration(); 		// own thread, one
 
 }	
 
-
 void RunCL::buildDepthCostVol(){ //buildDepthCostVol();
 
 
 }
-
-
 
 void RunCL::SpatialCostFns(){ //SpatialCostFns();
 

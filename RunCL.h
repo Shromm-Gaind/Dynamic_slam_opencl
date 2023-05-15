@@ -107,7 +107,7 @@ public:
 	void cvt_color_space();
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call);
 	//void mipmap(uint num_reductions, uint gaussian_size);
-	void mipmap_linear(uint num_reductions, uint gaussian_size);
+	void mipmap_linear();
 	void img_gradients();
 	
 	void loadFrameData();

@@ -103,7 +103,7 @@ void Dynamic_slam::getFrame()  // can load use separate CPU thread(s) ?  // NB a
 	runcl.loadFrame( image );						// NB Nvidia GeForce have 'Tensor Compute" FP16, accessible by PTX. AMD have RDNA and CDNA. These need PTX/assembly code and may use BF16 instead of FP16.
 	// load a basic image in CV_8UC3, then convert on GPU to 'half'
 	runcl.cvt_color_space( );
-	runcl.mipmap_linear(4,3);// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
+	runcl.mipmap_linear();// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
 	runcl.img_gradients();
 
 // # Get 1st & 2nd order image gradients of MipMap
