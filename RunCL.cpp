@@ -1290,7 +1290,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
 		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + read_cols_with_margin * (margin + write_rows);
 		
-		mipmap[MiM_READ_ROWS] 		= margin + write_rows;	/*read_rows*/	
+		mipmap[MiM_READ_ROWS] 		=  write_rows;	/*read_rows*/	// margin +
 		write_rows					= write_rows/2;
 		
 		mipmap[MiM_READ_COLS] 		= mipmap[MiM_WRITE_COLS];
@@ -1299,8 +1299,6 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_call_kernel(..)_chk2.6 Finished one loop"<<flush;}
 	}
 }
-
-
 
 
 void RunCL::img_gradients(){ //getFrame();

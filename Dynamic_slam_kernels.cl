@@ -394,104 +394,36 @@ __kernel void  img_grad(
 	uint read_column 	= fmod(global_id_flt, read_cols_);
 	
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;	// NB 4 channels.  + margin
-	if (global_id_u > mipmap_params[MiM_PIXELS]) return;
+	
 	
 	/// adapted
-	int upoff		= -(read_row  != 0)*read_cols_;						// up, down, left, right offsets, by boolean logic.
-	int dnoff		= (read_row  < read_rows_-1) * read_cols_;
-    int lfoff		= -(read_column != 0);
-	int rtoff		= (read_column < read_cols_-1);
-	
-	uint offset		= read_column + read_row  * mm_cols + read_offset_ ;
+	int upoff			= -(read_row  != 0)*mm_cols;							// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-1) * mm_cols;
+    int lfoff			= -(read_column != 0);
+	int rtoff			=  (read_column < mm_cols-1);
+	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
 	
 	float alphaG		= fp32_params[ALPHA_G];
 	float betaG 		= fp32_params[BETA_G];
-	
-	/* //////////////  from __kernel void mipmap_linear_flt
-	uint global_id_u 	= get_global_id(0);
-	float global_id_flt = global_id_u;
-	uint lid 			= get_local_id(0);
-	uint group_size 	= get_local_size(0);
-	uint patch_length	= group_size+2;
-	
-	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
-	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET]; // = read_offset_ + read_cols_*read_rows for linear MipMap.
-	
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
-	
-	uint margin 		= uint_params[MARGIN];
-	uint mm_cols		= uint_params[MM_COLS];   // whole mipmap                       // = (read_cols_  + 2*margin ); // uint_params[MM_COLS];
-	
-	uint write_row   	= global_id_u / write_cols_ ;			//  global_id/write_cols_;	gentype fract(gentype x, __private gentype *iptr)
-	uint write_column 	= fmod(global_id_flt, write_cols_);
-	
-	uint read_row    	= 2*write_row;
-	uint read_column 	= 2*write_column;
-	
-	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column  ;	// NB 4 channels.  + margin
-	uint write_index 	= write_offset_ +  write_row * mm_cols  + write_column ;	// write_cols_, use read_cols_ as multiplier to preserve images  + margin
-	*/
-	
-	/*  //////////// from old __kernel void  img_grad
-	 uint global_id_u = get_global_id(0);
-	 int  x = global_id_u;
-	 if (x > uint_params[MM_PIXELS]) return;
 	 
-	 float4 img_pvt 	= img[x];							// required to make data in float4 accessible the kernel. 
-	 uint px_per_layer	= uint_params[ROWS] * uint_params[COLS];
-	 uint layer_thresh	= px_per_layer;
-	 int rows 			= uint_params[MM_ROWS];
-	 int cols 			= uint_params[MM_COLS];
-	 float alphaG		= fp32_params[ALPHA_G];
-	 float betaG 		= fp32_params[BETA_G];
+	float4 pu, pd, pl, pr;
+	pr =  img[offset + rtoff];
+	pl =  img[offset + lfoff];
+	pu =  img[offset + upoff];
+	pd =  img[offset + dnoff];
 
+	float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0 };
+	float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0 };
 	 
-	 bool level[5];
-	 uint layer_offset = 0;
-	 
-	 for (int i=1; i<5; i++){
-		 if(global_id_u < layer_thresh) break;
-		 layer_offset	+=layer_thresh;
-		 rows			/=2;
-		 cols			/=2;
-		 px_per_layer	/=2;
-		 layer_thresh	+=px_per_layer;
-	 }
-	 
-	 x -= layer_offset;
-	 int y = x / cols;
-	 x = x % cols;
-	 int min = 10*cols + cols/2;
-	 if (x<2 || x > cols-2 || y<2 || y>rows-2) return;  	// needed for wider kernel
-	 
-	 
-	 int upoff		= -(y != 0)*cols;						// up, down, left, right offsets, by boolean logic.
-	 int dnoff		= (y < rows-1) * cols;
-     int lfoff		= -(x != 0);
-	 int rtoff		= (x < cols-1);
-	 uint offset	= x + y * cols + layer_offset;
-	 
-	 */ //////////////////////
-	 
-	 float4 pu, pd, pl, pr;									// rho, photometric difference: up, down, left, right, of grayscale ref image.
-	 pr =  img[offset + rtoff];								// replaced 'base' with 'img_pvt' NB 3chan, float4  // NB base = grayscale CV_8UC1 image.
-	 pl =  img[offset + lfoff];
-	 pu =  img[offset + upoff];
-	 pd =  img[offset + dnoff];
-
-	 float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0 };	// NB HSV color space.
-	 float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0 };
-	 
-	 float4 g1  = { \
+	float4 g1  = { \
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
 		 1.0 };
-		 
-	 g1p[offset]= g1;
-	 gxp[offset]= gx;
-	 gyp[offset]= gy;
+	if (global_id_u > mipmap_params[MiM_PIXELS]) return;	 
+	g1p[offset]= g1;
+	gxp[offset]= gx;
+	gyp[offset]= gy;
 }
 
 /*
