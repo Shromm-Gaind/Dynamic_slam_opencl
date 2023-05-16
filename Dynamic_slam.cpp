@@ -292,17 +292,17 @@ void Dynamic_slam::generate_SO3_k2k( float _SO3_k2k[6*16] ) {	// Generates a set
 		cam2cam[i] = K * transform[i] *  inv_K;
 		cout << "\ncam2cam["<<i<<"]=\n"<<cam2cam[i]<<endl<<flush;
 		
-		cout << "\ncam2cam[i].operator()(0,0)="<<cam2cam[i].operator()(0,0)<<endl<<flush;
-		
+		//cout << "\ncam2cam[i].operator()(0,0)="<<cam2cam[i].operator()(0,0)<<endl<<flush;
+		cout << "\n _SO3_k2k ["<<i<<"*16 + row*4 + col]=\n";
 		cout << setprecision(10);
 		for (uint row=0; row<4; row++) {
 			for (uint col=0; col<4; col++){
-				_SO3_k2k[i*16 + row] 	= cam2cam[i].operator()(row,col);
+				_SO3_k2k[i*16 + row*4 + col] 	= cam2cam[i].operator()(row,col);
 				cout << _SO3_k2k[i*16 + row*4 + col] <<"\t";
 																						//cout<< "\ni="<<i<<", row="<<row<<", col="<<col<<", i*16 + row*4 + col="<<i*16 + row*4 + col<<",  _SO3_k2k[i*16 + row*4 + col]="<< _SO3_k2k[i*16 + row*4 + col] << "\t" << flush; //
 			}cout<<endl<<flush;
 		}cout<<endl<<flush;
-		cout << setprecision(-1); 
+		cout << setprecision(-1);
 	}
 																						/*
 																						if(verbosity>local_verbosity_threshold) {
