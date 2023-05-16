@@ -213,8 +213,8 @@ __kernel void  img_grad(
 	pu =  img[offset + upoff];
 	pd =  img[offset + dnoff];
 
-	float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0 };
-	float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0 };
+	float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0f };
+	float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0f };
 	 
 	float4 g1  = { \
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
@@ -234,16 +234,15 @@ __kernel void compute_param_maps(
 	__global 	float* 	k2k,			//2
 	__global 	uint*	mipmap_params,	//3
 	__global 	float* 	depth_map,		//4
-	__global 	float*	param_map		//5
+	__global 	float2*	param_map		//5
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	
+	if (global_id_u > mipmap_params[MiM_PIXELS]) return;
 	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	uint patch_length	= group_size+2;
 	
 	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
@@ -251,39 +250,32 @@ __kernel void compute_param_maps(
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	
-	uint read_row    	= global_id_u / read_cols_;
-	uint read_column 	= fmod(global_id_flt, read_cols_);
-	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;	//TODO NB 4 channels.
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;	//TODO NB 4 channels.
 	
-	// SE3 
-	// Rotate 0.001 radians i.e 0.0573  degrees
-	// Translate 0.001 'units' of distance 
-	const float delta_theta = 0.001;
-	const float delta 	  	= 0.001;
-	const float cos_theta   = cos(delta_theta);
-	const float sin_theta   = sin(delta_theta);
+	////////// from __kernel void BuildCostVolume2(..)
+	for (int i=0; i<6; i++) {
+		// precalculate depth-independent part of reprojection, h=homogeneous coords.
+		int idx = i *16;
+		float uh2 = k2k[idx+0]*u + k2k[idx+1]*v + k2k[idx+2]*1;  // +k2k[3]/z
+		float vh2 = k2k[idx+4]*u + k2k[idx+5]*v + k2k[idx+6]*1;  // +k2k[7]/z
+		float wh2 = k2k[idx+8]*u + k2k[idx+9]*v + k2k[idx+10]*1; // +k2k[11]/z
+		//float h/z  = k2k[12]*u + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
 	
-	const float Rx[9] = {1.0, 0.0, 0.0,					0.0, cos_theta, -sin_theta, 		0.0, sin_theta, cos_theta	};
-	const float Ry[9] = {cos_theta, 0.0, sin_theta,		0.0, 1.0, 0.0, 						-sin_theta, 0, cos_theta	};
-	const float Rz[9] = {cos_theta, -sin_theta, 0.0, 	sin_theta, cos_theta, 0.0, 			0.0, 0.0, 1.0				};
-	
-	const float Tx[16] = {1,0,0,delta, 	0,1,0,0,		0,0,1,0,		0,0,0,1};
-	const float Ty[16] = {1,0,0,0, 		0,1,0,delta,	0,0,1,0,		0,0,0,1};
-	const float Tz[16] = {1,0,0,0, 		0,1,0,0,		0,0,1,delta,	0,0,0,1};
-	
-	// TODO
-	// Move k2k generation to host.
-	// Create a 'reproject' & 'img_grad_sum' kernels 
-	
-	
+		float inv_depth = 1.0f; // mid point max-min inv depth   // (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
+		float uh3  = uh2 + k2k[idx+3]*inv_depth;
+		float vh3  = vh2 + k2k[idx+7]*inv_depth;
+		float wh3  = wh2 + k2k[idx+11]*inv_depth;
+		float u2   = uh3/wh3;
+		float v2   = vh3/wh3;
+		float2 partial_gradient={u-u2 , v-v2};
+		
+		param_map[read_index + i* mipmap_params[MiM_PIXELS]  ] = partial_gradient;
+	}
 	
 	
-	
-	float reduced_pixel; // TODO how many channels ?
-	
-	if (global_id_u > mipmap_params[MiM_PIXELS]) return;
-	param_map[read_index] = reduced_pixel;
-	
+	// TODO // Create a 'reproject' & 'img_grad_sum' kernels 
 }
 
 

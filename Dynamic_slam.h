@@ -32,8 +32,12 @@ class Dynamic_slam
     // camera & pose params
     cv::Matx44f K, inv_K, pose, inv_pose;
     cv::Mat image, R, T, d, cameraMatrix, projection;
+    float SO3_k2k[6*16];
         
     // lens distortion params
+    
+    
+    // 
     
     
     // image parameters
@@ -49,11 +53,13 @@ class Dynamic_slam
     vector<fs::path> depth;
     
     // functions
+    void initialize_camera();
     int  nextFrame();
     void predictFrame();
     void getFrame();
     void getFrameData();
     void generate_invK();
+    void generate_invPose();
     void generate_SO3_k2k( float _SO3_k2k[96] );
     void estimateSO3();
     void estimateSE3();
