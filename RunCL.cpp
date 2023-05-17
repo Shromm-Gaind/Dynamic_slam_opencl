@@ -203,7 +203,7 @@ void RunCL::createFolders(){
 	out_path += "/";																	if(verbosity>0) cout << "\n createFolders_chk 1\n" << flush;
 	
 	boost::filesystem::path temp_path = out_path;								// Vector of device buffer names
-	std::vector<std::string> names = {"basemem","imgmem","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem","gymem","g1mem","qmem","lomem","himem","img_sum_buf","SO3_map_mem"};
+	std::vector<std::string> names = {"basemem","imgmem","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem","gymem","g1mem","qmem","lomem","himem","img_sum_buf","SE3_map_mem"};
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
 	for (std::string key : names){
@@ -272,6 +272,99 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 		cv::imwrite(folder_png.string(), outMat );
 		if(show) cv::imshow( ss.str(), outMat );
 }
+
+
+void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
+	int local_verbosity_threshold = 0;
+																				//if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() vol_layers="<<vol_layers<<", max_range="<<max_range<<", folder = ["<<folder_tiff.filename().string()<<"] "<<flush;
+		if (type_mat != CV_32FC2){cout <<"Error (type_mat != CV_32FC2)"<<flush; return;}
+		
+	for (uint layer=0; layer<vol_layers; layer++  ) {	
+		
+		uint offset = layer * image_size_bytes;
+		
+		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					// (int rows, int cols, int type)
+		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset); 			// NB contains elements of type_mat, (CV_32FC1 for most buffers)
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_1, layer="<<layer<<flush;
+		//vector<cv::Mat> spl;
+		cv::Mat channels[3];
+		split(temp_mat, channels);
+		cv::Scalar sum_u = cv::sum(channels[0]);
+		cv::Scalar sum_v = cv::sum(channels[1]);
+		//cv::Scalar sum_w = cv::sum(channels[2]);
+		channels[2] = cv::Mat::zeros( channels[1].size(), channels[1].type() );
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_2"<<flush;
+																				//cout << "\nchannels[0-2].size()="<<channels[0].size()<<", "<<channels[1].size()<<", "<<channels[2].size()<<", "<<flush;
+																				//cout << "\nchannels[0-2].type()="<<channels[0].type()<<", "<<channels[1].type()<<", "<<channels[2].type()<<", "<<flush;
+		cv::Mat temp_mat_u, temp_mat_v;
+		cv::Mat channels_u[3] = {channels[0],channels[0]*(-1),channels[2] };
+		cv::Mat channels_v[3] = {channels[1],channels[1]*(-1),channels[2] };
+		merge(channels_u,3,temp_mat_u);
+		merge(channels_v,3,temp_mat_v);
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_3"<<flush;
+		double minVal_u=1, maxVal_u=1,  minVal_v=1, maxVal_v=1;
+		cv::Point minLoc_u={0,0}, maxLoc_u{0,0}, minLoc_v={0,0}, maxLoc_v{0,0};
+		cv::minMaxLoc(channels[0], &minVal_u, &maxVal_u, &minLoc_u, &maxLoc_u); 
+		cv::minMaxLoc(channels[1], &minVal_v, &maxVal_v, &minLoc_v, &maxLoc_v);
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_4"<<flush;
+		string type_string = checkCVtype(type_mat);
+		stringstream ss_u, ss_v;
+		stringstream png_ss_u, png_ss_v;
+		
+		ss_u << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_U_" << count <<"_sum"<<sum_u<<"_type_"<<type_string<<"min"<<minVal_u<<"_max"<<maxVal_u<<"_maxRange"<<max_range;
+		ss_v << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_V_" << count <<"_sum"<<sum_v<<"_type_"<<type_string<<"min"<<minVal_v<<"_max"<<maxVal_u<<"_maxRange"<<max_range;
+		
+		png_ss_u << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_U_" << count;
+		png_ss_v << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_V_" << count;
+		
+		boost::filesystem::path folder_png_u = folder_tiff, folder_png_v = folder_tiff, folder_tiff_u = folder_tiff, folder_tiff_v = folder_tiff;
+		folder_tiff_u += ss_u.str();
+		folder_tiff_u += ".tiff";
+		
+		folder_tiff_v += ss_v.str();
+		folder_tiff_v += ".tiff";
+		
+		folder_png_u  += "/png/";
+		folder_png_u  += png_ss_u.str();
+		folder_png_u  += ".png";
+		
+		folder_png_v  += "/png/";
+		folder_png_v  += png_ss_v.str();
+		folder_png_v  += ".png";
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() filename = ["<<ss_u.str()<<" , "<<ss_v.str()<<"]";
+		cv::Mat outMat_u, outMat_v;
+		if (type_mat != CV_32FC2 && type_mat != CV_16FC2 ) {
+			cout << "\n\n## Error  (type_mat != CV_32FC2 or CV_16FC2) ##\n\n" << flush;
+			return;
+		}
+		if (max_range == 0){ temp_mat_u /= maxVal_u;  temp_mat_v /= maxVal_v; }								// Squash/stretch & shift to 0.0-1.0 range
+		else if (max_range <0.0){
+			temp_mat_u /=(-2*max_range);
+			temp_mat_v /=(-2*max_range);
+			temp_mat_u +=0.5;
+			temp_mat_v +=0.5;
+		}else{ 
+			temp_mat_u /=max_range;
+			temp_mat_v /=max_range;
+		}
+		cv::imwrite(folder_tiff_u.string(), temp_mat_u );
+		cv::imwrite(folder_tiff_v.string(), temp_mat_v );
+		temp_mat_u *= 256*256;
+		temp_mat_v *= 256*256;
+		temp_mat_u.convertTo(outMat_u, CV_16UC3);
+		temp_mat_v.convertTo(outMat_v, CV_16UC3);
+		cv::imwrite(folder_png_u.string(), outMat_u );
+		cv::imwrite(folder_png_v.string(), outMat_v );
+		
+		if(show){ 
+			cv::imshow( ss_u.str(), outMat_u );
+			cv::imshow( ss_v.str(), outMat_v );
+		}
+	}
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_finished"<<flush;
+}
+
 
 void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show ){
 																				if(verbosity>0) cout<<"\n\nDownloadAndSave_3Channel filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
@@ -505,7 +598,7 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	mipmap_buf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
 	gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
-	SO3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) incremet fo each parameter.
+	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) incremet fo each parameter.
 	k_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*10,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	dist_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
@@ -886,9 +979,9 @@ void RunCL::loadFrameData(){ //getFrameData();
 
 
 
-void RunCL::precom_param_maps(float SO3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
+void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
 	int local_verbosity_threshold = 0;
-																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_chk_0 "<<flush;}
+																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk_0 "<<flush;}
 	cl_event 			writeEvt;
 	cl_int 				res, status;
 	//uint 				mipmap[8];
@@ -897,7 +990,7 @@ void RunCL::precom_param_maps(float SO3_k2k[6*16]){ //  Compute maps of pixel mo
 	depth 				*= mid_depth;
 	
 	// SO3_k2kbuf
-	status = clEnqueueWriteBuffer(uload_queue, SO3_k2kbuf, 		CL_FALSE, 0, 6*16*sizeof(float), SO3_k2k,    0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, SO3_k2kbuf, 		CL_FALSE, 0, 6*16*sizeof(float), SE3_k2k,    0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	
 	res = clSetKernelArg(comp_param_maps_kernel, 0, sizeof(cl_mem), 	&uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}					//__global 	uint*	uint_params		//0
@@ -905,19 +998,19 @@ void RunCL::precom_param_maps(float SO3_k2k[6*16]){ //  Compute maps of pixel mo
 	res = clSetKernelArg(comp_param_maps_kernel, 2, sizeof(cl_mem), 	&SO3_k2kbuf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}					//__global 	float* 	k2k,			//2
 	//	mipmap_params set in loop below																																						  __global 	uint*	mipmap_params,	//3
 	res = clSetKernelArg(comp_param_maps_kernel, 4, sizeof(cl_mem), 	&depth_mem);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}					//__global 	float* 	depth_map,		//4
-	res = clSetKernelArg(comp_param_maps_kernel, 5, sizeof(cl_mem), 	&SO3_map_mem);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}					//__global 	float* 	param_map,		//5
+	res = clSetKernelArg(comp_param_maps_kernel, 5, sizeof(cl_mem), 	&SE3_map_mem);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}					//__global 	float* 	param_map,		//5
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_chk_1 "<<flush;}
-	// SO3_map_mem, k_map_mem, dist_map_mem;
+	// SE3_map_mem, k_map_mem, dist_map_mem;
 	mipmap_call_kernel( comp_param_maps_kernel, m_queue );
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_chk_2 "<<flush;}
 																																															if(verbosity>local_verbosity_threshold) {
 																																																cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_output "<<flush;
-																																																for (int i=0; i<1; i++) { // TODO x & y for all 6 SO3 DoF
-																																																	stringstream ss;	ss << frame_num << "_SO3_map";
-																																																	DownloadAndSave(SO3_map_mem, ss.str(), paths.at("SO3_map_mem"), mm_size_bytes_C1, mm_Image_size, CV_32FC1, false, 1.0 );
+																																																for (int i=0; i<1; i++) { // TODO x & y for all 6 SE3 DoF
+																																																	stringstream ss;	ss << frame_num << "_SE3_map";
+																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 0.0, 6 /*SE3*/ );
 																																																}
 																																															}
-																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_chk.. Finished "<<flush;}
+																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk.. Finished "<<flush;}
 }
 
 void RunCL::estimateSO3(){ //estimateSO3();

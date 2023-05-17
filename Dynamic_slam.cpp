@@ -38,13 +38,14 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 																														if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																															<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 	initialize_camera();
-	generate_SO3_k2k( SO3_k2k );
-	runcl.precom_param_maps( SO3_k2k );
+	generate_SE3_k2k( SE3_k2k );
+	runcl.precom_param_maps( SE3_k2k );
 };
 
 void Dynamic_slam::initialize_camera(){
 	int local_verbosity_threshold = 0;
-	K = K.zeros();																			// NB currently "cameraMatrix" found by convertAhandPovRay, called by fileLoader
+	K = K.zeros();																										// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
+	K.operator()(3,3) = 1;
 	for (int i=0; i<9; i++){K.operator()(i/3,i%3) = obj["cameraMatrix"][i].asFloat(); }
 																														if(verbosity>local_verbosity_threshold) {
 																															/*
@@ -251,10 +252,10 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 }
 
 
-void Dynamic_slam::generate_SO3_k2k( float _SO3_k2k[6*16] ) {	// Generates a set of 6 k2k to be used to compute the SO3 maps for the current camera intrinsic matrix.
+void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set of 6 k2k to be used to compute the SE3 maps for the current camera intrinsic matrix.
 	int local_verbosity_threshold = 0;
 																						if(verbosity>local_verbosity_threshold) {
-																							cout << "\nDynamic_slam::generate_SO3_k2k( float _SO3_k2k[6*16] )" << endl << flush;
+																							cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )" << endl << flush;
 																						}
 	// SE3 
 	// Rotate 0.001 radians i.e 0.0573  degrees
@@ -277,48 +278,32 @@ void Dynamic_slam::generate_SO3_k2k( float _SO3_k2k[6*16] ) {	// Generates a set
 	cv::Matx44f cam2cam[6];
 	for (int i=0; i<6; i++) { 
 		cam2cam[i] = K*transform[i]*inv_K; 
-		/*
-		cout << "\ntransform["<<i<<"] = \n"<<endl<<flush;
-		for (int row=0; row<4; row++) {
-			for (int col; col<4; col++){
-				cout<< transform[i].operator()(row,col) << "\t" << flush;
-			}cout<<endl<<flush;
-		}cout<<endl<<flush;
-		*/
-		cout << "\ntransform["<<i<<"]=\n"<<transform[i]<<endl<<flush;
-	}		// cam2cam pixel transform, NB requires Pixel=(u,v,1,1/z)^T
+		if(verbosity>local_verbosity_threshold) { cout << "\ntransform["<<i<<"]=\n"<<transform[i]<<endl<<flush; }
+	}
 	
 	for (int i=0; i<6; i++) {
 		cam2cam[i] = K * transform[i] *  inv_K;
-		cout << "\ncam2cam["<<i<<"]=\n"<<cam2cam[i]<<endl<<flush;
+		if(verbosity>local_verbosity_threshold) { cout << "\ncam2cam["<<i<<"]=\n"<<cam2cam[i]<<endl<<flush; }
 		
-		//cout << "\ncam2cam[i].operator()(0,0)="<<cam2cam[i].operator()(0,0)<<endl<<flush;
-		cout << "\n _SO3_k2k ["<<i<<"*16 + row*4 + col]=\n";
-		cout << setprecision(10);
 		for (uint row=0; row<4; row++) {
 			for (uint col=0; col<4; col++){
-				_SO3_k2k[i*16 + row*4 + col] 	= cam2cam[i].operator()(row,col);
-				cout << _SO3_k2k[i*16 + row*4 + col] <<"\t";
-																						//cout<< "\ni="<<i<<", row="<<row<<", col="<<col<<", i*16 + row*4 + col="<<i*16 + row*4 + col<<",  _SO3_k2k[i*16 + row*4 + col]="<< _SO3_k2k[i*16 + row*4 + col] << "\t" << flush; //
-			}cout<<endl<<flush;
-		}cout<<endl<<flush;
-		cout << setprecision(-1);
+				_SE3_k2k[i*16 + row*4 + col] 	= cam2cam[i].operator()(row,col);
+			}
+		}
 	}
-																						/*
 																						if(verbosity>local_verbosity_threshold) {
+																							cout << setprecision(9);
 																							for (int i=0; i<6; i++) {
-																								cout << "\nSO3["<<i<<"]"<<endl;
+																								cout << "\n _SE3_k2k ["<<i<<"*16 + row*4 + col]=\n";
 																								for (int row=0; row<4; row++) {
-																									for (int col; col<4; col++){
-																										_SO3_k2k[i*16 + row] 	= cam2cam[i].operator()(row,col);
-																										cout << _SO3_k2k[i*16 + row] << "\t";
+																									for (int col=0; col<4; col++){
+																										cout << _SE3_k2k[i*16 + row*4 + col] <<"\t  ";
 																									}cout<<endl;
-																								}
-																							}cout<<endl;
+																								}cout<<endl;
+																							}cout << setprecision(-1)<< flush;
 																						}
-																						*/
 																						if(verbosity>local_verbosity_threshold) {
-																							cout << "\nDynamic_slam::generate_SO3_k2k( float _SO3_k2k[6*16] )   finished" << endl << flush;
+																							cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )   finished" << endl << flush;
 																						}
 }
 
