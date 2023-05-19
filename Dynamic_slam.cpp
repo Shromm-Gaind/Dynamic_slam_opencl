@@ -260,8 +260,8 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set
 	// SE3 
 	// Rotate 0.001 radians i.e 0.0573  degrees
 	// Translate 0.001 'units' of distance 
-	const float delta_theta = 0.001;
-	const float delta 	  	= 0.001;
+	const float delta_theta = 0.001; //0.001;
+	const float delta 	  	= 0.001; //0.001;
 	const float cos_theta   = cos(delta_theta);
 	const float sin_theta   = sin(delta_theta);
 	
@@ -300,10 +300,34 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set
 																										cout << _SE3_k2k[i*16 + row*4 + col] <<"\t  ";
 																									}cout<<endl;
 																								}cout<<endl;
+																							}
+																						
+																							// Chk k2k makes sense for each SE3 DoF
+																							// Image size 640 * 480, from K as loaded from .json file.
+																							// Homogeneous image coords : (col, row, depth, w), so ater transformation divide by w to find new (col, row, depth, 1).
+																							// NB if there are points at infinite distance, then w=0. 
+																							// For this reason we store inverse depth, and use a minimum depth cut off, to avoid points at the optical centre of the camera.
+																							// See __kernel void compute_param_maps(..) , or hand calculate the elements of the matrix multiplication.
+																							cv::Matx14f topleft = {10,10,1,1},  topright = {630,10,1,1}, centre = {320,240,1,1}, bottomleft = {10,470,1,1}, bottomright = {630,470,1,1} , result;	// (column, row, w, 1/depth)
+																							cv::Matx44f identity = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
+																							
+																							cout << "\n topleft * 	identity = " << topleft * 		identity << flush;
+																							cout << "\n topright * 	identity = " << topright * 		identity << flush;
+																							cout << "\n bottomleft *  identity = " << bottomleft * 	identity << flush;
+																							cout << "\n bottomright * identity = " << bottomright * 	identity << flush;
+																							/* Incorrect calculation. Rather see __kernel void compute_param_maps(..)
+																							for (int tx = 0; tx<6; tx++){
+																								cout << "\n\n transform["<<tx<<"]:";
+																								result = topleft * transform[tx]; 		cout << "\n topleft * transform[tx] = "  	<< result << ", \t  (" << result.operator()(0)/result.operator()(3) <<","<< result.operator()(0)/result.operator()(3) <<" ) "<< flush;
+																								result = topright * transform[tx]; 		cout << "\n topright * transform[tx] = " 	<< result << ", \t  (" << result.operator()(0)/result.operator()(3) <<","<< result.operator()(0)/result.operator()(3) <<" ) "<< flush;
+																								result = centre * transform[tx]; 		cout << "\n centre * transform[tx] = "   	<< result << ", \t  (" << result.operator()(0)/result.operator()(3) <<","<< result.operator()(0)/result.operator()(3) <<" ) "<< flush;
+																								result = bottomleft * transform[tx]; 	cout << "\n bottomleft * transform[tx] = " 	<< result << ", \t  (" << result.operator()(0)/result.operator()(3) <<","<< result.operator()(0)/result.operator()(3) <<" ) "<< flush;
+																								result = bottomright * transform[tx]; 	cout << "\n bottomright * transform[tx] = " << result << ", \t  (" << result.operator()(0)/result.operator()(3) <<","<< result.operator()(0)/result.operator()(3) <<" ) "<< flush;
 																							}cout << setprecision(-1)<< flush;
+																							*/
 																						}
 																						if(verbosity>local_verbosity_threshold) {
-																							cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )   finished" << endl << flush;
+																							cout << "\n\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )   finished" << endl << flush;
 																						}
 }
 

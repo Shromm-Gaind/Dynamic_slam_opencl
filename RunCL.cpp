@@ -275,8 +275,7 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 
 
 void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
-	int local_verbosity_threshold = 0;
-																				//if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
+	int local_verbosity_threshold = 1;
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() vol_layers="<<vol_layers<<", max_range="<<max_range<<", folder = ["<<folder_tiff.filename().string()<<"] "<<flush;
 		if (type_mat != CV_32FC2){cout <<"Error (type_mat != CV_32FC2)"<<flush; return;}
 		
@@ -287,20 +286,17 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					// (int rows, int cols, int type)
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset); 			// NB contains elements of type_mat, (CV_32FC1 for most buffers)
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_1, layer="<<layer<<flush;
-		//vector<cv::Mat> spl;
 		cv::Mat channels[3];
-		split(temp_mat, channels);
+		split(temp_mat, channels);												// Split u and v (col and row) channels.
 		cv::Scalar sum_u = cv::sum(channels[0]);
 		cv::Scalar sum_v = cv::sum(channels[1]);
 		//cv::Scalar sum_w = cv::sum(channels[2]);
 		channels[2] = cv::Mat::zeros( channels[1].size(), channels[1].type() );
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_2"<<flush;
-																				//cout << "\nchannels[0-2].size()="<<channels[0].size()<<", "<<channels[1].size()<<", "<<channels[2].size()<<", "<<flush;
-																				//cout << "\nchannels[0-2].type()="<<channels[0].type()<<", "<<channels[1].type()<<", "<<channels[2].type()<<", "<<flush;
 		cv::Mat temp_mat_u, temp_mat_v;
-		cv::Mat channels_u[3] = {channels[0],channels[0]*(-1),channels[2] };
-		cv::Mat channels_v[3] = {channels[1],channels[1]*(-1),channels[2] };
-		merge(channels_u,3,temp_mat_u);
+		cv::Mat channels_u[3] = {channels[0],channels[0]*(-1),channels[2] };	// Compose BGR 3channel for each of u & v.
+		cv::Mat channels_v[3] = {channels[1],channels[1]*(-1),channels[2] };	// NB Blue = +ve, , Green = -ve , Red not used. 
+		merge(channels_u,3,temp_mat_u);											// Origin is top right corner of the image.
 		merge(channels_v,3,temp_mat_v);
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_3"<<flush;
 		double minVal_u=1, maxVal_u=1,  minVal_v=1, maxVal_v=1;
@@ -338,7 +334,7 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 			cout << "\n\n## Error  (type_mat != CV_32FC2 or CV_16FC2) ##\n\n" << flush;
 			return;
 		}
-		if (max_range == 0){ temp_mat_u /= maxVal_u;  temp_mat_v /= maxVal_v; }								// Squash/stretch & shift to 0.0-1.0 range
+		if (max_range == 0){ temp_mat_u /= maxVal_u;  temp_mat_v /= maxVal_v; }	// Squash/stretch & shift to 0.0-1.0 range
 		else if (max_range <0.0){
 			temp_mat_u /=(-2*max_range);
 			temp_mat_v /=(-2*max_range);
@@ -984,8 +980,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk_0 "<<flush;}
 	cl_event 			writeEvt;
 	cl_int 				res, status;
-	//uint 				mipmap[8];
-	cv::Mat depth		= cv::Mat::ones (mm_height, mm_width, CV_32FC4);																// NB must recompute translation maps at run time. NB parallax motion is proportional to inv depth. 
+	cv::Mat depth		= cv::Mat::ones (mm_height, mm_width, CV_32FC4);																													// NB must recompute translation maps at run time. NB parallax motion is proportional to inv depth. 
 	float mid_depth 	= (fp32_params[MAX_INV_DEPTH] + fp32_params[MIN_INV_DEPTH])/2.0;
 	depth 				*= mid_depth;
 	
@@ -1007,7 +1002,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																																cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_output "<<flush;
 																																																for (int i=0; i<1; i++) { // TODO x & y for all 6 SE3 DoF
 																																																	stringstream ss;	ss << frame_num << "_SE3_map";
-																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 0.0, 6 /*SE3*/ );
+																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 10.0, 6 /*SE3, 6DoF */);
 																																																}
 																																															}
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk.. Finished "<<flush;}

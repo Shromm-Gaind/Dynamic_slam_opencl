@@ -252,9 +252,9 @@ __kernel void compute_param_maps(
 	uint mm_cols		= uint_params[MM_COLS];
 	
 	uint reduction		= mm_cols/read_cols_;
-	
 	uint v    			= global_id_u / read_cols_;					// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;		//TODO NB 4 channels.
@@ -264,24 +264,21 @@ __kernel void compute_param_maps(
 	
 	////////// from __kernel void BuildCostVolume2(..)
 	for (uint i=0; i<6; i++) {
-		// precalculate depth-independent part of reprojection, h=homogeneous coords.
+		// Find new pixel position, h=homogeneous coords.
 		int idx = i *16;
-		float uh2 = k2k[idx+0]*u_flt + k2k[idx+1]*v_flt + k2k[idx+2]*1;  // +k2k[3]/z
-		float vh2 = k2k[idx+4]*u_flt + k2k[idx+5]*v_flt + k2k[idx+6]*1;  // +k2k[7]/z
-		float wh2 = k2k[idx+8]*u_flt + k2k[idx+9]*v_flt + k2k[idx+10]*1; // +k2k[11]/z
+		float inv_depth = 1.0f;// mid point max-min inv depth
+		float uh2 = k2k[idx+0]*u_flt + k2k[idx+1]*v_flt + k2k[idx+2]*1 + k2k[idx+3]*inv_depth;
+		float vh2 = k2k[idx+4]*u_flt + k2k[idx+5]*v_flt + k2k[idx+6]*1 + k2k[idx+7]*inv_depth;
+		float wh2 = k2k[idx+8]*u_flt + k2k[idx+9]*v_flt + k2k[idx+10]*1+ k2k[idx+11]*inv_depth;
 		//float h/z  = k2k[12]*u_flt + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
 	
-		float inv_depth = 1.0f; 					// mid point max-min inv depth   // (layer * inv_d_step) + min_inv_depth;		// locate pixel to sample from  new image. Depth dependent part.
-		float uh3  = uh2 + k2k[idx+3]*inv_depth;
-		float vh3  = vh2 + k2k[idx+7]*inv_depth;
-		float wh3  = wh2 + k2k[idx+11]*inv_depth;
-		float u2   = uh3/wh3;
-		float v2   = vh3/wh3;
-		float2 partial_gradient={u_flt-u2 , v_flt-v2};//{u_flt, v_flt};//
+		float u2   = uh2/wh2;
+		float v2   = vh2/wh2;
+		float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		
 		// (global_id_u == 10 || global_id_u == 11)
-		if  (u==0 && v <5) printf("\n partial_gradient= { %f - %f = %f,  %f - %f = %f }, i=%u,     uint_params[MM_PIXELS]=%u,    (read_index + i* uint_params[MM_PIXELS])=%u     ",  \
-			 u_flt,  u2, (u_flt-u2), v_flt, v2, (v_flt-v2), i, uint_params[MM_PIXELS], read_index+i*uint_params[MM_PIXELS]  );
+		//if  (u==0 && v <5) printf("\n partial_gradient= { %f - %f = %f,  %f - %f = %f }, i=%u,     uint_params[MM_PIXELS]=%u,    (read_index + i* uint_params[MM_PIXELS])=%u     ",  \
+		//	 u_flt,  u2, (u_flt-u2), v_flt, v2, (v_flt-v2), i, uint_params[MM_PIXELS], read_index+i*uint_params[MM_PIXELS]  );
 		
 		param_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
 	}
