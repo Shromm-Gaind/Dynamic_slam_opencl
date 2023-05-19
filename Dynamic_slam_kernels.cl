@@ -117,11 +117,11 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 }
 
 __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
-	__global float4*	img,			//0
-	__global float* 	gaussian,		//1
-	__global uint*		uint_params,	//2
-	__global uint*		mipmap_params,	//3
-	__local	 float4*	local_img_patch //4
+	__constant 	uint*	mipmap_params,	//0
+	__constant 	float* 	gaussian,		//1
+	__constant 	uint*	uint_params,	//2
+	__global 	float4*	img,			//3
+	__local	 	float4*	local_img_patch //4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -174,10 +174,10 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 
 
 __kernel void  img_grad(
-	__global 	float4*	img,			//0 
+	__constant	uint*	mipmap_params,	//0
 	__constant 	uint*	uint_params,	//1
 	__constant 	float*	fp32_params,	//2
-	__constant	uint*	mipmap_params,	//3
+	__global 	float4*	img,			//3 
 	__global 	float4*	gxp,			//4
 	__global 	float4*	gyp,			//5
 	__global 	float4*	g1p				//6
@@ -229,48 +229,42 @@ __kernel void  img_grad(
 
 
 __kernel void compute_param_maps(
-	__constant 	uint*	uint_params,	//0
-	__constant 	float*	fp32_params,	//1
-	__constant 	float* 	k2k,			//2
-	__constant 	uint*	mipmap_params,	//3
-	__global 	float* 	depth_map,		//4
-	__global 	float2*	param_map		//5
+	__constant 	uint*	mipmap_params,	//0
+	__constant 	uint*	uint_params,	//1
+	__constant 	float* 	SO3_k2k,		//2
+	__global 	float2*	param_map		//3
+	
+	//__constant 	float*	fp32_params,//1
+	//__global 	float* 	depth_map,		//4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
-	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	
-	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
-	
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;					// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
-	
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
-	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;		//TODO NB 4 channels.
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
-	if (global_id_u == 0 || global_id_u == mipmap_params[MiM_PIXELS]-1 ) printf("\nreduction=%u,  read_offset_=%u  , read_cols_=%u,  mipmap_params[MiM_PIXELS]=%u, global_id_u=%u,   u=%u,  v=%u, u_flt=%f, v_flt=%f,  uint_params[MM_PIXELS]=%u,  ", \
-		reduction, mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_PIXELS], global_id_u, u, v, u_flt, v_flt, uint_params[MM_PIXELS]  );
+	//if (global_id_u == 0 || global_id_u == mipmap_params[MiM_PIXELS]-1 ) printf("\nreduction=%u,  read_offset_=%u  , read_cols_=%u,  mipmap_params[MiM_PIXELS]=%u, global_id_u=%u,   u=%u,  v=%u, u_flt=%f, v_flt=%f,  uint_params[MM_PIXELS]=%u,  ", \
+	//	reduction, mipmap_params[MiM_READ_OFFSET], mipmap_params[MiM_READ_COLS], mipmap_params[MiM_PIXELS], global_id_u, u, v, u_flt, v_flt, uint_params[MM_PIXELS]  );
 	
-	////////// from __kernel void BuildCostVolume2(..)
-	for (uint i=0; i<6; i++) {
+	for (uint i=0; i<6; i++) {										// for each SE3 DoF
 		// Find new pixel position, h=homogeneous coords.
 		int idx = i *16;
 		float inv_depth = 1.0f;// mid point max-min inv depth
-		float uh2 = k2k[idx+0]*u_flt + k2k[idx+1]*v_flt + k2k[idx+2]*1 + k2k[idx+3]*inv_depth;
-		float vh2 = k2k[idx+4]*u_flt + k2k[idx+5]*v_flt + k2k[idx+6]*1 + k2k[idx+7]*inv_depth;
-		float wh2 = k2k[idx+8]*u_flt + k2k[idx+9]*v_flt + k2k[idx+10]*1+ k2k[idx+11]*inv_depth;
-		//float h/z  = k2k[12]*u_flt + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
+		float uh2 = SO3_k2k[idx+0]*u_flt + SO3_k2k[idx+1]*v_flt + SO3_k2k[idx+2]*1 + SO3_k2k[idx+3]*inv_depth;
+		float vh2 = SO3_k2k[idx+4]*u_flt + SO3_k2k[idx+5]*v_flt + SO3_k2k[idx+6]*1 + SO3_k2k[idx+7]*inv_depth;
+		float wh2 = SO3_k2k[idx+8]*u_flt + SO3_k2k[idx+9]*v_flt + SO3_k2k[idx+10]*1+ SO3_k2k[idx+11]*inv_depth;
+		//float h/z  = SO3_k2k[12]*u_flt + SO3_k2k[13]*v + SO3_k2k[14]*1; // +SO3_k2k[15]/z
 	
 		float u2   = uh2/wh2;
 		float v2   = vh2/wh2;
@@ -288,22 +282,95 @@ __kernel void compute_param_maps(
 
 
 __kernel void se3_grad(
-	__global 	float4*	img,			//0 
+	__constant 	uint*	mipmap_params,	//0
 	__constant 	uint*	uint_params,	//1
-	__constant 	float*	fp32_params,	//2
-	__global 	float4*	gxp,			//3
-	__global 	float4*	gyp,			//4
-	__global 	float4*	g1p,			//5
-	__constant 	float*	k2k				//6
-	
+	__constant 	float2*	param_map,		//2
+	__global 	float4*	img,			//3 
+	__global 	float4*	gxp,			//4
+	__global 	float4*	gyp,			//5
+	__global 	float4*	g1p,				//6
+	__local		float16*	local_sum_grads,//7
+	__global	float16*	global_sum_grads//8
 		 )
 {// find gradient wrt SE3 find global sum for each of the 6 DoF
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;											// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);									// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	////
+	float16 grads= 0;
+	for (uint i=0; i<6; i++) {																// for each SE3 DoF
+		float2 	se3_grad 	= param_map[read_index + i* uint_params[MM_PIXELS]];
+		float4 	gx 			= gxp[read_index];
+		float4 	gy 			= gyp[read_index];
+		//float4 	g1 			= g1p[read_index];
+		//float4	px 			= img[read_index];
+		grads[i]	= se3_grad[0] * (gx[0] + gx[1] + gx[2]);								// sum of hsv 1st order gradients.
+		grads[i*2]	= se3_grad[1] * (gy[0] + gy[1] + gy[2]);
+	}
+	local_sum_grads[lid] = grads  ;
 	
+	int max_iter = ilogb((float)(group_size));
+	for (uint iter=0; iter<max_iter ; iter++) {	// for log2(local work group size)			// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		if (lid>group_size)  return;
+		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
+	}
+	uint group_id 	= get_group_id(0);
+	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads
 	
+	printf("\n__kernel void se3_grad(..)  global_id_u=%u,  lid=%u,   group_id=%u,  global_sum_grads[group_id]=(%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f)   ",global_id_u, lid, group_id, \
+		global_sum_grads[group_id][0],global_sum_grads[group_id][1],global_sum_grads[group_id][2],global_sum_grads[group_id][3],global_sum_grads[group_id][4],global_sum_grads[group_id][5],global_sum_grads[group_id][6],global_sum_grads[group_id][7],   \
+		global_sum_grads[group_id][8],global_sum_grads[group_id][9],global_sum_grads[group_id][10],global_sum_grads[group_id][11],global_sum_grads[group_id][12],global_sum_grads[group_id][13],global_sum_grads[group_id][14],global_sum_grads[group_id][15]   \
+	);
 	
-	
-	
+}
 
+
+__kernel void reduce (
+	__constant 	uint*		mipmap_params,	//0
+	__constant 	uint*		uint_params,	//1
+	__constant 	uint*		reduce_params,	//2				// (i) Local work group size, (ii) num variables to reduce (upto 16)
+	__local		float16*	local_sum_grads,//3
+	__global	float16*	global_sum_grads//4
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	///
+	local_sum_grads[lid] = global_sum_grads[read_index];
+	int max_iter = ilogb((float)(group_size));
+	for (uint iter=0; iter<max_iter ; iter++) {	// for log2(local work group size)			// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		if (lid>group_size)  return;
+		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
+	}
+	uint group_id 	= get_group_id(0);
+	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads
 }
 
 
@@ -391,7 +458,34 @@ __kernel void se3_grad(
 
 /*	
 __kernel void  (
-	__global float* k2k,		//0
+	__constant 	uint*	mipmap_params,	//0
+	__constant 	uint*	uint_params,	//1
+	
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	///
+	
+	
+	
+	
+}
+__kernel void  (
+	__constant 	uint*	mipmap_params,	//0
 	
 		 )
 {
@@ -399,15 +493,7 @@ __kernel void  (
 	
 }
 __kernel void  (
-	__global float* k2k,		//0
-	
-		 )
-{
-	
-	
-}
-__kernel void  (
-	__global float* k2k,		//0
+	__constant 	uint*	mipmap_params,	//0
 	
 		 )
 {
