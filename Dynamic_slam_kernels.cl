@@ -220,7 +220,7 @@ __kernel void  img_grad(
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
-		 1.0 };
+		 1.0f };
 	if (global_id_u > mipmap_params[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
 	gxp[offset]= gx;
@@ -295,8 +295,8 @@ __kernel void se3_grad(
 {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
 	uint lid 			= get_local_id(0);
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
 	uint group_size 	= get_local_size(0);
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
@@ -370,7 +370,7 @@ __kernel void reduce (
 		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
 	}
 	uint group_id 	= get_group_id(0);
-	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads
+	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads  //  TODO ##### this will clash if work groups do not finish in order !!!!!!!!!!!!!
 }
 
 

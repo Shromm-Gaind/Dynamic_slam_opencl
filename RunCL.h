@@ -109,15 +109,15 @@ public:
 	void predictFrame();
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start/*=0*/, uint stop/*=8*/);// start,stop allow running specific layers.
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);// start,stop allow running specific layers.
 	//void mipmap(uint num_reductions, uint gaussian_size);
 	void mipmap_linear();
 	void img_gradients();
 	
 	void loadFrameData();
 	void generate_SE3_k2k(float *_SE3_k2k);
-	void estimateSO3(uint start, uint stop);
-	void estimateSE3(uint start, uint stop);
+	void estimateSO3(uint start=0, uint stop=8);
+	void estimateSE3(uint start=0, uint stop=8);
 	void estimateCalibration();
 	void buildDepthCostVol();
 	void SpatialCostFns();
