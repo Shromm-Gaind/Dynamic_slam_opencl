@@ -85,7 +85,8 @@ void Dynamic_slam::initialize_camera(){
 
 int Dynamic_slam::nextFrame() {
 	int local_verbosity_threshold = 1;
-																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0\n" << flush;
+	runcl.frame_bool_idx = !runcl.frame_bool_idx;																		// Global array index swap for: cl_mem imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"\n" << flush;
 	predictFrame();
 	getFrame();
 	getFrameData();
@@ -150,7 +151,7 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 
 // # Get 1st & 2nd order image gradients of MipMap
 // see CostVol::cacheGValues(), RunCL::cacheGValue2 & __kernel void CacheG3
-
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
 }
 
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
@@ -343,8 +344,9 @@ void Dynamic_slam::estimateSO3()
 	
 }
 
-void Dynamic_slam::estimateSE3()
-{
+void Dynamic_slam::estimateSE3(){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0\n" << flush;}
 // # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 // 
 	runcl.estimateSE3(2,4);//(uint start=0, uint stop=8);
@@ -361,7 +363,7 @@ void Dynamic_slam::estimateSE3()
 // # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 //
 	
-	
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 1  Finished\n" << flush;}	
 }
 
 void Dynamic_slam::estimateCalibration()

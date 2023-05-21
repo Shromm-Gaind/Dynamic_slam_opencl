@@ -65,8 +65,10 @@ public:
 	cl_kernel			cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
-	cl_mem				basemem, imgmem, cdatabuf, hdatabuf, dmem, amem, basegraymem, gxmem, gymem, g1mem, qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
-	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, SE3_map_mem, k_map_mem, dist_map_mem;// param_map_mem,  
+	bool 				frame_bool_idx=0;
+	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
+	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf; // param_map_mem,  
 	cl_mem 				se3_sum_mem, reduce_param_buf;
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes, mm_se3_sum_size;
