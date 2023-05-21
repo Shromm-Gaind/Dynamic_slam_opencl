@@ -232,7 +232,7 @@ __kernel void compute_param_maps(
 	__constant 	uint*	mipmap_params,	//0
 	__constant 	uint*	uint_params,	//1
 	__constant 	float* 	SO3_k2k,		//2
-	__global 	float2*	param_map		//3
+	__global 	float2*	SE3_map		//3
 	
 	//__constant 	float*	fp32_params,//1
 	//__global 	float* 	depth_map,		//4
@@ -274,7 +274,8 @@ __kernel void compute_param_maps(
 		//if  (u==0 && v <5) printf("\n partial_gradient= { %f - %f = %f,  %f - %f = %f }, i=%u,     uint_params[MM_PIXELS]=%u,    (read_index + i* uint_params[MM_PIXELS])=%u     ",  \
 		//	 u_flt,  u2, (u_flt-u2), v_flt, v2, (v_flt-v2), i, uint_params[MM_PIXELS], read_index+i*uint_params[MM_PIXELS]  );
 		
-		param_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
+		SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
+		if (lid==0){printf("\ni=%u partial_gradient[0]=%f, partial_gradient[1]=%f",i, partial_gradient[0], partial_gradient[1]);}
 	}
 	
 	// TODO // Create a 'reproject' & 'img_grad_sum' kernels 
@@ -284,24 +285,30 @@ __kernel void compute_param_maps(
 __kernel void se3_grad(
 	__constant 	uint*	mipmap_params,	//0
 	__constant 	uint*	uint_params,	//1
-	__constant 	float2*	param_map,		//2
+	__constant 	float2*	SE3_map,		//2
 	__global 	float4*	img,			//3 
 	__global 	float4*	gxp,			//4
 	__global 	float4*	gyp,			//5
-	__global 	float4*	g1p,				//6
-	__local		float16*	local_sum_grads,//7
-	__global	float16*	global_sum_grads//8
+	__global 	float4*	g1p,			//6
+	__local		float8*	local_sum_grads,//7
+	__global	float8*	global_sum_grads//8
 		 )
 {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
 	if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
-	uint group_size 	= get_local_size(0);
+	
+	uint local_size 	= get_local_size(0);
+	uint group_size 	= local_size;
+	uint work_dim 		= get_work_dim();
+	uint global_size	= get_global_size(0);
+	
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
+	uint mm_pixels		= uint_params[MM_PIXELS];
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;											// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);									// read_column
@@ -309,31 +316,40 @@ __kernel void se3_grad(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	////
-	float16 grads= 0;
+	float8 grads= 0;
+	float2 	se3_grad;
+	float4 	gx, gy, g1, px;
 	for (uint i=0; i<6; i++) {																// for each SE3 DoF
-		float2 	se3_grad 	= param_map[read_index + i* uint_params[MM_PIXELS]];
-		float4 	gx 			= gxp[read_index];
-		float4 	gy 			= gyp[read_index];
-		//float4 	g1 			= g1p[read_index];
-		//float4	px 			= img[read_index];
-		grads[i]	= se3_grad[0] * (gx[0] + gx[1] + gx[2]);								// sum of hsv 1st order gradients.
-		grads[i*2]	= se3_grad[1] * (gy[0] + gy[1] + gy[2]);
+		se3_grad 	= SE3_map[read_index + i* mm_pixels];
+		gx 			= gxp[read_index];
+		gy 			= gyp[read_index];
+		//g1 			= g1p[read_index];
+		//px 			= img[read_index];
+		grads[i]	= se3_grad[0] * (gx[0] + gx[1] + gx[2]) + se3_grad[1] * (gy[0] + gy[1] + gy[2]);	// sum of hsv 1st order gradients.
+		//grads[i*2]	= se3_grad[1] * (gy[0] + gy[1] + gy[2]);
+		if (global_id_u==0){printf("\ni=%u se3_grad[0]=%f, se3_grad[1]=%f",i, se3_grad[0], se3_grad[1]);}
 	}
 	local_sum_grads[lid] = grads  ;
 	
 	int max_iter = ilogb((float)(group_size));
-	for (uint iter=0; iter<max_iter ; iter++) {	// for log2(local work group size)			// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		if (lid>group_size)  return;
 		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
 	}
 	uint group_id 	= get_group_id(0);
-	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads
+	global_sum_grads[group_id] = local_sum_grads[0] / local_size;							// save to global_sum_grads //  TODO   Problem what if the group is not completely full ?
 	
-	printf("\n__kernel void se3_grad(..)  global_id_u=%u,  lid=%u,   group_id=%u,  global_sum_grads[group_id]=(%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f)   ",global_id_u, lid, group_id, \
-		global_sum_grads[group_id][0],global_sum_grads[group_id][1],global_sum_grads[group_id][2],global_sum_grads[group_id][3],global_sum_grads[group_id][4],global_sum_grads[group_id][5],global_sum_grads[group_id][6],global_sum_grads[group_id][7],   \
-		global_sum_grads[group_id][8],global_sum_grads[group_id][9],global_sum_grads[group_id][10],global_sum_grads[group_id][11],global_sum_grads[group_id][12],global_sum_grads[group_id][13],global_sum_grads[group_id][14],global_sum_grads[group_id][15]   \
-	);
+	//
+	uint i=0;
+	se3_grad 	= SE3_map[read_index + i* uint_params[MM_PIXELS]];
+	grads[i]	= se3_grad[0] * (gx[0] + gx[1] + gx[2]) + se3_grad[1] * (gy[0] + gy[1] + gy[2]);
+	
+	printf("\n__kernel void se3_grad(..)  lid=%u,   group_id=%u,  group_size=%u, local_size=%u,  work_dim=%u, global_size=%u, mm_pixels=%u, se3_grad=(%f,%f), gx=(%f,%f,%f,%f),  gy=(%f,%f,%f,%f),  grads[0]=%f,  local_sum_grads[lid][0]=%f , global_sum_grads[group_id]=(%f,%f,%f,%f,%f,%f,%f,%f), read_index=%u  u=%u, v=%u, global_id_u=%u,  ",\
+		lid, group_id, group_size,  local_size,  work_dim, global_size, mm_pixels, se3_grad[0], se3_grad[1], gx[0], gx[1], gx[2], gx[3], gy[0], gy[1], gy[2], gy[3],   grads[0],  local_sum_grads[lid][0], \
+		global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3], global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7], read_index, u, v, global_id_u ); //\ ,%f,%f,%f,%f,%f,%f,%f,%f
+		//global_sum_grads[group_id][8],global_sum_grads[group_id][9],global_sum_grads[group_id][10],global_sum_grads[group_id][11],global_sum_grads[group_id][12],global_sum_grads[group_id][13],global_sum_grads[group_id][14],global_sum_grads[group_id][15]   \
+		//);
 	
 }
 
