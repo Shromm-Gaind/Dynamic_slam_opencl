@@ -205,7 +205,7 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;										// Vector of device buffer names
 																						// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem"};
+	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]"};
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
 	for (std::string key : names){
@@ -364,7 +364,7 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 
-void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show ){
+void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, uint offset /*=0*/){
 	int local_verbosity_threshold = 0;
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
@@ -373,14 +373,14 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);
 			//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
 			
-			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize() );  // baseImage.total() * baseImage.elemSize()
+			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  // baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
 			
 			temp_mat = cv::Mat::zeros (size_mat, CV_32FC3);
 			temp_mat2.convertTo(temp_mat, CV_32FC3);	// NB conversion to FP32 req for cv::sum(..).
 			
 		} else {
 			temp_mat = cv::Mat::zeros (size_mat, type_mat);
-			ReadOutput(temp_mat.data, buffer,  image_size_bytes);
+			ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 		}
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_1, "<<flush;
 		
@@ -448,6 +448,21 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
 }
+
+void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
+	int local_verbosity_threshold = 1;
+																				if(verbosity> local_verbosity_threshold) {
+																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
+																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
+																				}
+	for (uint i=0; i<vol_layers; i++) {
+		stringstream ss;	ss << count << i;
+		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, i*image_size_bytes);
+	}
+																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+}
+
+
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
@@ -587,15 +602,16 @@ void RunCL::allocatemem()//float* gx, float* gy, float* params, int layers, cv::
 	cl_int res;
 	//imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2]; // alernate copies for consecutive frames, used in SE3 tracking.
 	for (int i=0; i<2; i++){
-		imgmem[i]		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  0, &res);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
-		gxmem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-		gymem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-		g1mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+		imgmem[i]			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  0, &res);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
+		gxmem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+		gymem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+		g1mem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-		k_map_mem[i]	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*10,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-		dist_map_mem[i]	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+		k_map_mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*10,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // camera intrinsic map
+		dist_map_mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // distorsion map
+		SE3_grad_map_mem[i] = clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*3channels=18, but 4*6=24 because hsv img gradient is held in float4
 	}
-	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) incremet fo each parameter.
+	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.
 		
 	basemem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
 	
@@ -1015,12 +1031,15 @@ void RunCL::img_gradients(){ //getFrame();
 	//res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*	mipmap_params,	//3
 	
 	//	mipmap_params set in mipmap_call_kernel(..) below																											  __constant uint*	mipmap_params,	//0
-	res = clSetKernelArg(img_grad_kernel, 1, sizeof(cl_mem), &uint_param_buf);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	uint_params		//1
-	res = clSetKernelArg(img_grad_kernel, 2, sizeof(cl_mem), &fp32_param_buf);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*	fp32_params		//2
-	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &imgmem[frame_bool_idx]);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,		//3
-	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &gxmem[frame_bool_idx]);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gxp,		//4
-	res = clSetKernelArg(img_grad_kernel, 5, sizeof(cl_mem), &gymem[frame_bool_idx]);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gyp,		//5
-	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &g1mem[frame_bool_idx]);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//6
+	res = clSetKernelArg(img_grad_kernel, 1, sizeof(cl_mem), &uint_param_buf);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	uint_params		//1
+	res = clSetKernelArg(img_grad_kernel, 2, sizeof(cl_mem), &fp32_param_buf);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*	fp32_params		//2
+	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &imgmem[frame_bool_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,		//3
+	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &gxmem[frame_bool_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gxp,		//4
+	res = clSetKernelArg(img_grad_kernel, 5, sizeof(cl_mem), &gymem[frame_bool_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gyp,		//5
+	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &g1mem[frame_bool_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//6
+	res = clSetKernelArg(img_grad_kernel, 7, sizeof(cl_mem), &SE3_map_mem);							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float2*	SE3_map,	//7
+	res = clSetKernelArg(img_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	SE3_grad_map//8
+	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk3 Finished all loops. Saving gxmem, gymem, g1mem."<<flush;
@@ -1040,6 +1059,14 @@ void RunCL::img_gradients(){ //getFrame();
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_3Channel(	g1mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				///
+																																				ss_path.str(std::string()); // reset ss_path		
+																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"; 
+																																				cout << "\n" << ss_path.str() <<flush;
+																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
+																																				DownloadAndSave_3Channel_volume(SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1.0f, 6 );
+																																				//DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers )
+																																				//SE3_grad_map_mem[frame_bool_idx]  // SE3_grad_map[read_index + i* mm_pixels]
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk4 Finished."<<flush;}
 }
@@ -1094,7 +1121,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	size_t local_size = local_work_size;
 	//	mipmap_params set in mipmap_call_kernel(..) below																											  			  __constant 	uint*		mipmap_params,	//0
 	res = clSetKernelArg(se3_grad_kernel, 1, sizeof(cl_mem), &uint_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint*		uint_params,	//1
-	res = clSetKernelArg(se3_grad_kernel, 2, sizeof(cl_mem), &SE3_map_mem);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	float*		SE3_map,		//2
+	res = clSetKernelArg(se3_grad_kernel, 2, sizeof(cl_mem), &SE3_map_mem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	float*		SE3_map,		//2
 	res = clSetKernelArg(se3_grad_kernel, 3, sizeof(cl_mem), &imgmem[frame_bool_idx]);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		img,			//3
 	res = clSetKernelArg(se3_grad_kernel, 4, sizeof(cl_mem), &gxmem[frame_bool_idx]); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		gxp,			//4
 	res = clSetKernelArg(se3_grad_kernel, 5, sizeof(cl_mem), &gymem[frame_bool_idx]); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		gyp,			//5
@@ -1107,7 +1134,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
 																																																stringstream ss;	ss << frame_num << "_img_grad";
-																																																DownloadAndSave(	se3_sum_mem, ss.str(), paths.at("gxmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false, 1 );
+																																																//DownloadAndSave(	se3_sum_mem, ss.str(), paths.at("gxmem[frame_bool_idx]"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false, 1 );
 																																																
 																																																/*
 																																																DownloadAndSave_3Channel(	gxmem[frame_bool_idx], ss.str(), paths.at("gxmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
@@ -1198,12 +1225,13 @@ void RunCL::CleanUp()
 																																			cout<<"\nRunCL::CleanUp_chk0"<<flush;
 	cl_int status;
 	for (int i=0; i<2; i++){
-		status = clReleaseMemObject(imgmem[i]);			if (status != CL_SUCCESS)	{ cout << "\nimgmem["<<i<<"]         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-		status = clReleaseMemObject(gxmem[i]);			if (status != CL_SUCCESS)	{ cout << "\ngxmem["<<i<<"]          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-		status = clReleaseMemObject(gymem[i]);			if (status != CL_SUCCESS)	{ cout << "\ngymem["<<i<<"]          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-		status = clReleaseMemObject(g1mem[i]);			if (status != CL_SUCCESS)	{ cout << "\ng1mem["<<i<<"]          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-		status = clReleaseMemObject(k_map_mem[i]);		if (status != CL_SUCCESS)	{ cout << "\nk_map_mem["<<i<<"]      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-		status = clReleaseMemObject(dist_map_mem[i]);	if (status != CL_SUCCESS)	{ cout << "\ndist_map_mem["<<i<<"]   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(imgmem[i]);				if (status != CL_SUCCESS)	{ cout << "\nimgmem["<<i<<"]             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(gxmem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngxmem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(gymem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngymem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(g1mem[i]);				if (status != CL_SUCCESS)	{ cout << "\ng1mem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(k_map_mem[i]);			if (status != CL_SUCCESS)	{ cout << "\nk_map_mem["<<i<<"]          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(dist_map_mem[i]);		if (status != CL_SUCCESS)	{ cout << "\ndist_map_mem["<<i<<"]       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(SE3_grad_map_mem[i]);	if (status != CL_SUCCESS)	{ cout << "\nSE3_grad_map_mem["<<i<<"]   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 	}
 	status = clReleaseMemObject(SE3_map_mem);		if (status != CL_SUCCESS)	{ cout << "\nSE3_map_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 		

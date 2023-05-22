@@ -174,13 +174,15 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 
 
 __kernel void  img_grad(
-	__constant	uint*	mipmap_params,	//0
-	__constant 	uint*	uint_params,	//1
-	__constant 	float*	fp32_params,	//2
-	__global 	float4*	img,			//3 
-	__global 	float4*	gxp,			//4
-	__global 	float4*	gyp,			//5
-	__global 	float4*	g1p				//6
+	__constant	uint*		mipmap_params,	//0
+	__constant 	uint*		uint_params,	//1
+	__constant 	float*		fp32_params,	//2
+	__global 	float4*		img,			//3 
+	__global 	float4*		gxp,			//4
+	__global 	float4*		gyp,			//5
+	__global 	float4*		g1p,			//6
+	__constant 	float2*		SE3_map,		//7
+	__global 	float4*		SE3_grad_map	//8  // ? do we need to keep hsv sepate at this stage, if so 6*3=18, but float16 is the largest type. 
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -192,6 +194,7 @@ __kernel void  img_grad(
 	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
+	uint mm_pixels		= uint_params[MM_PIXELS];
 	
 	uint read_row    	= global_id_u / read_cols_;
 	uint read_column 	= fmod(global_id_flt, read_cols_);
@@ -225,6 +228,11 @@ __kernel void  img_grad(
 	g1p[offset]= g1;
 	gxp[offset]= gx;
 	gyp[offset]= gy;
+	
+	for (uint i=0; i<6; i++) {	SE3_grad_map[read_index + i* mm_pixels] = SE3_map[read_index + i* mm_pixels][0] * gx   +   SE3_map[read_index + i* mm_pixels][1] * gy; } // Compute grad map for each SE3 DoF
+	uint lid = get_group_id(0);
+	uint i=0;
+	if (lid == 1) printf("\nSE3_grad_map[%u + %u * %u] = (%f, %f, %f, %f)", read_index, i, mm_pixels, SE3_grad_map[read_index + i* mm_pixels][0], SE3_grad_map[read_index + i* mm_pixels][1], SE3_grad_map[read_index + i* mm_pixels][2], SE3_grad_map[read_index + i* mm_pixels][3]  );
 }
 
 
@@ -275,7 +283,7 @@ __kernel void compute_param_maps(
 		//	 u_flt,  u2, (u_flt-u2), v_flt, v2, (v_flt-v2), i, uint_params[MM_PIXELS], read_index+i*uint_params[MM_PIXELS]  );
 		
 		SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
-		if (lid==0){printf("\ni=%u partial_gradient[0]=%f, partial_gradient[1]=%f",i, partial_gradient[0], partial_gradient[1]);}
+		//if (lid==0){printf("\ni=%u partial_gradient[0]=%f, partial_gradient[1]=%f",i, partial_gradient[0], partial_gradient[1]);}
 	}
 	
 	// TODO // Create a 'reproject' & 'img_grad_sum' kernels 

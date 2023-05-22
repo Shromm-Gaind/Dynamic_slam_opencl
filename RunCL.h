@@ -66,7 +66,7 @@ public:
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
-	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2];
+	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2];
 	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, SE3_map_mem; // param_map_mem,  
 	cl_mem 				se3_sum_mem, reduce_param_buf;
@@ -92,7 +92,8 @@ public:
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	
-	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show );
+	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, uint offset=0 );
+	void DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	void DownloadAndSave_3Channel_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
