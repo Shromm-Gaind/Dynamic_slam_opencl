@@ -216,8 +216,8 @@ __kernel void  img_grad(
 	pu =  img[offset + upoff];
 	pd =  img[offset + dnoff];
 
-	float4 gx	= { fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0f };
-	float4 gy	= { fabs(pd.x - pu.x), fabs(pd.y - pu.y), fabs(pd.z - pu.z), 1.0f };
+	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f }; //{ fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0f };		// taking the absolute loses the direction of the gradient. 
+	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
 	 
 	float4 g1  = { \
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
@@ -226,13 +226,33 @@ __kernel void  img_grad(
 		 1.0f };
 	if (global_id_u > mipmap_params[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
-	gxp[offset]= gx;
-	gyp[offset]= gy;
+	gxp[offset]= fabs(gx);
+	gyp[offset]= fabs(gy);
 	
-	for (uint i=0; i<6; i++) {	SE3_grad_map[read_index + i* mm_pixels] = SE3_map[read_index + i* mm_pixels][0] * gx   +   SE3_map[read_index + i* mm_pixels][1] * gy; } // Compute grad map for each SE3 DoF
-	uint lid = get_group_id(0);
-	uint i=0;
-	if (lid == 1) printf("\nSE3_grad_map[%u + %u * %u] = (%f, %f, %f, %f)", read_index, i, mm_pixels, SE3_grad_map[read_index + i* mm_pixels][0], SE3_grad_map[read_index + i* mm_pixels][1], SE3_grad_map[read_index + i* mm_pixels][2], SE3_grad_map[read_index + i* mm_pixels][3]  );
+	for (uint i=0; i<6; i++) {	
+		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
+		float4 SE3_grad_px = (gx*SE3_px[0])  +  (gy*SE3_px[1]);
+		SE3_grad_px[3] = 1;
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px; 
+		
+		if (global_id_u ==1)printf("\nSE3_grad_map[%u + %u * %u] = (%f, %f, %f, %f),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
+		, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],    SE3_px[0], SE3_px[1]  \
+		, gx[0], gx[1], gx[2], gx[3],   gy[0], gy[1], gy[2], gy[3] \
+				  );
+	} 
+	
+	
+	
+	// Compute grad map for each SE3 DoF
+	////
+	//uint lid = get_group_id(0);
+	//uint i=0;
+	//float2 SE3_px =  SE3_map[read_index + i* mm_pixels];
+	//float4 SE3_grad_px = SE3_grad_map[read_index + i* mm_pixels];
+	//if (lid == 1) printf("\nSE3_grad_map[%u + %u * %u] = (%f, %f, %f, %f),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
+	//	, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],    SE3_px[0], SE3_px[1]  \
+	//	, gx[0], gx[1], gx[2], gx[3],   gy[0], gy[1], gy[2], gy[3] \
+	//			  );
 }
 
 
@@ -240,7 +260,7 @@ __kernel void compute_param_maps(
 	__constant 	uint*	mipmap_params,	//0
 	__constant 	uint*	uint_params,	//1
 	__constant 	float* 	SO3_k2k,		//2
-	__global 	float2*	SE3_map		//3
+	__global 	float2*	SE3_map			//3
 	
 	//__constant 	float*	fp32_params,//1
 	//__global 	float* 	depth_map,		//4

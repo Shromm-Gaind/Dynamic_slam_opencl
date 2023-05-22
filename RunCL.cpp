@@ -288,18 +288,20 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					// (int rows, int cols, int type)
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset); 			// NB contains elements of type_mat, (CV_32FC1 for most buffers)
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_1, layer="<<layer<<flush;
-		cv::Mat channels[3];
+		cv::Mat channels[4];
 		split(temp_mat, channels);												// Split u and v (col and row) channels.
 		cv::Scalar sum_u = cv::sum(channels[0]);
 		cv::Scalar sum_v = cv::sum(channels[1]);
 		//cv::Scalar sum_w = cv::sum(channels[2]);
 		channels[2] = cv::Mat::zeros( channels[1].size(), channels[1].type() );
+		channels[3] = cv::Mat::ones( channels[1].size(), channels[1].type() );
+		
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_2"<<flush;
 		cv::Mat temp_mat_u, temp_mat_v;
-		cv::Mat channels_u[3] = {channels[0],channels[0]*(-1),channels[2] };	// Compose BGR 3channel for each of u & v.
-		cv::Mat channels_v[3] = {channels[1],channels[1]*(-1),channels[2] };	// NB Blue = +ve, , Green = -ve , Red not used. 
-		merge(channels_u,3,temp_mat_u);											// Origin is top right corner of the image.
-		merge(channels_v,3,temp_mat_v);
+		cv::Mat channels_u[4] = {channels[0],channels[0]*(-1),channels[2],channels[3] };	// Compose BGR 3channel for each of u & v.
+		cv::Mat channels_v[4] = {channels[1],channels[1]*(-1),channels[2],channels[3] };	// NB Blue = +ve, , Green = -ve , Red not used. 
+		merge(channels_u,4,temp_mat_u);											// Origin is top right corner of the image.
+		merge(channels_v,4,temp_mat_v);
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_3"<<flush;
 		double minVal_u=1, maxVal_u=1,  minVal_v=1, maxVal_v=1;
 		cv::Point minLoc_u={0,0}, maxLoc_u{0,0}, minLoc_v={0,0}, maxLoc_v{0,0};
@@ -330,7 +332,7 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		folder_png_v  += "/png/";
 		folder_png_v  += png_ss_v.str();
 		folder_png_v  += ".png";
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() filename = ["<<ss_u.str()<<" , "<<ss_v.str()<<"]";
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume(), max_range="<<max_range<<",   filename = ["<<ss_u.str()<<" , "<<ss_v.str()<<"]";
 		cv::Mat outMat_u, outMat_v;
 		if (type_mat != CV_32FC2 && type_mat != CV_16FC2 ) {
 			cout << "\n\n## Error  (type_mat != CV_32FC2 or CV_16FC2) ##\n\n" << flush;
@@ -348,10 +350,10 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		}
 		cv::imwrite(folder_tiff_u.string(), temp_mat_u );
 		cv::imwrite(folder_tiff_v.string(), temp_mat_v );
-		temp_mat_u *= 256*256;
-		temp_mat_v *= 256*256;
-		temp_mat_u.convertTo(outMat_u, CV_16UC3);
-		temp_mat_v.convertTo(outMat_v, CV_16UC3);
+		temp_mat_u *= 256*256 *5;												// NB This is mosty for SE3_map_mem, which is dark due to small increment of each DoF.
+		temp_mat_v *= 256*256 *5;
+		temp_mat_u.convertTo(outMat_u, CV_16UC4);
+		temp_mat_v.convertTo(outMat_v, CV_16UC4);
 		cv::imwrite(folder_png_u.string(), outMat_u );
 		cv::imwrite(folder_png_v.string(), outMat_v );
 		
@@ -364,26 +366,21 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 
-void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, uint offset /*=0*/){
+void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
 	int local_verbosity_threshold = 0;
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
 		if (type_mat == CV_16FC3)	{
-			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);
-			//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
-			
+			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);					//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
 			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  // baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
-			
 			temp_mat = cv::Mat::zeros (size_mat, CV_32FC3);
-			temp_mat2.convertTo(temp_mat, CV_32FC3);	// NB conversion to FP32 req for cv::sum(..).
-			
+			temp_mat2.convertTo(temp_mat, CV_32FC3);							// NB conversion to FP32 req for cv::sum(..).
 		} else {
 			temp_mat = cv::Mat::zeros (size_mat, type_mat);
 			ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 		}
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_1, "<<flush;
-		
 		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
 		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
@@ -412,6 +409,19 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
+		
+		if (max_range == 0){ 													if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
+			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 
+			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);						// set alpha=1
+			cv::merge(spl, temp_mat);
+		}	// Squash/stretch & shift to 0.0-1.0 range
+		else if (max_range <0.0){												if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range); 
+			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
+			cv::merge(spl, temp_mat);
+		}else{ 																	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+			temp_mat /=max_range;
+		}
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_3, "<<flush;
 		cv::Mat outMat;
 		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
@@ -423,16 +433,16 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_5, "<<flush;
 				std::vector<cv::Mat> matChannels;
 				cv::split(outMat, matChannels);
-				matChannels.at(3)=255;
+				//matChannels.at(3)=255;											// set alpha=1
 				cv::merge(matChannels, outMat);
 			}
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			cv::imwrite(folder_png.string(), (outMat) );					// Has "Grayscale 16-bit gamma integer"
+			cv::imwrite(folder_png.string(), (outMat) );						// Has "Grayscale 16-bit gamma integer"
 		}else if (type_mat == CV_8UC3){
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
 			cv::imwrite(folder_tiff.string(), temp_mat );
 			cv::imwrite(folder_png.string(),  temp_mat );
-		}else if (type_mat == CV_16FC3) {									// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
+		}else if (type_mat == CV_16FC3) {										// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
 			/*
 			//cout << "\n Writing CV_16FC3 to .tiff & .png .\n"<< flush;
 			//cout << "\n temp_mat2.at<cv::float16_t>(101,100-105) = " << temp_mat2.at<cv::float16_t>(101,100) << "," << temp_mat2.at<cv::float16_t>(101,101) << ","<< temp_mat2.at<cv::float16_t>(101,102) << ","<< temp_mat2.at<cv::float16_t>(101,103) << ","<< temp_mat2.at<cv::float16_t>(101,104) << ","<< temp_mat2.at<cv::float16_t>(101,105) << ","<< flush; 
@@ -457,7 +467,7 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 																				}
 	for (uint i=0; i<vol_layers; i++) {
 		stringstream ss;	ss << count << i;
-		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, i*image_size_bytes);
+		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
 	}
 																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
@@ -1024,7 +1034,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 }
 
 void RunCL::img_gradients(){ //getFrame();
-	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
+	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
@@ -1064,7 +1074,7 @@ void RunCL::img_gradients(){ //getFrame();
 																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_3Channel_volume(SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1.0f, 6 );
+																																				DownloadAndSave_3Channel_volume(SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				//DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers )
 																																				//SE3_grad_map_mem[frame_bool_idx]  // SE3_grad_map[read_index + i* mm_pixels]
 																																			}
@@ -1103,7 +1113,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																																cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_output "<<flush;
 																																																for (int i=0; i<1; i++) { // TODO x & y for all 6 SE3 DoF
 																																																	stringstream ss;	ss << frame_num << "_SE3_map";
-																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 10.0, 6 /*SE3, 6DoF */);
+																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 1.0, 6 /*SE3, 6DoF */);
 																																																}
 																																															}
 																																															if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk.. Finished "<<flush;}
