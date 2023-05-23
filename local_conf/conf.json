@@ -44,8 +44,8 @@
     "num_reductions":4,
     "gaussian_size":3,
     "":"",
-    "":"",
-    "":"",
+    "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
+    "SE3_LM_B":0.1,
     "":"",
     "":"",
     "":""                       

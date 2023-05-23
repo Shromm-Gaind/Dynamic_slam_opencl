@@ -32,6 +32,8 @@
 #define THETA				8
 #define LAMBDA				9	//  __kernel void UpdateA2
 #define SCALE_EAUX			10
+#define SE3_LM_A			11	// LM damped least squares parameters for SE3 tracking
+#define SE3_LM_B			12
 
 #define PIXELS				0	// uint_params indices, 		when launching one kernel per layer. 	Constant throughout program run.
 #define ROWS				1	// baseimage
