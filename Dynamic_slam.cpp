@@ -349,7 +349,7 @@ void Dynamic_slam::estimateSE3(){
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0\n" << flush;}
 // # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 // 
-	runcl.estimateSE3(2,4);//(uint start=0, uint stop=8);
+	runcl.estimateSE3(0,8);//(uint start=0, uint stop=8);
 
 
 // # Predict dammped least squares step of SE3 for whole image + residual of translation for relative velocity map.

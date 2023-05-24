@@ -317,7 +317,8 @@ __kernel void se3_grad(
 	__global 	float4*	SE3_grad_map_new_frame,	//7
 	__global	float* 	inv_depth_map,			//8
 	__local		float8*	local_sum_grads,		//9
-	__global	float8*	global_sum_grads		//10
+	__global	float8*	global_sum_grads,		//10
+	__global 	float4*	SE3_incr_map_			//11
 	)
 {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
@@ -329,7 +330,7 @@ __kernel void se3_grad(
 	uint group_size 	= local_size;
 	uint work_dim 		= get_work_dim();
 	uint global_size	= get_global_size(0);
-	float16 k2k_pvt		= k2k[0];															// is this unnecesary ?
+	float16 k2k_pvt		= k2k[0];
 	
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
@@ -367,18 +368,19 @@ __kernel void se3_grad(
 		int idx = 0;
 		float4 rho = img_cur[read_index] - img_new[read_index_new];
 		for (uint i=0; i<6; i++) {															// for each SE3 DoF
-			idx = i *16;
-			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + idx * mm_pixels ] ;
-			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + idx * mm_pixels ] ;
+			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
+			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
 			float4 SE3_grad2_px    = SE3_grad_cur_px - SE3_grad_new_px;						// Estimate 2nd order gradient from the difference of gradients at current k2k.
 			float4 delta_1 = {0.0f,0.0f,0.0f,0.0f};
 			float4 delta_2 = {0.0f,0.0f,0.0f,0.0f};
-			for (uint j=0; j<4; j++){
+			for (uint j=0; j<3; j++){
 				delta_1[j] = 0.5 * rho[j] / (SE3_grad_cur_px[j] - SE3_grad_new_px[j]) ;
 				delta_2[j] = -0.25*(SE3_grad_cur_px[j] + SE3_grad_new_px[j]) / (SE3_grad_cur_px[j] - SE3_grad_new_px[j]) ;
 			}
 			float4 delta = SE3_LM_a*delta_1 + SE3_LM_b*delta_2;
 			grads[i] = delta[0] + delta[1] + delta[3];
+			
+			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
 			
 			if (global_id_u==1){printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta_1=(%f,%f,%f,%f),  \ndelta_2=(%f,%f,%f,%f)"\
 				,i, read_index, read_index_new \
@@ -392,6 +394,8 @@ __kernel void se3_grad(
 		grads[7]=1;																			//Count hits, and divide group by num hits, without using atomics!
 	}local_sum_grads[lid] = grads  ;
 	
+	//SE3_incr_map_[read_index + i * mm_pixels ]=grads;
+	
 	int max_iter = ilogb((float)(group_size));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
@@ -402,6 +406,10 @@ __kernel void se3_grad(
 	if (local_sum_grads[0][7] >0){
 		global_sum_grads[group_id] = local_sum_grads[0] / local_sum_grads[0][7];			// save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 	}else global_sum_grads[group_id] = 0;
+																							// NB (global_id_u==1) never executes here.
+	if (lid==0){printf("\n\ngroup_id=%u, read_index=%u, grads[7]=%f, local_sum_grads[lid]=(%f,%f,%f,%f, %f,%f,%f,%f) ",group_id, read_index, grads[7]\
+		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7]  );
+	}
 }
 	//////////////////////////////////////////////////////
 	//uint i=0;
