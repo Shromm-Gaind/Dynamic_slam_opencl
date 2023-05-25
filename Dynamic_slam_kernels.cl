@@ -104,7 +104,7 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 	uint img_col	= base_col + margin;
 	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
 	
-	float4 temp_float4  = {H,S,V,0};																// Note how to load a float4 vector.
+	float4 temp_float4  = {H,S,V,1.0f};																// Note how to load a float4 vector.
 	img[img_index   ] = temp_float4;
 
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
@@ -135,6 +135,7 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
 	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
 	
+	uint write_rows_	= mipmap_params[MiM_READ_ROWS] /2;
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
 	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
 	
@@ -170,7 +171,10 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 			reduced_pixel += local_img_patch[lid+y + i*patch_length]/9;								// 3x3 box filter, rather than Gaussian
 		}
 	}
-	if (global_id_u > mipmap_params[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
+	if (write_row>write_rows_) return;
+	//if (global_id_u >= mipmap_params[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
+	//reduced_pixel[2] = global_id_flt/(float)(mipmap_params[MiM_PIXELS]); // debugging 
+	reduced_pixel[3] = 1.0f;
 	img[ write_index] = reduced_pixel;
 }
 
@@ -226,7 +230,7 @@ __kernel void  img_grad(
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
 		 1.0f };
-	if (global_id_u > mipmap_params[MiM_PIXELS]) return;	 
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
 	gxp[offset]= fabs(gx);
 	gyp[offset]= fabs(gy);
@@ -267,7 +271,7 @@ __kernel void compute_param_maps(
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;					// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
-	float u_flt			= u * reduction;
+	float u_flt			= u * reduction;							// NB this causes sparse sampling of the original space, to use the same k2k at every scale.
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
@@ -324,7 +328,7 @@ __kernel void se3_grad(
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
-	if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
+	// if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
 	
 	uint local_size 	= get_local_size(0);
 	uint group_size 	= local_size;
@@ -346,7 +350,7 @@ __kernel void se3_grad(
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;											// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);									// read_column
-	float u_flt			= u * reduction;
+	float u_flt			= u * reduction;													// NB this causes sparse sampling of the original space, to use the same k2k at every scale.
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
@@ -358,13 +362,14 @@ __kernel void se3_grad(
 	
 	float u2_flt	= uh2/wh2;
 	float v2_flt	= vh2/wh2;
-	int  u2		= floor(u2_flt+0.5f);	// nearest neighbour interpolation
-	int  v2		= floor(v2_flt+0.5f);
+	int  u2			= floor((u2_flt/reduction)+0.5f) ;										// nearest neighbour interpolation
+	int  v2			= floor((v2_flt/reduction)+0.5f) ;										// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2*read_cols_ + u2;
 	// uint read_index_new[4] = { read_offset_+v2*read_cols_+u2, read_offset_+v2*read_cols_+u2+1, read_offset_+(v2+1)*read_cols_+u2, read_offset_+(v2+1)*read_cols_+u2+1 };		// linear interpolation if needed.
 	
+	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f", read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
 	float8 grads= 0;
-	if (  !((u2<0) || (u2>=read_cols_) || (v2<0) || (v2>=read_rows_))  ) {					// if (not within new frame) skip
+	if (  !((u2<0) || (u2>=read_cols_) || (v2<0) || (v2>=read_rows_))  ) {					// if (not within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		float4 rho = img_cur[read_index] - img_new[read_index_new];
 		for (uint i=0; i<6; i++) {															// for each SE3 DoF
@@ -378,12 +383,13 @@ __kernel void se3_grad(
 				delta_2[j] = -0.25*(SE3_grad_cur_px[j] + SE3_grad_new_px[j]) / (SE3_grad_cur_px[j] - SE3_grad_new_px[j]) ;
 			}
 			float4 delta = SE3_LM_a*delta_1 + SE3_LM_b*delta_2;
-			grads[i] = delta[0] + delta[1] + delta[3];
+			grads[i] = delta[0] + delta[1] + delta[2];
+			delta[3] = 1.0f;
 			
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
 			
-			if (global_id_u==1){printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta_1=(%f,%f,%f,%f),  \ndelta_2=(%f,%f,%f,%f)"\
-				,i, read_index, read_index_new \
+			if (global_id_u==1){printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta_1=(%f,%f,%f,%f),  \ndelta_2=(%f,%f,%f,%f)"\
+				,i, read_index, read_index_new, SE3_LM_a, SE3_LM_b \
 				,rho[0] ,rho[1] ,rho[2] ,rho[3] \
 				,SE3_grad_cur_px[0],SE3_grad_cur_px[1],SE3_grad_cur_px[2],SE3_grad_cur_px[3]\
 				,SE3_grad_new_px[0],SE3_grad_new_px[1],SE3_grad_new_px[2],SE3_grad_new_px[3]\
@@ -392,7 +398,8 @@ __kernel void se3_grad(
 			); }
 		}
 		grads[7]=1;																			//Count hits, and divide group by num hits, without using atomics!
-	}local_sum_grads[lid] = grads  ;
+	}
+	local_sum_grads[lid] = grads  ;
 	
 	//SE3_incr_map_[read_index + i * mm_pixels ]=grads;
 	
@@ -407,8 +414,13 @@ __kernel void se3_grad(
 		global_sum_grads[group_id] = local_sum_grads[0] / local_sum_grads[0][7];			// save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 	}else global_sum_grads[group_id] = 0;
 																							// NB (global_id_u==1) never executes here.
-	if (lid==0){printf("\n\ngroup_id=%u, read_index=%u, grads[7]=%f, local_sum_grads[lid]=(%f,%f,%f,%f, %f,%f,%f,%f) ",group_id, read_index, grads[7]\
-		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7]  );
+	uint num_groups = get_num_groups(0);
+	
+	if (lid==0){printf("\n\n reduction=%u,  num_groups=%u,  group_id=%u, read_index=%u, grads[7]=%f, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		, reduction, num_groups, group_id, read_index, grads[7]\
+		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
+		, global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3],    global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7]\
+	);
 	}
 }
 	//////////////////////////////////////////////////////
@@ -453,8 +465,13 @@ __kernel void reduce (
 		if (lid>group_size)  return;
 		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
 	}
+	
 	uint group_id 	= get_group_id(0);
 	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads  //  TODO ##### this will clash if work groups do not finish in order !!!!!!!!!!!!!
+	printf("\nreduction=%u,  global_id_u=%u,   group_id=%u,  lid=%u,  local_sum_grads[0]=(%f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f) ", reduction, global_id_u, group_id, lid  \
+		, local_sum_grads[0][0], local_sum_grads[0][1], local_sum_grads[0][2], local_sum_grads[0][3],     local_sum_grads[0][4], local_sum_grads[0][5], local_sum_grads[0][6], local_sum_grads[0][7] \
+		, local_sum_grads[0][8], local_sum_grads[0][9], local_sum_grads[0][10], local_sum_grads[0][11],     local_sum_grads[0][12], local_sum_grads[0][13], local_sum_grads[0][14], local_sum_grads[0][15] \
+	);
 }
 
 
