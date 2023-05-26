@@ -328,7 +328,7 @@ __kernel void se3_grad(
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
-	// if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}		// zero unitialized local_sum_grads;
+	// if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}	// zero unitialized local_sum_grads;
 	
 	uint local_size 	= get_local_size(0);
 	uint group_size 	= local_size;
@@ -344,7 +344,7 @@ __kernel void se3_grad(
 	uint mm_cols		= uint_params[MM_COLS];
 	uint mm_pixels		= uint_params[MM_PIXELS];
 	
-	float SE3_LM_a		= fp32_params[SE3_LM_A];											// Leveneberg-Marquardt dammped least squares parameters
+	float SE3_LM_a		= fp32_params[SE3_LM_A];											// Optimisation parameters
 	float SE3_LM_b		= fp32_params[SE3_LM_B];
 	
 	uint reduction		= mm_cols/read_cols_;
@@ -365,114 +365,139 @@ __kernel void se3_grad(
 	int  u2			= floor((u2_flt/reduction)+0.5f) ;										// nearest neighbour interpolation
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;										// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2*read_cols_ + u2;
-	// uint read_index_new[4] = { read_offset_+v2*read_cols_+u2, read_offset_+v2*read_cols_+u2+1, read_offset_+(v2+1)*read_cols_+u2, read_offset_+(v2+1)*read_cols_+u2+1 };		// linear interpolation if needed.
 	
-	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f", read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
 	float8 grads= 0;
+	grads[6]=1;
+	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f", read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
+	
 	if (  !((u2<0) || (u2>=read_cols_) || (v2<0) || (v2>=read_rows_))  ) {					// if (not within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		float4 rho = img_cur[read_index] - img_new[read_index_new];
 		for (uint i=0; i<6; i++) {															// for each SE3 DoF
 			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
 			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
-			float4 SE3_grad2_px    = SE3_grad_cur_px - SE3_grad_new_px;						// Estimate 2nd order gradient from the difference of gradients at current k2k.
-			float4 delta_1 = {0.0f,0.0f,0.0f,0.0f};
-			float4 delta_2 = {0.0f,0.0f,0.0f,0.0f};
+			float4 delta = {0.0f,0.0f,0.0f,1.0f};
 			for (uint j=0; j<3; j++){
-				delta_1[j] = 0.5 * rho[j] / (SE3_grad_cur_px[j] - SE3_grad_new_px[j]) ;
-				delta_2[j] = -0.25*(SE3_grad_cur_px[j] + SE3_grad_new_px[j]) / (SE3_grad_cur_px[j] - SE3_grad_new_px[j]) ;
+				float SE3_grad = (SE3_grad_cur_px[j] );//+ SE3_grad_new_px[j]);				// Using mean of jacobiand produces lots of noise. 
+				if (fabs(SE3_grad)> 0.01 ) delta[j] = (-2 * rho[j] / SE3_grad) ;			// Descent on the mean of the gradient : image intensity / SE3 , protected against zero gradient null regions of SE3.
 			}
-			float4 delta = SE3_LM_a*delta_1 + SE3_LM_b*delta_2;
 			grads[i] = delta[0] + delta[1] + delta[2];
-			delta[3] = 1.0f;
-			
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
-			
-			if (global_id_u==1){printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta_1=(%f,%f,%f,%f),  \ndelta_2=(%f,%f,%f,%f)"\
+			if (global_id_u==1){
+				printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta=(%f,%f,%f,%f)"\
 				,i, read_index, read_index_new, SE3_LM_a, SE3_LM_b \
 				,rho[0] ,rho[1] ,rho[2] ,rho[3] \
 				,SE3_grad_cur_px[0],SE3_grad_cur_px[1],SE3_grad_cur_px[2],SE3_grad_cur_px[3]\
 				,SE3_grad_new_px[0],SE3_grad_new_px[1],SE3_grad_new_px[2],SE3_grad_new_px[3]\
-				,delta_1[0], delta_1[1], delta_1[2], delta_1[3]\
-				,delta_2[0], delta_2[1], delta_2[2], delta_2[3]\
-			); }
+				,delta[0], delta[1], delta[2], delta[3]\
+				); 
+			}
 		}
-		grads[7]=1;																			//Count hits, and divide group by num hits, without using atomics!
+		grads[7]=1;																			// Count hits, and divide group by num hits, without using atomics!
 	}
 	local_sum_grads[lid] = grads  ;
-	
-	//SE3_incr_map_[read_index + i * mm_pixels ]=grads;
-	
+	////////////////////////////////////////////////////////////////////////////////////////// Reduction
 	int max_iter = ilogb((float)(group_size));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
-		if (lid>group_size)  return;
-		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
+		barrier(CLK_LOCAL_MEM_FENCE);														// No 'if->return' before fence between write & read local mem
+		if (lid<group_size)  local_sum_grads[lid] += local_sum_grads[lid+group_size];		// local_sum_grads  
 	}
-	uint group_id 	= get_group_id(0);
-	if (local_sum_grads[0][7] >0){
-		global_sum_grads[group_id] = local_sum_grads[0] / local_sum_grads[0][7];			// save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
-	}else global_sum_grads[group_id] = 0;
-																							// NB (global_id_u==1) never executes here.
-	uint num_groups = get_num_groups(0);
-	
-	if (lid==0){printf("\n\n reduction=%u,  num_groups=%u,  group_id=%u, read_index=%u, grads[7]=%f, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
-		, reduction, num_groups, group_id, read_index, grads[7]\
+	if (lid==0) {
+		uint group_id 	= get_group_id(0);
+		uint global_sum_offset = read_offset_ / local_size ;								// Compute offset for this layer
+		uint num_groups = get_num_groups(0);
+		
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u, grads[6]=%f, grads[7]=%f, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id, read_index, grads[6], grads[7]\
 		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
 		, global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3],    global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7]\
-	);
+		);
+		
+		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };	// Write layer data to first entry
+		if (global_id_u == 0) {global_sum_grads[global_sum_offset] = layer_data; }
+		global_sum_offset += 1+ group_id;
+		
+		if (local_sum_grads[0][7] >0){
+			global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
+		}else global_sum_grads[global_sum_offset] = 0;
 	}
 }
-	//////////////////////////////////////////////////////
-	//uint i=0;
-	//se3_grad 	= SE3_map[read_index + i* uint_params[MM_PIXELS]];
-	//grads[i]	= se3_grad[0] * (gx[0] + gx[1] + gx[2]) + se3_grad[1] * (gy[0] + gy[1] + gy[2]);
-	//
-	//printf("\n__kernel void se3_grad(..)  lid=%u,   group_id=%u,  group_size=%u, local_size=%u,  work_dim=%u, global_size=%u, mm_pixels=%u, se3_grad=(%f,%f), gx=(%f,%f,%f,%f),  gy=(%f,%f,%f,%f),  grads[0]=%f,  local_sum_grads[lid][0]=%f , global_sum_grads[group_id]=(%f,%f,%f,%f,%f,%f,%f,%f), read_index=%u  u=%u, v=%u, global_id_u=%u,  ",\
-		lid, group_id, group_size,  local_size,  work_dim, global_size, mm_pixels, se3_grad[0], se3_grad[1], gx[0], gx[1], gx[2], gx[3], gy[0], gy[1], gy[2], gy[3],   grads[0],  local_sum_grads[lid][0], \
-		global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3], global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7], read_index, u, v, global_id_u ); //\ ,%f,%f,%f,%f,%f,%f,%f,%f
-		//global_sum_grads[group_id][8],global_sum_grads[group_id][9],global_sum_grads[group_id][10],global_sum_grads[group_id][11],global_sum_grads[group_id][12],global_sum_grads[group_id][13],global_sum_grads[group_id][14],global_sum_grads[group_id][15]   \
-		//);
 
 __kernel void reduce (
 	__constant 	uint*		mipmap_params,	//0
 	__constant 	uint*		uint_params,	//1
-	__constant 	uint*		reduce_params,	//2				// (i) Local work group size, (ii) num variables to reduce (upto 16)
-	__local		float16*	local_sum_grads,//3
-	__global	float16*	global_sum_grads//4
+	__global	float8*		se3_sum,		//2
+	__local		float8*		local_sum_grads,//3
+	__global 	float8*		se3_sum2		//4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
 	uint lid 			= get_local_id(0);
-	uint group_size 	= get_local_size(0);
+	uint local_size 	= get_local_size(0);
+	uint group_size 	= local_size;
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
-	uint v    			= global_id_u / read_cols_;					// read_row
-	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
-	float u_flt			= u * reduction;
-	float v_flt			= v * reduction;
-	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
-	///
-	local_sum_grads[lid] = global_sum_grads[read_index];
+	
+	uint global_sum_offset 	= read_offset_ / local_size ;								// Compute offset for this layer
+	//
+	local_sum_grads[lid] = se3_sum[global_sum_offset  + global_id_u];
 	int max_iter = ilogb((float)(group_size));
-	for (uint iter=0; iter<max_iter ; iter++) {	// for log2(local work group size)			// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)	// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
-		if (lid>group_size)  return;
-		local_sum_grads[lid] += local_sum_grads[lid+group_size];							// local_sum_grads  
+		barrier(CLK_LOCAL_MEM_FENCE);													// No 'if->return' before fence between write & read local mem
+		if (lid<group_size)  local_sum_grads[lid] += local_sum_grads[lid+group_size];	// local_sum_grads  
 	}
 	
-	uint group_id 	= get_group_id(0);
-	global_sum_grads[group_id] = local_sum_grads[0];										// save to global_sum_grads  //  TODO ##### this will clash if work groups do not finish in order !!!!!!!!!!!!!
-	printf("\nreduction=%u,  global_id_u=%u,   group_id=%u,  lid=%u,  local_sum_grads[0]=(%f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f) ", reduction, global_id_u, group_id, lid  \
-		, local_sum_grads[0][0], local_sum_grads[0][1], local_sum_grads[0][2], local_sum_grads[0][3],     local_sum_grads[0][4], local_sum_grads[0][5], local_sum_grads[0][6], local_sum_grads[0][7] \
-		, local_sum_grads[0][8], local_sum_grads[0][9], local_sum_grads[0][10], local_sum_grads[0][11],     local_sum_grads[0][12], local_sum_grads[0][13], local_sum_grads[0][14], local_sum_grads[0][15] \
-	);
+	if (lid==0) {
+		uint group_id 	= get_group_id(0);
+		uint global_sum_offset = read_offset_ / local_size ;								// Compute offset for this layer
+		uint num_groups = get_num_groups(0);
+		
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nse3_sum2[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id \
+		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
+		, se3_sum2[group_id][0], se3_sum2[group_id][1], se3_sum2[group_id][2], se3_sum2[group_id][3],    se3_sum2[group_id][4], se3_sum2[group_id][5], se3_sum2[group_id][6], se3_sum2[group_id][7]\
+		);
+		
+		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };	// Write layer data to first entry
+		if (global_id_u == 0) {se3_sum2[global_sum_offset] = layer_data; }
+		global_sum_offset += 1+ group_id;
+		
+		if (local_sum_grads[0][7] >0){
+			se3_sum2[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to se3_sum2 // Count hits, and divide group by num hits, without using atomics!
+		}else se3_sum2[global_sum_offset] = 0;
+	}
 }
+
+/*
+//uint margin 		= uint_params[MARGIN];
+	//uint v    			= global_id_u / read_cols_;					// read_row
+	//uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	//float u_flt			= u * reduction;
+	//float v_flt			= v * reduction;
+	//uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	
+	/////
+	//int max_iter = ilogb((float)(group_size));
+	//for (uint iter=0; iter<max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	//	group_size   /= 2;
+	//	if (lid>group_size)  return;
+	//	local_sum_grads[lid] += local_sum_grads[lid+group_size];						// local_sum_grads  
+	//}
+	
+	//uint group_id 	= get_group_id(0);
+	//se3_sum[group_id] = local_sum_grads[0];										// save to global_sum_grads  //  TODO ##### this will clash if work groups do not finish in order !!!!!!!!!!!!!
+	//printf("\nreduction=%u,  global_id_u=%u,   group_id=%u,  lid=%u,  local_sum_grads[0]=(%f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f,  %f,%f,%f,%f) ", reduction, global_id_u, group_id, lid  \
+	//	, local_sum_grads[0][0], local_sum_grads[0][1], local_sum_grads[0][2], local_sum_grads[0][3],     local_sum_grads[0][4], local_sum_grads[0][5], local_sum_grads[0][6], local_sum_grads[0][7] \
+	//	, local_sum_grads[0][8], local_sum_grads[0][9], local_sum_grads[0][10], local_sum_grads[0][11],     local_sum_grads[0][12], local_sum_grads[0][13], local_sum_grads[0][14], local_sum_grads[0][15] \
+	//);
+*/
 
 
 /* From  BuildCostVolume2(
