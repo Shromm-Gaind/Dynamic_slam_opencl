@@ -77,6 +77,8 @@ public:
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
+	size_t 				num_threads[8]	= {0};
+	uint 				MipMap[8*8]		= {0};
 	uint				uint_params[8] 	= {0};
 	float				fp32_params[16]	= {0};
 	float				fp32_k2k[16]	= {0};
@@ -103,6 +105,7 @@ public:
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
 	//void computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q);
 
+	void initialize();
 	void allocatemem();
 	void calcCostVol(float* k2k, cv::Mat &image);
 	void cacheGValue2(cv::Mat &bgray, float theta);

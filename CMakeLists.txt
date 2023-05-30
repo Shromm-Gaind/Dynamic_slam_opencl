@@ -69,6 +69,7 @@ add_executable(Dynamic_slam
         main.cpp
         Dynamic_slam.cpp
         Dynamic_slam.h
+        RunCL_kernels.cpp
         RunCL.cpp
         RunCL.h
         #Dynamic_slam_kernels.cl                        # OpenCL device code ? does this need to be here at all ?

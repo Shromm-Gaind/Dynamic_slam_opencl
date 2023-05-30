@@ -119,11 +119,12 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 }
 
 __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
-	__constant 	uint*	mipmap_params,	//0
-	__constant 	float* 	gaussian,		//1
-	__constant 	uint*	uint_params,	//2
-	__global 	float4*	img,			//3
-	__local	 	float4*	local_img_patch //4
+	__private	uint	layer,			//0
+	__constant 	uint8*	mipmap_params,	//1
+	__constant 	float* 	gaussian,		//2
+	__constant 	uint*	uint_params,	//3
+	__global 	float4*	img,			//4
+	__local	 	float4*	local_img_patch //5
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -131,13 +132,13 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+2;
-	
-	uint read_offset_ 	= 1*mipmap_params[MiM_READ_OFFSET];
-	uint write_offset_ 	= 1*mipmap_params[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
-	
-	uint write_rows_	= mipmap_params[MiM_READ_ROWS] /2;
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint write_cols_ 	= mipmap_params[MiM_WRITE_COLS];
+																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
+	uint8 mipmap_params_ = mipmap_params[layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
+	uint write_rows_	= mipmap_params_[MiM_READ_ROWS] /2;
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint write_cols_ 	= mipmap_params_[MiM_WRITE_COLS];
 	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];   													// whole mipmap
@@ -180,23 +181,25 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 
 
 __kernel void  img_grad(
-	__constant	uint*		mipmap_params,	//0
-	__constant 	uint*		uint_params,	//1
-	__constant 	float*		fp32_params,	//2
-	__global 	float4*		img,			//3 
-	__global 	float4*		gxp,			//4
-	__global 	float4*		gyp,			//5
-	__global 	float4*		g1p,			//6
-	__constant 	float2*		SE3_map,		//7
-	__global 	float4*		SE3_grad_map	//8  // We keep hsv sepate at this stage, so 6*4=24, but float16 is the largest type. 
+	__private	uint		layer,			//0
+	__constant	uint8*		mipmap_params,	//1
+	__constant 	uint*		uint_params,	//2
+	__constant 	float*		fp32_params,	//3
+	__global 	float4*		img,			//4 
+	__global 	float4*		gxp,			//5
+	__global 	float4*		gyp,			//6
+	__global 	float4*		g1p,			//7
+	__constant 	float2*		SE3_map,		//8
+	__global 	float4*		SE3_grad_map	//9  // We keep hsv sepate at this stage, so 6*4=24, but float16 is the largest type. 
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint read_rows_ 	= mipmap_params[MiM_READ_ROWS];
+	uint8 mipmap_params_ = mipmap_params[layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
@@ -230,7 +233,7 @@ __kernel void  img_grad(
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
 		 1.0f };
-	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;	 
+	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
 	gxp[offset]= fabs(gx);
 	gyp[offset]= fabs(gy);
@@ -250,22 +253,26 @@ __kernel void  img_grad(
 
 
 __kernel void compute_param_maps(
-	__constant 	uint*	mipmap_params,	//0
-	__constant 	uint*	uint_params,	//1
-	__constant 	float* 	SO3_k2k,		//2
-	__global 	float2*	SE3_map			//3
-	
-	//__constant 	float*	fp32_params,//1
-	//__global 	float* 	depth_map,		//4
+	__private	uint	layer,			//0
+	__constant 	uint8*	mipmap_params,	//1
+	__constant 	uint*	uint_params,	//2
+	__constant 	float* 	SO3_k2k,		//3
+	__global 	float2*	SE3_map			//4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
+	
+	uint8 mipmap_params_ = mipmap_params[layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+																	if (global_id_u ==0) {printf("\n__kernel void mipmap_linear_flt(..), \nlayer=%u,  \nread_offset_=%u,  \nread_cols_=%u,  \nmipmap_params_[MiM_PIXELS]=%u, \nmipmap_params[layer][0]=%u ",\
+																		layer,  read_offset_,  read_cols_, mipmap_params_[MiM_PIXELS], mipmap_params[layer][0] );}
+	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;
+	
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
@@ -311,20 +318,21 @@ TODO Declare constants at top of the device prgram file.
 */
 
 __kernel void se3_grad(
-	__constant 	uint*	mipmap_params,			//0
-	__constant 	uint*	uint_params,			//1
-	__constant  float*  fp32_params,			//2
-	__global	float16*k2k,					//3
-	__global 	float4*	img_cur,				//4 
-	__global 	float4*	img_new,				//5
-	__global 	float4*	SE3_grad_map_cur_frame,	//6
-	__global 	float4*	SE3_grad_map_new_frame,	//7
-	__global	float* 	inv_depth_map,			//8
-	__local		float8*	local_sum_grads,		//9
-	__global	float8*	global_sum_grads,		//10
-	__global 	float4*	SE3_incr_map_			//11
+	__private	uint	layer,					//0
+	__constant 	uint8*	mipmap_params,			//1
+	__constant 	uint*	uint_params,			//2
+	__constant  float*  fp32_params,			//3
+	__global	float16*k2k,					//4
+	__global 	float4*	img_cur,				//5 
+	__global 	float4*	img_new,				//6
+	__global 	float4*	SE3_grad_map_cur_frame,	//7
+	__global 	float4*	SE3_grad_map_new_frame,	//8
+	__global	float* 	inv_depth_map,			//9
+	__local		float8*	local_sum_grads,		//10
+	__global	float8*	global_sum_grads,		//11
+	__global 	float4*	SE3_incr_map_			//12
 	)
-{// find gradient wrt SE3 find global sum for each of the 6 DoF
+ {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
@@ -336,9 +344,10 @@ __kernel void se3_grad(
 	uint global_size	= get_global_size(0);
 	float16 k2k_pvt		= k2k[0];
 	
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint read_rows_ 	= mipmap_params[MiM_READ_ROWS];
+	uint8 mipmap_params_ = mipmap_params[layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
