@@ -26,7 +26,9 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
     Point3f  upvector;
     Point3f  posvector;
     Point3f  rightvector;
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 1"<<flush;
+    																													if(verbosity>local_verbosity_threshold) {
+                                                                                                                            cout << "\n convertAhandaPovRayToStandard_chk 1"<<endl<<flush;
+                                                                                                                        }
 	
     while(1){
         cam_pars_file.getline(readlinedata,300);                                // read line
@@ -78,7 +80,14 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
     R.row(1) = Mat(-upvector).t();
     R.row(2) = Mat(direction).t();
     T        = -R*Mat(posvector);
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 3"<<flush;
+    // debug
+    Point3f test_point = {1,1,1}; 
+    Mat test_T = -R*Mat(test_point);
+    																													if(verbosity>local_verbosity_threshold) {
+                                                                                                                            cout << "\n convertAhandaPovRayToStandard_chk 3"<<flush;
+                                                                                                                            cout << "\n posvector="<< posvector.x << ", " << posvector.y << ", " << posvector.z << endl << flush;
+                                                                                                                            cout << "\n test_T="<< test_T.at<float>(0) << ", " << test_T.at<float>(1) << ", " << test_T.at<float>(2) << endl << flush;
+                                                                                                                        }
 	
     float focal_length  = norm(direction);                                      // compute intrinsic cameraMatrix
     float aspect_ratio  = norm(rightvector)/norm(upvector);

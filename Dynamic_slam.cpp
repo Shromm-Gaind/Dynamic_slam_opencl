@@ -164,25 +164,62 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
 }
 
+void Dynamic_slam::getPose(Mat R, Mat T, Matx44f pose){
+	for (int i=0; i<9; i++) pose.operator()(i/3,i%3) = R.at<float>(i/3,i%3);
+	for (int i=0; i<3; i++) pose.operator()(i,3)     = T.at<float>(i);
+	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
+	pose.operator()(3,3) = 1.0f;
+}
+
+void Dynamic_slam::getInvPose(Matx44f pose, Matx44f inv_pose) {
+	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_pose.operator()(i,j) = pose.operator()(j,i); } }
+	cv::Mat inv_T = -R.t()*T;
+	for (int i=0; i<3; i++) inv_pose.operator()(i,3) = inv_T.at<float>(i);
+	for (int i=0; i<4; i++) inv_pose.operator()(3,i) = pose.operator()(3,i);
+}
+
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 {
 	int local_verbosity_threshold = 0;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
 	R.copyTo(old_R);																									// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
+	getInvPose(pose, inv_old_pose);
+	
 	std::string str = txt[runcl.frame_num].c_str();																		// grab .txt file from array of files (e.g. "scene_00_0000.txt")
     char        *ch = new char [str.length()+1];
     std::strcpy (ch, str.c_str());
+	cv::Mat T_alt;
     convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
-	for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
-	for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
+	getPose(R, T, pose);
+	/*
+	//for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
+	//for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
 	
-	cout << "\nR_dif = ";
+	cout << "\n\nT.size()="<<T.size()<<flush;
+	cout << "\nruncl.frame_num="<<runcl.frame_num << endl;
+	cout << txt[runcl.frame_num].c_str() << flush;
+	
+	cout << "\n\nR_dif = ";
 	for (int i=0; i<3; i++){
 		cout << "\n(";
 		for (int j=0; j<3; j++){
 			cout << ", "<< R_dif.at<float>(i,j);
 		}cout<<")";
+	}cout<<flush;
+	
+	cout << "\nT = ";
+	for (int i=0; i<3; i++){
+		cout << "(";
+		cout << ", "<< T.at<float>(i);
+		cout<<")";
+	}cout<<flush;
+	
+	cout << "\nold_T = ";
+	for (int i=0; i<3; i++){
+		cout << "(";
+		cout << ", "<< old_T.at<float>(i);
+		cout<<")";
 	}cout<<flush;
 	
 	cout << "\nT_dif = ";
@@ -191,12 +228,13 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 		cout << ", "<< T_dif.at<float>(i);
 		cout<<")";
 	}cout<<flush;
+	
 	// generate pose transform
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1"<<flush;
 	//Mat P;
 	//cv::hconcat(R_dif,T_dif,P);
+	*/
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.1"<<flush;
-	//cout << "\nP.size() = "<< P.size() <<flush;
 	for (int i=0; i<3; i++){
 		for (int j=0; j<3; j++){pose.operator()(i,j) = R_dif.at<float>(i,j);}
 		pose.operator()(i,3) = T_dif.at<float>(i);
@@ -204,28 +242,21 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	for (int i=0; i<3; i++) pose.operator()(3,i) = 0;
 	pose.operator()(3,3) = 1.0f;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
-	
 	cout << "\npose = (";
 	for (int i=0; i<4; i++){
 		for (int j=0; j<4; j++){
 			cout << ", " << pose.operator()(i,j);
 		}cout << "\n     ";
 	}cout << ")\n"<<flush;
-	
-	//P.copyTo(pose);
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.2"<<flush;
-	////
+	generate_invK();
+	
 	K.zeros();
 	for (int i=0; i<3; i++){
 		for (int j=0; j<3; j++){
 			K.operator()(i,j) = cameraMatrix.at<float>(i,j);
 		}
 	}K.operator()(3,3) = 1;
-	
-	
-	
-																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.3"<<flush;
-	generate_invK();
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush;
 	K2K = K * pose * inv_K;	// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.5"<<flush;
