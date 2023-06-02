@@ -76,8 +76,8 @@ add_executable(Dynamic_slam
         #utils/utils.hpp
         #utils/fileLoader.cpp
         #utils/fileLoader.hpp
-        #utils/convertAhandaPovRayToStandard.cpp
-        #utils/convertAhandaPovRayToStandard.h
+        convertAhandaPovRayToStandard.cpp #utils/
+        convertAhandaPovRayToStandard.h #utils/
         )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 

@@ -204,7 +204,7 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;										// Vector of device buffer names
 																						// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SE3_incr_map_mem" };
+	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SE3_incr_map_mem", "depth_GT" };
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
 	for (std::string key : names){
@@ -668,11 +668,11 @@ void RunCL::initialize(){
 																																		}
 	
 	uint 							mipmap[8];
-	mipmap[MiM_READ_ROWS] 			= baseImage_height; /*read_rows*/
-	uint write_rows 				= mipmap[MiM_READ_ROWS] /2; /*read_rows*/
+	mipmap[MiM_READ_ROWS] 			= baseImage_height;
+	uint write_rows 				= mipmap[MiM_READ_ROWS] /2;
 	uint margin						= mm_margin;
 	uint read_cols_with_margin 		= mm_width ;
-	uint read_rows_with_margin		= mipmap[MiM_READ_ROWS] + margin; /*read_rows*/ 
+	uint read_rows_with_margin		= mipmap[MiM_READ_ROWS] + margin;
 	mipmap[MiM_READ_OFFSET]			= margin*mm_width + margin;
 	mipmap[MiM_WRITE_OFFSET]		= read_cols_with_margin * read_rows_with_margin + mipmap[MiM_READ_OFFSET];
 	mipmap[MiM_READ_COLS]			= baseImage_width;

@@ -81,6 +81,15 @@ void Dynamic_slam::initialize_camera(){
 																															}
 																														}
 	generate_invK();
+	
+	R 		= cv::Mat::zeros(3,3 , CV_32FC1);																			// intialize ground truth extrinsic data, NB Mat (int rows, int cols, int type)
+	T 		= cv::Mat::zeros(3,1 , CV_32FC1);
+	R_dif 	= cv::Mat::zeros(3,3 , CV_32FC1);
+	T_dif 	= cv::Mat::zeros(3,1 , CV_32FC1);
+																														if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 5:" <<flush;
+	for (int i=0; i<9; i++){cout << "\n R.at<float>("<<i<<")="<< R.at<float>(i)<< flush ;  }
+																														if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 6:" <<flush;
+	
 	// TODO Also initialize any lens distorsion, vinetting. etc
 }
 
@@ -90,7 +99,7 @@ int Dynamic_slam::nextFrame() {
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"\n" << flush;
 	predictFrame();
 	getFrame();
-	getFrameData();
+	getFrameData();																										// NB depends on image.size from getFrame().
 	estimateSO3();
 	estimateSE3(); 				// own thread ? num iter ?
 	estimateCalibration(); 		// own thread, one iter.
@@ -157,8 +166,138 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 {
+	int local_verbosity_threshold = 0;
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
+	R.copyTo(old_R);																									// get ground truth frame to frame pose transform
+	T.copyTo(old_T);
+	std::string str = txt[runcl.frame_num].c_str();																		// grab .txt file from array of files (e.g. "scene_00_0000.txt")
+    char        *ch = new char [str.length()+1];
+    std::strcpy (ch, str.c_str());
+    convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
+	for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
+	for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
 	
+	cout << "\nR_dif = ";
+	for (int i=0; i<3; i++){
+		cout << "\n(";
+		for (int j=0; j<3; j++){
+			cout << ", "<< R_dif.at<float>(i,j);
+		}cout<<")";
+	}cout<<flush;
+	
+	cout << "\nT_dif = ";
+	for (int i=0; i<3; i++){
+		cout << "(";
+		cout << ", "<< T_dif.at<float>(i);
+		cout<<")";
+	}cout<<flush;
+	// generate pose transform
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1"<<flush;
+	//Mat P;
+	//cv::hconcat(R_dif,T_dif,P);
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.1"<<flush;
+	//cout << "\nP.size() = "<< P.size() <<flush;
+	for (int i=0; i<3; i++){
+		for (int j=0; j<3; j++){pose.operator()(i,j) = R_dif.at<float>(i,j);}
+		pose.operator()(i,3) = T_dif.at<float>(i);
+	}
+	for (int i=0; i<3; i++) pose.operator()(3,i) = 0;
+	pose.operator()(3,3) = 1.0f;
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
+	
+	cout << "\npose = (";
+	for (int i=0; i<4; i++){
+		for (int j=0; j<4; j++){
+			cout << ", " << pose.operator()(i,j);
+		}cout << "\n     ";
+	}cout << ")\n"<<flush;
+	
+	//P.copyTo(pose);
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.2"<<flush;
+	////
+	K.zeros();
+	for (int i=0; i<3; i++){
+		for (int j=0; j<3; j++){
+			K.operator()(i,j) = cameraMatrix.at<float>(i,j);
+		}
+	}K.operator()(3,3) = 1;
+	
+	
+	
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.3"<<flush;
+	generate_invK();
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush;
+	K2K = K * pose * inv_K;	// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.5"<<flush;
+	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< runcl.fp32_k2k[i]; }
+	
+							// TODO insert desired pose error, to test optimisation.
+	// set k2k and upload ?
+	
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 1,"<<flush;
+																															cout << "\n\nK2K = ";
+																															for (int i=0; i<4; i++){
+																																cout << "\n(";
+																																for (int j=0; j<4; j++){
+																																	cout << ", "<< K2K.operator()(i,j);
+																																}cout<<")";
+																															}cout<<flush;
+																															
+																															cout << "\n\nruncl.fp32_k2k[i] = ";
+																															for (int i=0; i<4; i++){
+																																cout << "\n(";
+																																for (int j=0; j<4; j++){
+																																	cout << ", "<< runcl.fp32_k2k[i*4 + j];
+																																}cout<<")";
+																															}cout<<flush;
+																															
+																															
+																															
+																															
+																															cout << "\n\nK = ";
+																															for (int i=0; i<4; i++){
+																																cout << "\n(";
+																																for (int j=0; j<4; j++){
+																																	cout << ", "<< K.operator()(i,j);
+																																}cout<<")";
+																															}cout<<flush;
+																															
+																															cout << "\n\ncameraMatrix.size() = "<<cameraMatrix.size()<<flush;
+																															cout << "\n\ncameraMatrix = ";
+																															for (int i=0; i<3; i++){
+																																cout << "\n(";
+																																for (int j=0; j<3; j++){
+																																	cout << ", "<< cameraMatrix.at<float>(i,j);
+																																}cout<<")";
+																															}cout<<endl<<flush;
+																														}
+																														// get ground truth depth map
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 2,"<<flush;}
+	int r = image.rows;
+    int c = image.cols;
+	depth_GT = loadDepthAhanda(depth[runcl.frame_num].string(), r,c,cameraMatrix);
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;}
+	
+	stringstream ss;
+	stringstream png_ss;
+	boost::filesystem::path folder_tiff = runcl.paths.at("depth_GT");
+	string type_string = runcl.checkCVtype(depth_GT.type() );
+	ss << "/" << folder_tiff.filename().string() << "_" << runcl.frame_num <<"type_"<<type_string;  
+	png_ss << "/" << folder_tiff.filename().string() << "_" << runcl.frame_num;
+	boost::filesystem::path folder_png = folder_tiff;
+	folder_tiff += ss.str();
+	folder_tiff += ".tiff";
+	folder_png  += "/png/";
+
+	folder_png  += png_ss.str();
+	folder_png  += ".png";
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 4,"<<flush;}
+	cout << "\n depth_GT.size() = " << depth_GT.size() << ",  depth_GT.type() = "<< type_string << ",  depth_GT.empty() = " <<  depth_GT.empty()   << flush;
+	cout << "\n " << folder_png.string() << flush; 
+	cv::imwrite(folder_png.string(), depth_GT );
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
 }
+
 
 void Dynamic_slam::generate_invK(){ // TODO hack this to work here 
 	int local_verbosity_threshold = 0;

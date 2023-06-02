@@ -69,13 +69,20 @@
 __kernel void cvt_color_space_linear(							// Writes the first entry in a linear mipmap
 	__global	uchar*	base,			//0
 	__global	float4*	img,			//1
-	__constant	uint*	uint_params		//2
+	__constant	uint*	uint_params,	//2
+	__constant 	uint8*	mipmap_params	//3
 		 )
 {																// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
 	int global_id 	= (int)get_global_id(0);
 	uint pixels 	= uint_params[PIXELS];
 	if (global_id > pixels) return;
 	
+	uint8 mipmap_params_ = mipmap_params[0];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	
+	
+	
+	// 
 	uint cols 		= uint_params[COLS];
 	uint margin 	= uint_params[MARGIN];
 	uint mm_cols	= uint_params[MM_COLS];
@@ -104,8 +111,10 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 	uint img_col	= base_col + margin;
 	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
 	
+	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;					// NB 4 channels.  + margin
+	
 	float4 temp_float4  = {H,S,V,1.0f};																// Note how to load a float4 vector.
-	img[img_index   ] = temp_float4;
+	img[/*img_index*/ read_index ] = temp_float4;
 
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
@@ -377,7 +386,8 @@ __kernel void se3_grad(
 	
 	float8 grads= 0;
 	grads[6]=1;
-	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f", read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
+	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f"\
+		, read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
 	
 	if (  !((u2<0) || (u2>=read_cols_) || (v2<0) || (v2>=read_rows_))  ) {					// if (not within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
@@ -392,6 +402,7 @@ __kernel void se3_grad(
 			}
 			grads[i] = delta[0] + delta[1] + delta[2];
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
+			
 			if (global_id_u==1){
 				printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta=(%f,%f,%f,%f)"\
 				,i, read_index, read_index_new, SE3_LM_a, SE3_LM_b \

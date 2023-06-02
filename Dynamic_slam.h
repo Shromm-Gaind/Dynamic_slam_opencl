@@ -4,7 +4,7 @@
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <set>
-
+#include "convertAhandaPovRayToStandard.h"
 #include "RunCL.h"
 
 #define BOOST_FILESYSTEM_VERSION          3
@@ -30,10 +30,11 @@ class Dynamic_slam
     int verbosity;
     
     // camera & pose params
-    cv::Matx44f K, inv_K, pose, inv_pose;
-    cv::Mat image, R, T, d, cameraMatrix, projection;
+    cv::Matx44f K, inv_K, pose, inv_pose, K2K;
+    cv::Mat image, R, T, depth_GT, cameraMatrix, projection;       // TODO should these be Matx ? 
+    cv::Mat old_R, old_T, R_dif, T_dif;
     float SE3_k2k[6*16];
-        
+    
     // lens distortion params
     
     
