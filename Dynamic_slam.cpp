@@ -164,18 +164,18 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
 }
 
-void Dynamic_slam::getPose(Mat R, Mat T, Matx44f pose){
-	for (int i=0; i<9; i++) pose.operator()(i/3,i%3) = R.at<float>(i/3,i%3);
+void Dynamic_slam::getPose(){	// Mat R, Mat T, Matx44f& pose
+	for (int i=0; i<9; i++) {pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;      }
 	for (int i=0; i<3; i++) pose.operator()(i,3)     = T.at<float>(i);
 	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
 	pose.operator()(3,3) = 1.0f;
 }
 
-void Dynamic_slam::getInvPose(Matx44f pose, Matx44f inv_pose) {
-	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_pose.operator()(i,j) = pose.operator()(j,i); } }
+void Dynamic_slam::getInvPose() {	// Matx44f pose, Matx44f& inv_pose
+	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_old_pose.operator()(i,j) = pose.operator()(j,i); } }
 	cv::Mat inv_T = -R.t()*T;
-	for (int i=0; i<3; i++) inv_pose.operator()(i,3) = inv_T.at<float>(i);
-	for (int i=0; i<4; i++) inv_pose.operator()(3,i) = pose.operator()(3,i);
+	for (int i=0; i<3; i++) inv_old_pose.operator()(i,3) = inv_T.at<float>(i);
+	for (int i=0; i<4; i++) inv_old_pose.operator()(3,i) = pose.operator()(3,i);
 }
 
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
@@ -184,14 +184,34 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
 	R.copyTo(old_R);																									// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
-	getInvPose(pose, inv_old_pose);
+	getInvPose();  // pose, inv_old_pose
+	generate_invK();
 	
 	std::string str = txt[runcl.frame_num].c_str();																		// grab .txt file from array of files (e.g. "scene_00_0000.txt")
     char        *ch = new char [str.length()+1];
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
     convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
-	getPose(R, T, pose);
+	
+	cout << "\nR=";
+	for (int i=0; i<3; i++){
+		cout <<"\n(";
+		for (int j=0; j<3; j++){ 
+			cout << ", " << R.at<float>(i,j);
+		}cout << ")\n";
+	}cout<<endl<<flush;
+	
+	cout << "\nT=(";
+	for (int i=0; i<3; i++) cout << ", " << T.at<float>(i);
+	cout << ")\n"<<endl<<flush;
+	
+	//getPose();   // R, T, pose
+	for (int i=0; i<9; i++) {pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;      }
+	for (int i=0; i<3; i++) pose.operator()(i,3)     = T.at<float>(i);
+	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
+	pose.operator()(3,3) = 1.0f;
+	
+	
 	/*
 	//for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
 	//for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
@@ -235,12 +255,14 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	//cv::hconcat(R_dif,T_dif,P);
 	*/
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.1"<<flush;
+	/*
 	for (int i=0; i<3; i++){
 		for (int j=0; j<3; j++){pose.operator()(i,j) = R_dif.at<float>(i,j);}
 		pose.operator()(i,3) = T_dif.at<float>(i);
 	}
 	for (int i=0; i<3; i++) pose.operator()(3,i) = 0;
 	pose.operator()(3,3) = 1.0f;
+	*/
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
 	cout << "\npose = (";
 	for (int i=0; i<4; i++){
@@ -249,7 +271,7 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 		}cout << "\n     ";
 	}cout << ")\n"<<flush;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.2"<<flush;
-	generate_invK();
+	
 	
 	K.zeros();
 	for (int i=0; i<3; i++){
@@ -257,8 +279,10 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 			K.operator()(i,j) = cameraMatrix.at<float>(i,j);
 		}
 	}K.operator()(3,3) = 1;
-																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush;
-	K2K = K * pose * inv_K;	// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush; // K2K
+	K2K = K * pose * inv_old_pose * inv_K;	// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+	
+	pose2pose = pose * inv_old_pose; 																																													// pose2pose
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.5"<<flush;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< runcl.fp32_k2k[i]; }
 	
@@ -282,7 +306,13 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 																																}cout<<")";
 																															}cout<<flush;
 																															
-																															
+																															cout << "\n\npose2pose = ";
+																															for (int i=0; i<4; i++){
+																																cout << "\n(";
+																																for (int j=0; j<4; j++){
+																																	cout << ", "<< pose2pose.operator()(i,j);
+																																}cout<<")";
+																															}cout<<flush;
 																															
 																															
 																															cout << "\n\nK = ";
@@ -370,10 +400,10 @@ void Dynamic_slam::generate_invK(){ // TODO hack this to work here
 																									}cout<<"\n";
 																								}cout<<"\n";
 
-																								cout<<"\n\ninv_pose\n";
+																								cout<<"\n\ninv_old_pose\n";
 																								for(int i=0; i<4; i++){
 																									for(int j=0; j<4; j++){
-																										cout<<"\t"<< std::setw(5)<<inv_pose.operator()(i,j);
+																										cout<<"\t"<< std::setw(5)<<inv_old_pose.operator()(i,j);
 																									}cout<<"\n";
 																								}cout<<"\n";
 
@@ -403,7 +433,7 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 	// For dynamic SLAM , we might nt need inv_pose if we are only interested in the pos transform previous->next frame.
 																							/*
 																							*  Inverse of a transformation matrix:
-																							* http://www.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche0053
+																							*  http://www.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche0053
 																							*
 																							*   {     |   }-1       {       |        }
 																							*   {  R  | t }     =   {  R^T  |-R^T .t }
@@ -417,10 +447,10 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 	poseTransform.operator()(3,3) = 1;
 	//
 	
-	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_pose.operator()(i,j) = pose.operator()(j,i); } }
+	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_old_pose.operator()(i,j) = pose.operator()(j,i); } }
 	cv::Mat inv_T = -R.t()*T;
-	for (int i=0; i<3; i++) inv_pose.operator()(i,3) = inv_T.at<float>(i);
-	for (int i=0; i<4; i++) inv_pose.operator()(3,i) = pose.operator()(3,i);
+	for (int i=0; i<3; i++) inv_old_pose.operator()(i,3) = inv_T.at<float>(i);
+	for (int i=0; i<4; i++) inv_old_pose.operator()(3,i) = pose.operator()(3,i);
 }
 
 

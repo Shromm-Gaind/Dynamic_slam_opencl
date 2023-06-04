@@ -457,7 +457,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 }
 
 void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																				if(verbosity> local_verbosity_threshold) {
 																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
 																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
