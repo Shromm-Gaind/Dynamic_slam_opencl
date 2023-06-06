@@ -204,7 +204,7 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;										// Vector of device buffer names
 																						// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SE3_incr_map_mem", "depth_GT" };
+	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SE3_incr_map_mem", "depth_GT", "SE3_rho_map_mem" };
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
 	for (std::string key : names){
@@ -459,7 +459,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
 	int local_verbosity_threshold = 0;
 																				if(verbosity> local_verbosity_threshold) {
-																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
+																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
 																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
 																				}
 	for (uint i=0; i<vol_layers; i++) {
@@ -541,7 +541,8 @@ void RunCL::initialize(){
 	int local_verbosity_threshold = 1;
 																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
 																																		if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
-	image_size_bytes	= baseImage.total() * baseImage.elemSize() ;																	// Constant parameters of the base image
+	image_size_bytes	= baseImage.total() * baseImage.elemSize();																		// Constant parameters of the base image
+	image_size_bytes_C1	= baseImage.total() * sizeof(float);
 	costVolLayers 		= 2*( 1 + obj["layers"].asUInt() );
 	baseImage_size 		= baseImage.size();
 	baseImage_type 		= baseImage.type();
@@ -819,7 +820,7 @@ void RunCL::allocatemem(){
 	cl_int res;
 	//imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2]; // alernate copies for consecutive frames, used in SE3 tracking.
 	for (int i=0; i<2; i++){
-		imgmem[i]			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // MipMap in 'half' FP16.
+		imgmem[i]			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 		gxmem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 		gymem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 		g1mem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -830,7 +831,7 @@ void RunCL::allocatemem(){
 	SE3_incr_map_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // For debugging before summation.
 	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.
 	basemem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
-	depth_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Copy used by tracing & auto-calib
+	depth_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, image_size_bytes_C1,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Copy used by tracing & auto-calib
 	dmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	lomem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -847,6 +848,7 @@ void RunCL::allocatemem(){
 	gaussian_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//  TODO load gaussian kernel & size from conf.json .
 	se3_sum_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	se3_sum2_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum2_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	SE3_rho_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	//reduce_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 8 * sizeof(uint)	,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
 																																		if(verbosity>local_verbosity_threshold) {

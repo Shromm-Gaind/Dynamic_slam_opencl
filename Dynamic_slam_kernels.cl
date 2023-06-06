@@ -336,10 +336,11 @@ __kernel void se3_grad(
 	__global 	float4*	img_new,				//6
 	__global 	float4*	SE3_grad_map_cur_frame,	//7
 	__global 	float4*	SE3_grad_map_new_frame,	//8
-	__global	float* 	inv_depth_map,			//9
+	__global	float* 	depth_map,				//9		// NB GT_depth, not inv_depth
 	__local		float8*	local_sum_grads,		//10
 	__global	float8*	global_sum_grads,		//11
-	__global 	float4*	SE3_incr_map_			//12
+	__global 	float4*	SE3_incr_map_,			//12
+	__global	float4* rho_					//13
 	)
  {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
@@ -357,7 +358,9 @@ __kernel void se3_grad(
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
 	
+	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint mm_pixels		= uint_params[MM_PIXELS];
@@ -372,7 +375,8 @@ __kernel void se3_grad(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
-	float inv_depth = inv_depth_map[read_index]; 											//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.
+	uint depth_index	= v * reduction * base_cols + u * reduction;						// Sparse sampling of the depth map of the base image.
+	float inv_depth 	= 1/depth_map[depth_index]; 										//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
 	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1+ k2k_pvt[11]*inv_depth;
@@ -382,16 +386,27 @@ __kernel void se3_grad(
 	float v2_flt	= vh2/wh2;
 	int  u2			= floor((u2_flt/reduction)+0.5f) ;										// nearest neighbour interpolation
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;										// NB this corrects the sparse sampling to the redued scales.
-	uint read_index_new = read_offset_ + v2*read_cols_ + u2;
+	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	
 	float8 grads= 0;
 	grads[6]=1;
-	if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f"\
-		, read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
+	//if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f"\
+	//	, read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
 	
-	if (  !((u2<0) || (u2>=read_cols_) || (v2<0) || (v2>=read_rows_))  ) {					// if (not within new frame) skip  Problem u2&v2 are wrong.
+	if (global_id_u==1){
+		printf("\n\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)\n\n"\
+		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
+	}
+	 
+	float4 rho = {0.0f,0.0f,0.0f,1.0f}; 
+	bool intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+	if (  intersection  ) {																// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
-		float4 rho = img_cur[read_index] - img_new[read_index_new];
+		rho = img_cur[read_index] - img_new[read_index_new];
+		if (u<10 && v==10){
+				printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f"\
+						 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth);
+		}
 		for (uint i=0; i<6; i++) {															// for each SE3 DoF
 			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
 			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
@@ -402,7 +417,7 @@ __kernel void se3_grad(
 			}
 			grads[i] = delta[0] + delta[1] + delta[2];
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
-			
+			/*
 			if (global_id_u==1){
 				printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta=(%f,%f,%f,%f)"\
 				,i, read_index, read_index_new, SE3_LM_a, SE3_LM_b \
@@ -412,8 +427,11 @@ __kernel void se3_grad(
 				,delta[0], delta[1], delta[2], delta[3]\
 				); 
 			}
+			*/
 		}
 		grads[7]=1;																			// Count hits, and divide group by num hits, without using atomics!
+		rho[3] = 1.0f;
+		rho_[read_index] = rho;																	// save photometric error to buffer
 	}
 	local_sum_grads[lid] = grads  ;
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction

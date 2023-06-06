@@ -220,19 +220,20 @@ void RunCL::img_gradients(){ //getFrame();
 																																				DownloadAndSave_3Channel(	g1mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
 																																				///
 																																				ss_path.str(std::string()); // reset ss_path		
-																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"; 
+																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_3Channel_volume(  SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				///
 																																				ss_path.str(std::string()); // reset ss_path		
-																																				ss_path << "SE3_grad_map_mem[!" << frame_bool_idx << "]"; 
+																																				ss_path << "SE3_grad_map_mem[!" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_3Channel_volume(  SE3_grad_map_mem[!frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				//
 																																				cout << "\n\n SE3_grad_map_mem[frame_bool_idx] = SE3_grad_map_mem["<<frame_bool_idx<<"] = "<<SE3_grad_map_mem[frame_bool_idx];
-																																				cout << "\n SE3_grad_map_mem[!frame_bool_idx] = SE3_grad_map_mem["<<!frame_bool_idx<<"] = "<<SE3_grad_map_mem[!frame_bool_idx]<<endl<<flush;
+																																				
+                                                                                                                                                cout << "\n SE3_grad_map_mem[!frame_bool_idx] = SE3_grad_map_mem["<<!frame_bool_idx<<"] = "<<SE3_grad_map_mem[!frame_bool_idx]<<endl<<flush;
 																																				
 																																				//DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers )
 																																				//SE3_grad_map_mem[frame_bool_idx]  // SE3_grad_map[read_index + i* mm_pixels]
@@ -240,9 +241,14 @@ void RunCL::img_gradients(){ //getFrame();
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk4 Finished."<<flush;}
 }
 
-void RunCL::loadFrameData(){ //getFrameData();
-
-
+void RunCL::loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose){ //getFrameData();
+    
+    for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
+    
+    cl_event 			writeEvt;
+	cl_int 				status;
+    status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+    
 }
 
 void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
@@ -250,10 +256,13 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk_0 "<<flush;}
 	cl_event 			writeEvt;
 	cl_int 				res, status;
-	cv::Mat depth		= cv::Mat::ones (mm_height, mm_width, CV_32FC4);																	// NB must recompute translation maps at run time. NB parallax motion is proportional to inv depth. 
-	float mid_depth 	= (fp32_params[MAX_INV_DEPTH] + fp32_params[MIN_INV_DEPTH])/2.0;
+	cv::Mat depth		= cv::Mat::ones (mm_height, mm_width, CV_32FC1);																	// NB must recompute translation maps at run time. NB parallax motion is proportional to inv depth. 
+	float mid_depth 	= (fp32_params[MAX_INV_DEPTH] + fp32_params[MIN_INV_DEPTH])/2.0;                                                    // TODO fix : depthmap not used as a kernel arg. NB want to match scale of depth range, but ? parallax may vary.
 	depth 				*= mid_depth;
-	
+    //cout << "\n\ndepth.size()="<<depth.size()<<",  depth.type()="<< checkCVtype( depth.type() )  <<",  mid_depth="<<mid_depth<<endl<<flush;
+	//cv::imshow("depth",depth);
+    //cv::imwrite("/home/hockingsn/Programming/OpenCV/MySLAM/output/depth_precom_param_maps.tiff",depth);
+    //cv::waitKey(-1);
 	// SO3_k2kbuf
 	status = clEnqueueWriteBuffer(uload_queue, SE3_k2kbuf, 		CL_FALSE, 0, 6*16*sizeof(float), SE3_k2k,    0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
@@ -286,8 +295,9 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 ."<<flush;}
     cl_event writeEvt;
-	cl_int status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	
+    cl_int status;
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+                                                                                                                                            // NB GT_depth loaded to depth_mem by void RunCL::loadFrameData(..)
 	cl_int 				res;
 	size_t local_size = local_work_size;
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                              __private	    uint	    layer,		                    //0
@@ -299,10 +309,11 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	res = clSetKernelArg(se3_grad_kernel, 6, sizeof(cl_mem), &imgmem[!frame_bool_idx]);				            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6
 	res = clSetKernelArg(se3_grad_kernel, 7, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
 	res = clSetKernelArg(se3_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[!frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[!frame_bool_idx]	//8
-	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		inv_depth_map					//9		// TODO initialize depth_mem
+	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB GT_depth, not inv_depth depth_mem
 	res = clSetKernelArg(se3_grad_kernel,10, local_size*8*sizeof(float), 	NULL);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float16*	local_sum_grads					//10
 	res = clSetKernelArg(se3_grad_kernel,11, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		g1p,							//11
 	res = clSetKernelArg(se3_grad_kernel,12, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
+	res = clSetKernelArg(se3_grad_kernel,13, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     rho_					        //13
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
@@ -312,6 +323,14 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 cout << "\n" << ss_path.str() <<flush;
                                                                                                                                                 cout << "\n" <<  paths.at(ss_path.str()) <<flush;
                                                                                                                                                 DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
+                                                                                                                                                
+                                                                                                                                                cout<<"\n\nRunCL::estimateSE3(..)_chk3.5 ."<<flush;
+                                                                                                                                                stringstream ss_path_rho;
+                                                                                                                                                ss_path_rho << "SE3_rho_map_mem"; 
+                                                                                                                                                cout << "\n" << ss_path_rho.str() <<flush;
+                                                                                                                                                cout << "\n" <<  paths.at(ss_path_rho.str()) <<flush;
+                                                                                                                                                DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
+                                                                                                                                                
                                                                                                                                                 //DownloadAndSave(	SE3_incr_map_mem, ss.str(), paths.at("gxmem[frame_bool_idx]"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false, 1 );
                                                                                                                                                 /*
                                                                                                                                                  * DownloadAndSave_3Channel(	gxmem[frame_bool_idx], ss.str(), paths.at("gxmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );

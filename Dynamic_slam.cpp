@@ -99,10 +99,12 @@ int Dynamic_slam::nextFrame() {
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"\n" << flush;
 	predictFrame();
 	getFrame();
-	getFrameData();																										// NB depends on image.size from getFrame().
+	
 	estimateSO3();
 	estimateSE3(); 				// own thread ? num iter ?
 	estimateCalibration(); 		// own thread, one iter.
+	
+	getFrameData();																										// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	
 	buildDepthCostVol();
 	
@@ -211,7 +213,6 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
 	pose.operator()(3,3) = 1.0f;
 	
-	
 	/*
 	//for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
 	//for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
@@ -271,7 +272,6 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 		}cout << "\n     ";
 	}cout << ")\n"<<flush;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.2"<<flush;
-	
 	
 	K.zeros();
 	for (int i=0; i<3; i++){
@@ -356,6 +356,8 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	cout << "\n depth_GT.size() = " << depth_GT.size() << ",  depth_GT.type() = "<< type_string << ",  depth_GT.empty() = " <<  depth_GT.empty()   << flush;
 	cout << "\n " << folder_png.string() << flush; 
 	cv::imwrite(folder_png.string(), depth_GT );
+	
+	runcl.loadFrameData(depth_GT, K2K, pose2pose);
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
 }
 

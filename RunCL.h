@@ -70,10 +70,10 @@ public:
 	bool 				frame_bool_idx=0;
 	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2], SE3_incr_map_mem;
 	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
-	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, SE3_map_mem; // param_map_mem,  
+	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, SE3_map_mem, SE3_rho_map_mem; // param_map_mem,  
 	cl_mem 				se3_sum_mem, se3_sum2_mem;// reduce_param_buf;
 	cv::Mat 			baseImage;
-	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes, mm_se3_sum_size, se3_sum_size, se3_sum_size_bytes, se3_sum2_size_bytes;
+	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes, mm_se3_sum_size, se3_sum_size, se3_sum_size_bytes, se3_sum2_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
@@ -122,7 +122,8 @@ public:
 	void mipmap_linear();
 	void img_gradients();
 	
-	void loadFrameData();
+	//void loadFrameData();
+	void loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose);
 	void generate_SE3_k2k(float *_SE3_k2k);
 	void estimateSO3(uint start=0, uint stop=8);
 	void estimateSE3(uint start=0, uint stop=8);
