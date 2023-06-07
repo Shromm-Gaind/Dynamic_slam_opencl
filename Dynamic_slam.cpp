@@ -13,7 +13,7 @@ Dynamic_slam::~Dynamic_slam()
 Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	int local_verbosity_threshold = 1;
 	obj = obj_;
-	verbosity 	= obj["verbosity"].asInt();
+	verbosity 			= obj["verbosity"].asInt();
 	runcl.frame_num 	= obj["data_file_offset"].asUInt();
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 0\n" << flush;
 	stringstream ss0;
@@ -133,51 +133,55 @@ void Dynamic_slam::predictFrame()
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
 	int local_verbosity_threshold = 1;
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
-																																			// # load next image to buffer NB load at position [log_2 index]
-																																			// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
-																																				cout << "\n\nDynamic_slam::getFrame()";
-																																				cout << "\nruncl.baseImage.size() =" << runcl.baseImage.size();
-																																				cout << "\nruncl.baseImage_size =" << runcl.baseImage_size;
-																																				cout << "\nruncl.baseImage_type =" << runcl.baseImage_type ;
-																																				cout << "\nruncl.image_size_bytes =" << runcl.image_size_bytes ;
-																																				cout << endl;
-																																				cout << "\nruncl.mm_Image_type =" << runcl.mm_Image_type ;
-																																				cout << "\nruncl.mm_size_bytes_C3 =" << runcl.mm_size_bytes_C3 ;
-																																				cout << "\nruncl.mm_size_bytes_C1 =" << runcl.mm_size_bytes_C1 ;
-																																				cout << "\nruncl.mm_vol_size_bytes =" << runcl.mm_vol_size_bytes ;
-																																				cout << "\nruncl.mm_Image_size =" << runcl.mm_Image_size ;
-																																				cout << "\n" << flush ;
-																																			}
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
+																															// # load next image to buffer NB load at position [log_2 index]
+																															// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
+																															cout << "\n\nDynamic_slam::getFrame()";
+																															cout << "\nruncl.baseImage.size() =" << runcl.baseImage.size();
+																															cout << "\nruncl.baseImage_size =" << runcl.baseImage_size;
+																															cout << "\nruncl.baseImage_type =" << runcl.baseImage_type ;
+																															cout << "\nruncl.image_size_bytes =" << runcl.image_size_bytes ;
+																															cout << endl;
+																															cout << "\nruncl.mm_Image_type =" << runcl.mm_Image_type ;
+																															cout << "\nruncl.mm_size_bytes_C3 =" << runcl.mm_size_bytes_C3 ;
+																															cout << "\nruncl.mm_size_bytes_C1 =" << runcl.mm_size_bytes_C1 ;
+																															cout << "\nruncl.mm_vol_size_bytes =" << runcl.mm_vol_size_bytes ;
+																															cout << "\nruncl.mm_Image_size =" << runcl.mm_Image_size ;
+																															cout << "\n" << flush ;
+																														}
 	image = imread(png[runcl.frame_num].string());
-	if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
-		cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.frame_num = " << runcl.frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
-		exit(0);
-	}
-	//image.convertTo(image, CV_16FC3, 1.0/256, 0.0); // NB cv_16FC3 is preferable, for faster half precision processing on AMD, Intel & ARM GPUs. 
-	runcl.loadFrame( image );						// NB Nvidia GeForce have 'Tensor Compute" FP16, accessible by PTX. AMD have RDNA and CDNA. These need PTX/assembly code and may use BF16 instead of FP16.
-	// load a basic image in CV_8UC3, then convert on GPU to 'half'
+																														if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
+																															cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.frame_num = " << runcl.frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<\
+																															", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
+																															exit(0);
+																														}
+																														//image.convertTo(image, CV_16FC3, 1.0/256, 0.0); // NB cv_16FC3 is preferable, for faster half precision processing on AMD, Intel & ARM GPUs. 
+	runcl.loadFrame( image );																							// NB Nvidia GeForce have 'Tensor Compute" FP16, accessible by PTX. AMD have RDNA and CDNA. These need PTX/assembly code and may use BF16 instead of FP16.
+																														// load a basic image in CV_8UC3, then convert on GPU to 'half'
 	runcl.cvt_color_space( );
-	runcl.mipmap_linear();// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
+	runcl.mipmap_linear();																								// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
 	runcl.img_gradients();
-
-// # Get 1st & 2nd order image gradients of MipMap
-// see CostVol::cacheGValues(), RunCL::cacheGValue2 & __kernel void CacheG3
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
+																														// # Get 1st & 2nd order image gradients of MipMap
+																														// see CostVol::cacheGValues(), RunCL::cacheGValue2 & __kernel void CacheG3
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
 }
 
-void Dynamic_slam::getPose(){	// Mat R, Mat T, Matx44f& pose
-	for (int i=0; i<9; i++) {pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;      }
-	for (int i=0; i<3; i++) pose.operator()(i,3)     = T.at<float>(i);
-	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
+cv::Matx44f Dynamic_slam::getPose(Mat R, Mat T){	// Mat R, Mat T, Matx44f& pose  // NB Matx::operator()() does not copy, but creates a submatrix. => would be updated when R & T are updated.
+	cv::Matx44f pose;
+	for (int i=0; i<9; i++) {pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); 										cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;      }
+	for (int i=0; i<3; i++) pose.operator()(i,3)      = T.at<float>(i);
+	for (int i=0; i<3; i++) pose.operator()(3,i)      = 0.0f;
 	pose.operator()(3,3) = 1.0f;
+	return pose;
 }
 
-void Dynamic_slam::getInvPose() {	// Matx44f pose, Matx44f& inv_pose
-	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { inv_old_pose.operator()(i,j) = pose.operator()(j,i); } }
+cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44f& inv_pose
+	cv::Matx44f local_inv_pose;
+	for (int i=0; i<3; i++) { for (int j=0; j<3; j++)  { local_inv_pose.operator()(i,j) = pose.operator()(j,i); } }
 	cv::Mat inv_T = -R.t()*T;
-	for (int i=0; i<3; i++) inv_old_pose.operator()(i,3) = inv_T.at<float>(i);
-	for (int i=0; i<4; i++) inv_old_pose.operator()(3,i) = pose.operator()(3,i);
+	for (int i=0; i<3; i++) local_inv_pose.operator()(i,3) = inv_T.at<float>(i);
+	for (int i=0; i<4; i++) local_inv_pose.operator()(3,i) = pose.operator()(3,i);
+	return local_inv_pose;
 }
 
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
@@ -186,33 +190,37 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
 	R.copyTo(old_R);																									// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
-	getInvPose();  // pose, inv_old_pose
-	generate_invK();
+	old_pose 		= pose;
+	inv_old_pose 	= inv_pose;																							// NB Confirmed this copies the data  NOT just the pointer.
+	old_K			= K;
+	inv_old_K		= inv_K;
 	
 	std::string str = txt[runcl.frame_num].c_str();																		// grab .txt file from array of files (e.g. "scene_00_0000.txt")
     char        *ch = new char [str.length()+1];
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
     convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
-	
-	cout << "\nR=";
-	for (int i=0; i<3; i++){
-		cout <<"\n(";
-		for (int j=0; j<3; j++){ 
-			cout << ", " << R.at<float>(i,j);
-		}cout << ")\n";
-	}cout<<endl<<flush;
-	
-	cout << "\nT=(";
-	for (int i=0; i<3; i++) cout << ", " << T.at<float>(i);
-	cout << ")\n"<<endl<<flush;
-	
-	//getPose();   // R, T, pose
-	for (int i=0; i<9; i++) {pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;      }
-	for (int i=0; i<3; i++) pose.operator()(i,3)     = T.at<float>(i);
-	for (int i=0; i<3; i++) pose.operator()(3,i)     = 0.0f;
+																														if(verbosity>local_verbosity_threshold) {	
+																															cout << "\nR=";
+																															for (int i=0; i<3; i++){
+																																cout <<"\n(";
+																																for (int j=0; j<3; j++){ 
+																																	cout << ", " << R.at<float>(i,j);
+																																}cout << ")\n";
+																															}cout<<endl<<flush;
+																															
+																															cout << "\nT=(";
+																															for (int i=0; i<3; i++) cout << ", " << T.at<float>(i);
+																															cout << ")\n"<<endl<<flush;
+																														}
+	pose 		= getPose(R, T);
+	inv_pose 	= getInvPose(pose);
+	/*
+	for (int i=0; i<9; i++) { pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3); 										cout << "\nR.at<float>("<<i/3<<","<<i%3<<") = " << R.at<float>(i/3,i%3) << ",   pose.operator()(i/3,i%3) = " << pose.operator()(i/3,i%3) ;  }
+	for (int i=0; i<3; i++) pose.operator()(i,3)       = T.at<float>(i);
+	for (int i=0; i<3; i++) pose.operator()(3,i)       = 0.0f;
 	pose.operator()(3,3) = 1.0f;
-	
+	*/
 	/*
 	//for (int i=0; i<9; i++){R_dif.at<float>(i) = R.at<float>(i) - old_R.at<float>(i);   }
 	//for (int i=0; i<3; i++){T_dif.at<float>(i) = T.at<float>(i) - old_T.at<float>(i);   }
@@ -264,29 +272,29 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 	for (int i=0; i<3; i++) pose.operator()(3,i) = 0;
 	pose.operator()(3,3) = 1.0f;
 	*/
-																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
-	cout << "\npose = (";
-	for (int i=0; i<4; i++){
-		for (int j=0; j<4; j++){
-			cout << ", " << pose.operator()(i,j);
-		}cout << "\n     ";
-	}cout << ")\n"<<flush;
+																														if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
+																															cout << "\npose = (";
+																															for (int i=0; i<4; i++){
+																																for (int j=0; j<4; j++){
+																																	cout << ", " << pose.operator()(i,j);
+																																}cout << "\n     ";
+																															}cout << ")\n"<<flush;
+																														}
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.2"<<flush;
-	
 	K.zeros();
 	for (int i=0; i<3; i++){
 		for (int j=0; j<3; j++){
 			K.operator()(i,j) = cameraMatrix.at<float>(i,j);
 		}
 	}K.operator()(3,3) = 1;
+	generate_invK();
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush; // K2K
-	K2K = K * pose * inv_old_pose * inv_K;	// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+	K2K = old_K * old_pose * inv_pose * inv_K;																			// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 	
 	pose2pose = pose * inv_old_pose; 																																													// pose2pose
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.5"<<flush;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< runcl.fp32_k2k[i]; }
-	
-							// TODO insert desired pose error, to test optimisation.
+																														// TODO insert desired pose error, to test optimisation.
 	// set k2k and upload ?
 	
 																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 1,"<<flush;
@@ -361,7 +369,6 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
 }
 
-
 void Dynamic_slam::generate_invK(){ // TODO hack this to work here 
 	int local_verbosity_threshold = 0;
 	
@@ -425,7 +432,8 @@ void Dynamic_slam::generate_invK(){ // TODO hack this to work here
 																							}
 }
 
-void Dynamic_slam::generate_invPose(){ // TODO hack this to work here 
+/*
+void Dynamic_slam::generate_invPose(){ // Replaced by  getInvPose(), for now.
 	int local_verbosity_threshold = 1;
 																						if(verbosity>local_verbosity_threshold) {
 																							cout << "\nDynamic_slam::generate_invPose()" << endl << flush;
@@ -433,7 +441,7 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 	// NB in DTAM_opencl the R and T matricies are given as arguments to the constructor.
 	// invPose of keyframe wrt world coords is computed at the beginig of the cost vol.
 	// For dynamic SLAM , we might nt need inv_pose if we are only interested in the pos transform previous->next frame.
-																							/*
+																							/ *
 																							*  Inverse of a transformation matrix:
 																							*  http://www.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche0053
 																							*
@@ -442,7 +450,7 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 																							*   {_____|___}         {_______|________}
 																							*   {0 0 0| 1 }         {0  0  0|    1   }
 																							*
-																							*/
+																							* /
 	cv::Matx44f poseTransform = cv::Matx44f::zeros();
 	for (int i=0; i<9; i++) poseTransform.operator()(i/3,i%3) = R.at<float>(i/3,i%3);
 	for (int i=0; i<3; i++) poseTransform.operator()(i,3)     = T.at<float>(i);			// why is T so large ?
@@ -454,7 +462,7 @@ void Dynamic_slam::generate_invPose(){ // TODO hack this to work here
 	for (int i=0; i<3; i++) inv_old_pose.operator()(i,3) = inv_T.at<float>(i);
 	for (int i=0; i<4; i++) inv_old_pose.operator()(3,i) = pose.operator()(3,i);
 }
-
+*/
 
 void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set of 6 k2k to be used to compute the SE3 maps for the current camera intrinsic matrix.
 	int local_verbosity_threshold = 0;

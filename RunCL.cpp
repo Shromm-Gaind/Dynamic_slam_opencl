@@ -572,8 +572,6 @@ void RunCL::initialize(){
 																																		// Number of total work items, calculated here after 1st image is loaded &=> know the size.
 																																		// NB localSize must be devisor
 																																		// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
-	
-	
 	global_work_size 	= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
 	mm_global_work_size = ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
 																																		if(verbosity>local_verbosity_threshold){ 
@@ -653,7 +651,6 @@ void RunCL::initialize(){
 																																			cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
 																																			cout << "\n" << flush;
 																																		}
-																																		
 	// ####################################################################################################################################################################
 																																		if(verbosity>local_verbosity_threshold) { 
 																																			cout <<"	"<<endl;

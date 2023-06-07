@@ -30,7 +30,7 @@ class Dynamic_slam
     int verbosity;
     
     // camera & pose params
-    cv::Matx44f K, inv_K, pose, inv_old_pose, K2K, pose2pose;
+    cv::Matx44f K, inv_K, pose, inv_pose, K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose  ;
     cv::Mat image, R, T, depth_GT, cameraMatrix, projection;       // TODO should these be Matx ? 
     cv::Mat old_R, old_T, R_dif, T_dif;
     float SE3_k2k[6*16];
@@ -57,6 +57,8 @@ class Dynamic_slam
     void initialize_camera();
     void getPose(); // cv::Mat R, cv::Mat T, cv::Matx44f& pose
     void getInvPose(); // cv::Matx44f pose, cv::Matx44f& inv_pose
+    cv::Matx44f getPose(cv::Mat R, cv::Mat T);
+    cv::Matx44f getInvPose(cv::Matx44f pose);
     
     int  nextFrame();
     void predictFrame();
