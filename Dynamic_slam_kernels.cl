@@ -66,23 +66,31 @@
 #define MiM_READ_ROWS		6	// rows without margins
 #define MiM_WRITE_ROWS		7
 
-__kernel void cvt_color_space_linear(							// Writes the first entry in a linear mipmap
+#define IMG_MEAN			0	// for img_stats
+#define IMG_VAR 			1	//
+
+__kernel void cvt_color_space_linear(																// Writes the first entry in a linear mipmap
 	__global	uchar*	base,			//0
 	__global	float4*	img,			//1
 	__constant	uint*	uint_params,	//2
-	__constant 	uint8*	mipmap_params	//3
+	__constant 	uint8*	mipmap_params,	//3
+	__local		float4*	local_sum_pix,	//4
+	__global	float4*	global_sum_pix	//5
 		 )
-{																// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
+{																									// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
 	int global_id 	= (int)get_global_id(0);
 	uint pixels 	= uint_params[PIXELS];
-	if (global_id > pixels) return;
+	uint lid 			= get_local_id(0);
+	
+	uint local_size 	= get_local_size(0);
+	uint group_size 	= local_size;
+	uint reduction		= 1;																		// = mm_cols/read_cols_; but this is only the baselayer ofthe image pyramid.
 	
 	uint8 mipmap_params_ = mipmap_params[0];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	
 	
 	
-	// 
 	uint cols 		= uint_params[COLS];
 	uint margin 	= uint_params[MARGIN];
 	uint mm_cols	= uint_params[MM_COLS];
@@ -111,10 +119,10 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 	uint img_col	= base_col + margin;
 	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
 	
-	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;					// NB 4 channels.  + margin
+	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
 	
 	float4 temp_float4  = {H,S,V,1.0f};																// Note how to load a float4 vector.
-	img[/*img_index*/ read_index ] = temp_float4;
+	if (global_id <= pixels) img[read_index] = temp_float4;
 
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
@@ -125,7 +133,72 @@ __kernel void cvt_color_space_linear(							// Writes the first entry in a linea
 	 *     240 + 60(R-G)/(V-min(R,G,B))		if V=B
 	 *     0								if R=G=B
 	 */
+	///////////////////////////////////////////////////////////										// Sum pixels in the work group, using local mem.
+	local_sum_pix[lid] = temp_float4;
+	int max_iter = ilogb((float)(group_size));
+	
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
+		if (lid<group_size)  local_sum_pix[lid] += local_sum_pix[lid+group_size];					// local_sum_pix  
+	}
+	if (lid==0) {
+		uint group_id 	= get_group_id(0);
+		uint global_sum_offset = read_offset_ / local_size ;										// Compute offset for this layer
+		uint num_groups = get_num_groups(0);
+		
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, \nlocal_sum_pix[lid]=( %f, %f, %f, %f),  \nglobal_sum_pix[group_id]=( %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id \
+		, local_sum_pix[lid][0],local_sum_pix[lid][1],local_sum_pix[lid][2],local_sum_pix[lid][3] \
+		, global_sum_pix[group_id][0], global_sum_pix[group_id][1], global_sum_pix[group_id][2], global_sum_pix[group_id][3] \
+		);
+		
+		float4 layer_data = {num_groups, reduction, 0.0f, 0.0f };			// Write layer data to first entry
+		if (global_id == 0) {global_sum_pix[global_sum_offset] = layer_data; }
+		global_sum_offset += 1+ group_id;
+		
+		if (local_sum_pix[0][3] >0){																// Using alpha channel local_sum_pix[0][3], to count valid pixels being summed.
+			global_sum_pix[global_sum_offset] = local_sum_pix[0] / local_sum_pix[0][3];				// Save to global_sum_pix // Count hits, and divide group by num hits, without using atomics!
+		}else global_sum_pix[global_sum_offset] = 0;
+	}
 }
+
+__kernel void image_variance(
+	__global	float4*	img_stats,		//0
+	__global	float4*	img,			//1
+	__constant	uint*	uint_params,	//2
+	__constant 	uint8*	mipmap_params,	//3
+	__local		float4*	local_sum_var	//4
+			  )
+{
+	int global_id 	= (int)get_global_id(0);
+	uint pixels 	= uint_params[PIXELS];
+	if (global_id > pixels) return;
+	
+	uint8 mipmap_params_ = mipmap_params[0];
+	uint read_offset_ 	 = mipmap_params_[MiM_READ_OFFSET];
+	// 
+	uint cols 		= uint_params[COLS];
+	uint margin 	= uint_params[MARGIN];
+	uint mm_cols	= uint_params[MM_COLS];
+	
+	uint base_row	= global_id/cols ;
+	uint base_col	= global_id%cols ;
+	uint img_row	= base_row + margin;
+	uint img_col	= base_col + margin;
+	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
+	
+	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;					// NB 4 channels.  + margin
+	
+	float4 variance = powr( (img[read_index]-img_stats[IMG_MEAN]), 2);
+	
+	
+	
+	
+	
+}
+
+
 
 __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
@@ -168,11 +241,13 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		local_img_patch[lid+2 + i*patch_length] = img[ read_index +i*mm_cols];
 	}
 	////
-	if (lid==0 || lid==1){
+	
+	if (lid==0 || lid==1){//
 		for (int i=0; i<5; i++){
-			local_img_patch[lid + i*patch_length] = white; //img[ read_index +i*mm_cols -2];
+			local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -2]; //white; //
 		}
 	}
+	
 	/*
 	if (lid==1){
 		for (int i=0; i<5; i++){
@@ -180,11 +255,13 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		}
 	}
 	*////
-	if (lid==group_size-2 || lid==group_size-1){
+	
+	if (lid==group_size-2 || lid==group_size-1){	// 
 		for (int i=0; i<5; i++){
-			local_img_patch[lid+4 + i*patch_length] = black; //img[ read_index +i*mm_cols +2];
+			local_img_patch[lid+4 + i*patch_length] = img[ read_index +i*mm_cols +2]; //black; //
 		}
 	}
+	
 	/*
 	if (lid==group_size-1){
 		for (int i=0; i<5; i++){
@@ -194,9 +271,9 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	*/
 	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
 	float4 reduced_pixel = 0;
-	for (int i=2; i<5; i++){
-		for (int y=0; y<5; y++){
-			reduced_pixel += local_img_patch[lid+y + i*patch_length]/15; //20;	// /4;///5;/						// 5x5 box filter, rather than Gaussian
+	for (int i=0; i<5; i++){
+		for (int j=0; j<5; j++){
+			reduced_pixel += local_img_patch[lid+j + i*patch_length]/25; //15; //20;	// /4;///5;/						// 5x5 box filter, rather than Gaussian
 		}
 	}
 	/*
@@ -212,7 +289,13 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	}
 	*/
 	if (write_row>write_rows_) return;
-	//if (global_id_u >= mipmap_params[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
+	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
+	if (global_id_u == 1) printf("\n\npatch_length=%u,  group_size=%u, mm_cols=%u, mipmap_params_[MiM_PIXELS]=%u", patch_length, group_size, mm_cols, mipmap_params_[MiM_PIXELS] );
+	if (global_id_u < 5) printf("\n\nread_index=%u, write_index=%u, lid=%u, write_cols_=%u,    read_index+0*mm_cols=%u, read_index+1*mm_cols=%u, read_index+2*mm_cols=%u, read_index+3*mm_cols=%u, read_index+4*mm_cols=%u,       "\
+		, read_index, write_index, lid, write_cols_ \
+		, read_index+0*mm_cols, read_index+1*mm_cols, read_index+2*mm_cols, read_index+3*mm_cols, read_index+4*mm_cols \
+	);
+	
 	//reduced_pixel[2] = global_id_flt/(float)(mipmap_params[MiM_PIXELS]); // debugging 
 	reduced_pixel[3] = 1.0f;
 	img[ write_index] = reduced_pixel;
@@ -486,7 +569,7 @@ __kernel void se3_grad(
 		if (global_id_u == 0) {global_sum_grads[global_sum_offset] = layer_data; }
 		global_sum_offset += 1+ group_id;
 		
-		if (local_sum_grads[0][7] >0){
+		if (local_sum_grads[0][7] >0){														// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 		}else global_sum_grads[global_sum_offset] = 0;
 	}

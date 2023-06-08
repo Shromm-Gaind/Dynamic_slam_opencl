@@ -167,13 +167,13 @@ RunCL::RunCL(Json::Value obj_){
 		printf("\n%s\n", buf);
 		exit_(status);
 	}
-	
 	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);				/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
 	//cache3_kernel   = clCreateKernel(m_program, "CacheG3", 			NULL);
 	//updateQD_kernel = clCreateKernel(m_program, "UpdateQD", 			NULL);
 	//updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 			NULL);
 																											// New kernels
 	cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
+	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				NULL);
 	reduce_kernel					= clCreateKernel(m_program, "reduce", 						NULL);
 	mipmap_linear_kernel			= clCreateKernel(m_program, "mipmap_linear_flt", 			NULL);
 	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					NULL);
@@ -678,11 +678,11 @@ void RunCL::initialize(){
 	mipmap[MiM_PIXELS]				= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	
 	for(int reduction = 0; reduction <= mm_num_reductions+1; reduction++) {   
-		num_threads[reduction]		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;						// global_work_size formula for num_treads req for this layer. 
-		for (int i=0; i<8; i++) 	{																										// Initialize the global MipMap[8*8] array. 
+		num_threads[reduction]		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;					// global_work_size formula for num_treads req for this layer. 
+		for (int i=0; i<8; i++) 	{																									// Initialize the global MipMap[8*8] array. 
 			MipMap[reduction*8 +i] = mipmap[i];
-																																			if(verbosity>local_verbosity_threshold) { cout << "\nMipMap["<<reduction<<"*8 +"<<i<<"]="<<MipMap[reduction*8 +i] ;}
-		}																																	if(verbosity>local_verbosity_threshold) { cout << endl << flush; }
+																																		if(verbosity>local_verbosity_threshold) { cout << "\nMipMap["<<reduction<<"*8 +"<<i<<"]="<<MipMap[reduction*8 +i] ;}
+		}																																if(verbosity>local_verbosity_threshold) { cout << endl << flush; }
 		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
 		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + read_cols_with_margin * (margin + write_rows);
 		mipmap[MiM_READ_ROWS] 		= write_rows;
@@ -691,17 +691,14 @@ void RunCL::initialize(){
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	}
-	
-	
-	//uint pixels = baseImage_width * baseImage_height;
-	//se3_sum_size 		= 0;
-	//for (int i=0; i<mm_num_reductions; i++){
-	//	se3_sum_size 		+= 1+ ceil( (float)(pixels) / (float)local_work_size ) ;									// pixels	// Space for each group of eachlayer, plus layer information. See use between se3_grad(..) and reduction(..) kernels.
-	//	pixels /= 4;
-	//}
+																																		// Summation buffer sizes
 	se3_sum_size 		= 1 + ceil( (float)(MipMap[(mm_num_reductions+1)*8 + MiM_READ_OFFSET]) / (float)local_work_size ) ;
 	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 8;																				if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
 	se3_sum2_size_bytes = 2 * mm_num_reductions*sizeof(float)*8;
+	
+	pix_sum_size		= baseImage_width * baseImage_height;
+	pix_sum_size_bytes	= pix_sum_size * sizeof(float) * 4;
+	
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop){
@@ -846,6 +843,8 @@ void RunCL::allocatemem(){
 	se3_sum_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	se3_sum2_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum2_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	SE3_rho_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	img_stats_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 2*4*sizeof(float),	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	pix_sum_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, pix_sum_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	//reduce_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 8 * sizeof(uint)	,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
 																																		if(verbosity>local_verbosity_threshold) {
