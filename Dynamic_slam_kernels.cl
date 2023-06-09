@@ -78,52 +78,49 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	__global	float4*	global_sum_pix	//5
 		 )
 {																									// NB need 32-bit uint (2**32=4,294,967,296) for index, not 16bit (2**16=65,536).
-	int global_id 	= (int)get_global_id(0);
-	uint pixels 	= uint_params[PIXELS];
-	uint lid 			= get_local_id(0);
+	int global_id 			= (int)get_global_id(0);
+	uint pixels 			= uint_params[PIXELS];
+	uint lid 				= get_local_id(0);
+	uint local_size 		= get_local_size(0);
+	uint group_size 		= local_size;
+	uint reduction			= 1;																		// = mm_cols/read_cols_; but this is only the baselayer ofthe image pyramid.
 	
-	uint local_size 	= get_local_size(0);
-	uint group_size 	= local_size;
-	uint reduction		= 1;																		// = mm_cols/read_cols_; but this is only the baselayer ofthe image pyramid.
-	
-	uint8 mipmap_params_ = mipmap_params[0];
-	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
-	
-	
-	
-	uint cols 		= uint_params[COLS];
-	uint margin 	= uint_params[MARGIN];
-	uint mm_cols	= uint_params[MM_COLS];
+	uint8 mipmap_params_	= mipmap_params[0];
+	uint read_offset_ 		= mipmap_params_[MiM_READ_OFFSET];
+	uint cols 				= uint_params[COLS];
+	uint margin 			= uint_params[MARGIN];
+	uint mm_cols			= uint_params[MM_COLS];
 
-	float R_float	= base[global_id*3]  /256.0f;
-	float G_float	= base[global_id*3+1]/256.0f;
-	float B_float	= base[global_id*3+2]/256.0f;
+	float R_float			= base[global_id*3]  /256.0f;
+	float G_float			= base[global_id*3+1]/256.0f;
+	float B_float			= base[global_id*3+2]/256.0f;
 	
-	float V = max(R_float, max(G_float, B_float) ); 
+	float V 				= max(R_float, max(G_float, B_float) ); 
+	float min_rgb 			= min(R_float, min(G_float, B_float) );
+	float divisor 			= V - min_rgb;
+	float S 				= (V!=0)*(V-min_rgb)/V;
 	
-	float min_rgb =	min(R_float, min(G_float, B_float));
-	float divisor = V - min_rgb;
+	float H = (   (V==R_float && V!=0)* 		(60*(G_float-B_float) / divisor )  \
+			+     (V==G_float && V!=0)*( 120 + 	(60*(B_float-R_float) / divisor )) \
+			+     (V==B_float && V!=0)*( 240 + 	(60*(R_float-G_float) / divisor )) \
+			) / 360;
 	
-	float S = (V!=0)*(V-min_rgb)/V;
-	
-	float H = (   (V==R_float && V!=0)* (60*(G_float-B_float) / divisor )      \
-	 +     (V==G_float && V!=0)*( 120 + (60*(B_float-R_float) / divisor ))	\
-	 +     (V==B_float && V!=0)*( 240 + (60*(R_float-G_float) / divisor ))	\
-	 ) / 360;
-	
-	 if (!(H<=1.0f && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}	// to replace any NaNs
+	if (!(H<=1.0f && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}	// to replace any NaNs
 	 
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
 	uint img_row	= base_row + margin;
 	uint img_col	= base_col + margin;
-	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
+	//uint img_index	= img_row*(cols + 2*margin) + img_col;   									// NB here use cols not mm_cols
 	
 	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
 	
 	float4 temp_float4  = {H,S,V,1.0f};																// Note how to load a float4 vector.
-	if (global_id <= pixels) img[read_index] = temp_float4;
-
+	if (global_id <= pixels) {
+		img[read_index] 		= temp_float4;
+		local_sum_pix[lid] 		= temp_float4;
+	}else local_sum_pix[lid]	= 0;
+	
 	/* from https://docs.opencv.org/3.4/de/d25/imgproc_color_conversions.html
 	 * In case of 8-bit and 16-bit images, R, G, and B are converted to the floating-point format and scaled to fit the 0 to 1 range.
 	 * V = max(R,G,B)
@@ -134,18 +131,19 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	 *     0								if R=G=B
 	 */
 	///////////////////////////////////////////////////////////										// Sum pixels in the work group, using local mem.
-	local_sum_pix[lid] = temp_float4;
+	
 	int max_iter = ilogb((float)(group_size));
 	
-	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  
+																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
 		if (lid<group_size)  local_sum_pix[lid] += local_sum_pix[lid+group_size];					// local_sum_pix  
 	}
 	if (lid==0) {
-		uint group_id 	= get_group_id(0);
-		uint global_sum_offset = read_offset_ / local_size ;										// Compute offset for this layer
-		uint num_groups = get_num_groups(0);
+		uint group_id 			= get_group_id(0);
+		uint global_sum_offset 	= 0; //read_offset_ / local_size ;		// only the base layer								// Compute offset for this layer
+		uint num_groups 		= get_num_groups(0);
 		
 		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, \nlocal_sum_pix[lid]=( %f, %f, %f, %f),  \nglobal_sum_pix[group_id]=( %f, %f, %f, %f ) "\
 		, reduction, global_sum_offset,  num_groups, group_id \

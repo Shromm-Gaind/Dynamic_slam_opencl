@@ -86,12 +86,48 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
                                                                                                                                                 */
                                                                                                                                                 //DownloadAndSave_3Channel(	img_sum_buf, ss.str(), paths.at("img_sum_buf"),  mm_size_bytes_C3*2, mm_Image_size,  CV_32FC3 /*mm_Image_type*/, 	false ); // only when debugging.
                                                                                                                                             }
+	cv::Mat pix_sum_mat = cv::Mat::zeros (pix_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)						// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
+	ReadOutput( pix_sum_mat.data, pix_sum_mem, pix_sum_size_bytes );                                                                        // se3_sum_size_bytes
+	cout << "\n\npix_sum_mat.size()="<<pix_sum_mat.size()<<flush;
+    cout << "\n\npix_sum_size="<<pix_sum_size<<flush;
+                                                                                                                                            if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::cvt_color_space(..)_chk5 ."<<flush;
+                                                                                                                                                cout << "\n\n pix_sum_mat.data = (\n";
+                                                                                                                                                for (int i=0; i<pix_sum_size; i++){
+                                                                                                                                                    cout << "\n group="<<i<<" : ( " << flush;
+                                                                                                                                                    for (int j=0; j<4; j++){
+                                                                                                                                                        cout << pix_sum_mat.at<float>(i,j) << " , " << flush;
+                                                                                                                                                    }
+                                                                                                                                                    cout << ")" << flush;
+                                                                                                                                                }cout << "\n)\n" << flush;
+                                                                                                                                            } 
+	float pix_sum_reults[4] = {0};
 	
-	
-	
-	
-	
-	
+	cout << endl;
+	//for (int i=0; i<=mm_num_reductions+1; i++){ 
+        //uint read_offset_ 	= MipMap[i*8 + MiM_READ_OFFSET];                                                                                // mipmap_params_[MiM_READ_OFFSET];
+        //uint global_sum_offset = read_offset_ / local_work_size ;
+        
+        uint groups_to_sum = pix_sum_mat.at<float>(0, 0);
+        uint start_group   = 1;
+        uint stop_group    = start_group + groups_to_sum -1;                                                                                   // skip the last group due to odd 7th value.
+        
+        for (int j=start_group; j< stop_group  ; j++){
+            for (int k=0; k<4; k++){
+                pix_sum_reults[k] += pix_sum_mat.at<float>(j, k);                                                                            // sum groups for this layer of the MipMap.
+            }
+        }
+        cout << "\n Pix_sum_results = (";
+        for (int k=0; k<4; k++){
+                cout << ", " << pix_sum_reults[k] ;
+        }cout << ")";
+    //}
+    cout << endl;
+    //for (int i=0; i<=mm_num_reductions+1; i++){ 
+        cout << "\n Pix_sum_results/num_groups = (";
+        for (int k=0; k<8; k++){
+            cout << ", " << pix_sum_reults[k]/pix_sum_reults[3] ;
+        }cout << ")";
+    //}
                                                                                                                                             if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::cvt_color_space()_chk3_Finished"<<flush;
 }
 
@@ -377,11 +413,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
-	//ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0)
-	//float se3_sum_array[se3_sum_size * 8];
-    //uchar * se3_sum_array_ptr = (*uchar)se3_sum_array;
-    
-    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 8, CV_32FC1);
+    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 8, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)						// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
 	ReadOutput( se3_sum_mat.data, se3_sum_mem, se3_sum_size_bytes );                                                                        // se3_sum_size_bytes
 	cout << "\n\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
     cout << "\n\nse3_sum_size="<<se3_sum_size<<flush;
