@@ -166,12 +166,17 @@ __kernel void image_variance(
 	__global	float4*	img,			//1
 	__constant	uint*	uint_params,	//2
 	__constant 	uint8*	mipmap_params,	//3
-	__local		float4*	local_sum_var	//4
+	__local		float4*	local_sum_var,	//4
+	__global	float4*	global_sum_var	//5
 			  )
 {
 	int global_id 	= (int)get_global_id(0);
 	uint pixels 	= uint_params[PIXELS];
 	if (global_id > pixels) return;
+	uint lid 				= get_local_id(0);
+	uint local_size 		= get_local_size(0);
+	uint group_size 		= local_size;
+	uint reduction			= 1;																	// = mm_cols/read_cols_; but this is only the baselayer ofthe image pyramid.
 	
 	uint8 mipmap_params_ = mipmap_params[0];
 	uint read_offset_ 	 = mipmap_params_[MiM_READ_OFFSET];
@@ -186,11 +191,48 @@ __kernel void image_variance(
 	uint img_col	= base_col + margin;
 	uint img_index	= img_row*(cols + 2*margin) + img_col;   										// NB here use cols not mm_cols
 	
-	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;					// NB 4 channels.  + margin
+	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
 	
-	float4 variance = powr( (img[read_index]-img_stats[IMG_MEAN]), 2);
+	float4 variance = powr( (img[read_index]-img_stats[IMG_MEAN]), 2);								// TODO why does this cause NaNs ?
 	
+	int4 var_isnan = isnan(variance);
+	if (global_id <= pixels && !var_isnan.x && !var_isnan.y && !var_isnan.z) {
+		local_sum_var[lid] 		= variance;
+	}else local_sum_var[lid]	= 0;
 	
+	if (global_id==0) printf("\nread_index=%u,   img_stats[IMG_MEAN]=%f,  img[read_index]=(%f,%f,%f,%f),  variance=(%f,%f,%f,%f)"\
+							  , read_index,      img_stats[IMG_MEAN], img[read_index].x, img[read_index].y, img[read_index].z, img[read_index].w,  variance.x, variance.y, variance.z, variance.w \
+					  );
+	
+	///////////////////////// reduction
+	
+	int max_iter = ilogb((float)(group_size));
+	
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  
+																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
+		if (lid<group_size)  local_sum_var[lid] += local_sum_var[lid+group_size];					// local_sum_var  
+	}
+	if (lid==0) {
+		uint group_id 			= get_group_id(0);
+		uint global_sum_offset 	= 0; //read_offset_ / local_size ;		// only the base layer								// Compute offset for this layer
+		uint num_groups 		= get_num_groups(0);
+		
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, local_sum_var[lid]=( %f, %f, %f, %f),  global_sum_var[group_id]=( %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id \
+		, local_sum_var[lid][0],local_sum_var[lid][1],local_sum_var[lid][2],local_sum_var[lid][3] \
+		, global_sum_var[group_id][0], global_sum_var[group_id][1], global_sum_var[group_id][2], global_sum_var[group_id][3] \
+		);
+		
+		float4 layer_data = {num_groups, reduction, 0.0f, 0.0f };			// Write layer data to first entry
+		if (global_id == 0) {global_sum_var[global_sum_offset] = layer_data; }
+		global_sum_offset += 1+ group_id;
+		
+		if (local_sum_var[0][3] >0){																// Using alpha channel local_sum_var[0][3], to count valid pixels being summed.
+			global_sum_var[global_sum_offset] = local_sum_var[0] / local_sum_var[0][3];				// Save to global_sum_var // Count hits, and divide group by num hits, without using atomics!
+		}else global_sum_var[global_sum_offset] = 0;
+	}
 	
 	
 	

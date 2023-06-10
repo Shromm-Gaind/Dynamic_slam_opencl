@@ -74,13 +74,15 @@ public:
 	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2], SE3_incr_map_mem;
 	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem; // param_map_mem,  
-	cl_mem 				pix_sum_mem, se3_sum_mem, se3_sum2_mem;// reduce_param_buf;
+	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;// reduce_param_buf;
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
 	size_t 				mm_se3_sum_size, se3_sum_size, se3_sum_size_bytes, se3_sum2_size_bytes, pix_sum_size, pix_sum_size_bytes;
 	bool 				gpu, amdPlatform;
 	cl_device_id 		deviceId;
 	
+	size_t				img_stats_size_bytes = sizeof(float)*8*4*2;
+	float				img_stats[8*4*2]= {0};		// 8 layers, 4 channels, 2 variables.
 	size_t 				num_threads[8]	= {0};
 	uint 				MipMap[8*8]		= {0};
 	uint				uint_params[8] 	= {0};
