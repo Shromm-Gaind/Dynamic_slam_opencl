@@ -490,7 +490,7 @@ __kernel void se3_grad(
 	__global 	float4*	SE3_grad_map_cur_frame,	//7
 	__global 	float4*	SE3_grad_map_new_frame,	//8
 	__global	float* 	depth_map,				//9		// NB GT_depth, not inv_depth
-	__local		float8*	local_sum_grads,		//10
+	__local		float4*	local_sum_grads,		//10
 	__global	float8*	global_sum_grads,		//11
 	__global 	float4*	SE3_incr_map_,			//12
 	__global	float4* rho_					//13
@@ -499,7 +499,6 @@ __kernel void se3_grad(
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
-	// if (global_id_u >= mipmap_params[MiM_PIXELS]) { local_sum_grads[lid]=0;   return;}	// zero unitialized local_sum_grads;
 	
 	uint local_size 	= get_local_size(0);
 	uint group_size 	= local_size;
@@ -541,11 +540,6 @@ __kernel void se3_grad(
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;										// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	
-	float8 grads= 0;
-	grads[6]=1;
-	//if ((u2>read_cols_/2) && (u2<(10+(read_cols_/2)))  && (v2==0)) printf("\nread_cols_=%u,  read_rows_=%u, read_offset_=%u,  u=%u, v=%u, u2=%u, v2=%u,  reduction=%u,  u_flt=%f,   v_flt=%f"\
-	//	, read_cols_, read_rows_, read_offset_, u, v, u2, v2, reduction, u_flt, v_flt);
-	
 	if (global_id_u==1){
 		printf("\n\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)\n\n"\
 		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
@@ -553,9 +547,11 @@ __kernel void se3_grad(
 	 
 	float4 rho = {0.0f,0.0f,0.0f,1.0f}; 
 	bool intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
-	if (  intersection  ) {																// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
+	if (  intersection  ) {																	// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		rho = img_cur[read_index] - img_new[read_index_new];
+		rho[3] = 1.0f;
+		rho_[read_index] = rho;																// save photometric error to buffer
 		if (u<10 && v==10){
 				printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f"\
 						 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth);
@@ -563,44 +559,33 @@ __kernel void se3_grad(
 		for (uint i=0; i<6; i++) {															// for each SE3 DoF
 			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
 			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
-			float4 delta = {0.0f,0.0f,0.0f,1.0f};
+			float4 delta = {0.0f,0.0f,0.0f,1.0f};											// Count hits in delta.w, passed on to local_sum_grads, and divide group by num hits, without using atomics!
 			for (uint j=0; j<3; j++){
-				float SE3_grad = (SE3_grad_cur_px[j] );//+ SE3_grad_new_px[j]);				// Using mean of jacobiand produces lots of noise. 
+				float SE3_grad = (SE3_grad_cur_px[j] );										// Using mean of jacobiand produces lots of noise. 
 				if (fabs(SE3_grad)> 0.01 ) delta[j] = (-2 * rho[j] / SE3_grad) ;			// Descent on the mean of the gradient : image intensity / SE3 , protected against zero gradient null regions of SE3.
 			}
-			grads[i] = delta[0] + delta[1] + delta[2];
+			local_sum_grads[i*local_size + lid] = delta;									// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
-			/*
-			if (global_id_u==1){
-				printf("\n\ni=%u,  \nread_index=%u, \nread_index_new=%u, \nSE3_LM_a=%f , \nSE3_LM_b=%f,   \nrho=(%f,%f,%f,%f), \nSE3_grad_cur_px=(%f,%f,%f,%f), \nSE3_grad_new_px=(%f,%f,%f,%f), \ndelta=(%f,%f,%f,%f)"\
-				,i, read_index, read_index_new, SE3_LM_a, SE3_LM_b \
-				,rho[0] ,rho[1] ,rho[2] ,rho[3] \
-				,SE3_grad_cur_px[0],SE3_grad_cur_px[1],SE3_grad_cur_px[2],SE3_grad_cur_px[3]\
-				,SE3_grad_new_px[0],SE3_grad_new_px[1],SE3_grad_new_px[2],SE3_grad_new_px[3]\
-				,delta[0], delta[1], delta[2], delta[3]\
-				); 
-			}
-			*/
 		}
-		grads[7]=1;																			// Count hits, and divide group by num hits, without using atomics!
-		rho[3] = 1.0f;
-		rho_[read_index] = rho;																	// save photometric error to buffer
 	}
-	local_sum_grads[lid] = grads  ;
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
 	int max_iter = ilogb((float)(group_size));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		barrier(CLK_LOCAL_MEM_FENCE);														// No 'if->return' before fence between write & read local mem
-		if (lid<group_size)  local_sum_grads[lid] += local_sum_grads[lid+group_size];		// local_sum_grads  
+		if (lid<group_size){
+			for (int i=0; i<6; i++){
+				local_sum_grads[i*local_size + lid] += local_sum_grads[i*local_size + lid + group_size];	// local_sum_grads  
+			}
+		}
 	}
 	if (lid==0) {
 		uint group_id 	= get_group_id(0);
 		uint global_sum_offset = read_offset_ / local_size ;								// Compute offset for this layer
 		uint num_groups = get_num_groups(0);
 		
-		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u, grads[6]=%f, grads[7]=%f, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
-		, reduction, global_sum_offset,  num_groups, group_id, read_index, grads[6], grads[7]\
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u,  \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id, read_index \
 		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
 		, global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3],    global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7]\
 		);
@@ -610,7 +595,11 @@ __kernel void se3_grad(
 		global_sum_offset += 1+ group_id;
 		
 		if (local_sum_grads[0][7] >0){														// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
-			global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
+			for (int i=0; i<6; i++){
+				global_sum_grads[global_sum_offset   ] =  local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;	// local_sum_grads  
+			}
+			
+			//global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 		}else global_sum_grads[global_sum_offset] = 0;
 	}
 }

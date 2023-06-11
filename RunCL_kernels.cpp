@@ -115,6 +115,9 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 	for (int i=0; i<3; i++){
 		img_stats[layer*4 + IMG_MEAN + i ]	=	pix_sum_reults[i] / pix_sum_reults[3];
 	}
+	
+	cl_event writeEvt;																										               // Upload img_mean to GPU
+	status = clEnqueueWriteBuffer(uload_queue, img_stats_buf, CL_FALSE, 0, img_stats_size_bytes, img_stats, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout << "\n Pix_sum_results = (";
 																																				for (int k=0; k<4; k++){
@@ -134,17 +137,11 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 
 void RunCL::img_variance(){
 	int local_verbosity_threshold = 0;
-                                                                                                                                            if(verbosity>local_verbosity_threshold) { cout<<"\n\nRunCL::img_variance()_chk0"<<flush; }
-	// img_stats_buf
-	
-	cl_int status;
-	cl_event writeEvt;																										               // WriteBuffer basemem #########
-	status = clEnqueueWriteBuffer(uload_queue, img_stats_buf, CL_FALSE, 0, img_stats_size_bytes, img_stats, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
-	
+                          
 	// TODO ? create a class for data, holding buffer, CPU data, stats about the data object, functions for write, read, save, display, & set_kernel_arg ? 
 	
-	cl_int res;
-	cl_event ev;																																								// cvt_color_space_kernel  or  img_variance_kernel
+	cl_int res, status;
+	cl_event ev, writeEvt;																																								// cvt_color_space_kernel  or  img_variance_kernel
 	res = clSetKernelArg(img_variance_kernel, 0, sizeof(cl_mem), &img_stats_buf);						   if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uchar3*		img_stats,		//0
 	res = clSetKernelArg(img_variance_kernel, 1, sizeof(cl_mem), &imgmem[frame_bool_idx]);  			   if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global float4*		img,			//1	
 	res = clSetKernelArg(img_variance_kernel, 2, sizeof(cl_mem), &uint_param_buf);						   if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global uint*		uint_params		//2
@@ -191,6 +188,9 @@ void RunCL::img_variance(){
 	for (int i=0; i<3; i++){
 		img_stats[layer*4 + IMG_VAR + i ]	=	var_sum_reults[i] / var_sum_reults[3];
 	}
+																																			// Upload img_variance to GPU 
+	status = clEnqueueWriteBuffer(uload_queue, img_stats_buf, CL_FALSE, 0, img_stats_size_bytes, img_stats, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
+	
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout << "\n Var_sum_results = (";
 																																				for (int k=0; k<4; k++){
@@ -424,10 +424,11 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	res = clSetKernelArg(se3_grad_kernel, 7, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
 	res = clSetKernelArg(se3_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[!frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[!frame_bool_idx]	//8
 	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB GT_depth, not inv_depth depth_mem
-	res = clSetKernelArg(se3_grad_kernel,10, local_work_size*8*sizeof(float), 	NULL);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float16*	local_sum_grads					//10
+	res = clSetKernelArg(se3_grad_kernel,10, local_work_size*6*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float16*	local_sum_grads					//10	6 DoF, float4 channels
 	res = clSetKernelArg(se3_grad_kernel,11, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		g1p,							//11
 	res = clSetKernelArg(se3_grad_kernel,12, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
 	res = clSetKernelArg(se3_grad_kernel,13, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     rho_					        //13
+	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
@@ -461,7 +462,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
-    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 8, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)						// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
+    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 4*6, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
 	ReadOutput( se3_sum_mat.data, se3_sum_mem, se3_sum_size_bytes );                                                                        // se3_sum_size_bytes
 	cout << "\n\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
     cout << "\n\nse3_sum_size="<<se3_sum_size<<flush;
@@ -477,7 +478,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 }cout << "\n)\n" << flush;
                                                                                                                                                 cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
                                                                                                                                             }                                                       // if start, stop  larger layers, call reduce kernel. ? cut off between large vs small layers ?   
-    float SE3_reults[8][8] = {{0}};
+    float SE3_reults[8][6][4] = {{{0}}}; 																									// max 8 layers, 6 DoF, 4 channels
                                                                                                                                             /*
                                                                                                                                             for (int i=0; i<=mm_num_reductions+1; i++){ 
                                                                                                                                                 uint read_offset_ 	= MipMap[i*8 + MiM_READ_OFFSET];                         // mipmap_params_[MiM_READ_OFFSET];
@@ -497,22 +498,38 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
         uint stop_group = start_group + groups_to_sum -1;                                                                                   // skip the last group due to odd 7th value.
         
         for (int j=start_group; j< stop_group  ; j++){
-            for (int k=0; k<8; k++){
-                SE3_reults[i][k] += se3_sum_mat.at<float>(j, k);                                                                            // sum groups for this layer of the MipMap.
+            for (int k=0; k<6; k++){
+				for (int l=0; l<4; l++){
+					SE3_reults[i][k][l] += se3_sum_mat.at<float>(j*6*4  + k*4 , l); // se3_sum_mat.at<float>(j, k);                         // sum j groups for this layer of the MipMap.
+				}
             }
         }
-        cout << "\nLayer "<<i<<" SE3_results = (";
+        cout << "\nLayer "<<i<<" SE3_results = (";																							// raw results
         for (int k=0; k<8; k++){
-                cout << ", " << SE3_reults[i][k] ;
+			cout << "(";
+			for (int l=0; l<4; l++){
+                cout << ", " << SE3_reults[i][k][l] ;
+			}cout << ")";
         }cout << ")";
     }
     cout << endl;
-    for (int i=0; i<=mm_num_reductions+1; i++){ 
+    for (int i=0; i<=mm_num_reductions+1; i++){ 																							// results / (num_valid_px * img_variance) 
         cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
         for (int k=0; k<8; k++){
-            cout << ", " << SE3_reults[i][k]/SE3_reults[i][7] ;
+			for (int l=0; l<3; l++){
+				cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3] * img_stats[i*4 + IMG_VAR + l ]  ) ;
+			}cout << ", " << SE3_reults[i][k][3] ;
         }cout << ")";
     }
+    
+    ///
+    /*
+    uint layer = 0;
+    for (int i=0; i<3; i++){
+		img_stats[layer*4 + IMG_VAR + i ]	=	var_sum_reults[i] / var_sum_reults[3];
+	}
+    */
+    
     
 }
 
