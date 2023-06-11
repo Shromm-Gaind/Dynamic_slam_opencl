@@ -462,7 +462,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
-    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 4*6, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
+    cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 6*4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
 	ReadOutput( se3_sum_mat.data, se3_sum_mem, se3_sum_size_bytes );                                                                        // se3_sum_size_bytes
 	cout << "\n\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
     cout << "\n\nse3_sum_size="<<se3_sum_size<<flush;
@@ -488,7 +488,19 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 cout << se3_sum_mat.at<float>(global_sum_offset, 1) << " , " << flush;
                                                                                                                                             }
                                                                                                                                             */
-    cout << endl;
+	cout << "\n\nse3_sum_mat.at<float> (i*6 + j,  k) ";
+	
+	for (int i=0; i< se3_sum_size ; i++){
+		cout << "\ni="<<i<<":   ";
+		for (int j=0; j<6; j++){
+			cout << ",     (";
+			for (int k=0; k<4; k++){
+				cout << "," << se3_sum_mat.at<float> (i , j*4 + k)  ;
+			}cout << ")";
+		}cout << flush;
+	}
+    
+	cout << endl << endl;
 	for (int i=0; i<=mm_num_reductions+1; i++){ 
         uint read_offset_ 	= MipMap[i*8 + MiM_READ_OFFSET];                                                                                // mipmap_params_[MiM_READ_OFFSET];
         uint global_sum_offset = read_offset_ / local_work_size ;
@@ -505,7 +517,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
             }
         }
         cout << "\nLayer "<<i<<" SE3_results = (";																							// raw results
-        for (int k=0; k<8; k++){
+        for (int k=0; k<6; k++){
 			cout << "(";
 			for (int l=0; l<4; l++){
                 cout << ", " << SE3_reults[i][k][l] ;
@@ -515,7 +527,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
     cout << endl;
     for (int i=0; i<=mm_num_reductions+1; i++){ 																							// results / (num_valid_px * img_variance) 
         cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
-        for (int k=0; k<8; k++){
+        for (int k=0; k<6; k++){
 			for (int l=0; l<3; l++){
 				cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3] * img_stats[i*4 + IMG_VAR + l ]  ) ;
 			}cout << ", " << SE3_reults[i][k][3] ;

@@ -145,7 +145,7 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 		uint global_sum_offset 	= 0; //read_offset_ / local_size ;		// only the base layer								// Compute offset for this layer
 		uint num_groups 		= get_num_groups(0);
 		
-		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, \nlocal_sum_pix[lid]=( %f, %f, %f, %f),  \nglobal_sum_pix[group_id]=( %f, %f, %f, %f ) "\
+		printf("\n__kernel cvt_color_space_linear(..) reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u,     local_sum_pix[lid]=( %f, %f, %f, %f),    global_sum_pix[group_id]=( %f, %f, %f, %f ) "\
 		, reduction, global_sum_offset,  num_groups, group_id \
 		, local_sum_pix[lid][0],local_sum_pix[lid][1],local_sum_pix[lid][2],local_sum_pix[lid][3] \
 		, global_sum_pix[group_id][0], global_sum_pix[group_id][1], global_sum_pix[group_id][2], global_sum_pix[group_id][3] \
@@ -200,7 +200,7 @@ __kernel void image_variance(
 		local_sum_var[lid] 		= variance;
 	}else local_sum_var[lid]	= 0;
 	
-	if (global_id==0) printf("\nread_index=%u,   img_stats[IMG_MEAN]=%f,  img[read_index]=(%f,%f,%f,%f),  variance=(%f,%f,%f,%f)"\
+	if (global_id==0) printf("\n__kernel image_variance(..) 1, read_index=%u,   img_stats[IMG_MEAN]=%f,  img[read_index]=(%f,%f,%f,%f),  variance=(%f,%f,%f,%f)"\
 							  , read_index,      img_stats[IMG_MEAN], img[read_index].x, img[read_index].y, img[read_index].z, img[read_index].w,  variance.x, variance.y, variance.z, variance.w \
 					  );
 	
@@ -219,7 +219,7 @@ __kernel void image_variance(
 		uint global_sum_offset 	= 0; //read_offset_ / local_size ;		// only the base layer								// Compute offset for this layer
 		uint num_groups 		= get_num_groups(0);
 		
-		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, local_sum_var[lid]=( %f, %f, %f, %f),  global_sum_var[group_id]=( %f, %f, %f, %f ) "\
+		printf("\n__kernel image_variance(..) 2, reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, local_sum_var[lid]=( %f, %f, %f, %f),  global_sum_var[group_id]=( %f, %f, %f, %f ) "\
 		, reduction, global_sum_offset,  num_groups, group_id \
 		, local_sum_var[lid][0],local_sum_var[lid][1],local_sum_var[lid][2],local_sum_var[lid][3] \
 		, global_sum_var[group_id][0], global_sum_var[group_id][1], global_sum_var[group_id][2], global_sum_var[group_id][3] \
@@ -491,7 +491,7 @@ __kernel void se3_grad(
 	__global 	float4*	SE3_grad_map_new_frame,	//8
 	__global	float* 	depth_map,				//9		// NB GT_depth, not inv_depth
 	__local		float4*	local_sum_grads,		//10
-	__global	float8*	global_sum_grads,		//11
+	__global	float4*	global_sum_grads,		//11
 	__global 	float4*	SE3_incr_map_,			//12
 	__global	float4* rho_					//13
 	)
@@ -564,6 +564,7 @@ __kernel void se3_grad(
 				float SE3_grad = (SE3_grad_cur_px[j] );										// Using mean of jacobiand produces lots of noise. 
 				if (fabs(SE3_grad)> 0.01 ) delta[j] = (-2 * rho[j] / SE3_grad) ;			// Descent on the mean of the gradient : image intensity / SE3 , protected against zero gradient null regions of SE3.
 			}
+			delta.w=1.0f;
 			local_sum_grads[i*local_size + lid] = delta;									// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
 		}
@@ -582,21 +583,35 @@ __kernel void se3_grad(
 	if (lid==0) {
 		uint group_id 	= get_group_id(0);
 		uint global_sum_offset = read_offset_ / local_size ;								// Compute offset for this layer
+		global_sum_offset *=6;																// 6 DoF of float4 channels.
 		uint num_groups = get_num_groups(0);
 		
-		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u,  \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nglobal_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
-		, reduction, global_sum_offset,  num_groups, group_id, read_index \
-		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
-		, global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3],    global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7]\
+		printf("\n__kernel se3_grad(..) reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u,       local_sum_grads[lid]=", reduction, global_sum_offset,  num_groups, group_id, read_index );
+		for (int i=0; i<6; i++){
+			printf("\n  group_id=%u, i=%d, (%f, %f, %f, %f),",  group_id, i, local_sum_grads[i*local_size+lid].x, local_sum_grads[i*local_size+lid].y, local_sum_grads[i*local_size+lid].z, local_sum_grads[i*local_size+lid].w );
+		}
+		/*
+		 *  //(%f, %f, %f, %f),    (%f, %f, %f, %f),     (%f, %f, %f, %f),     (%f, %f, %f, %f),  "\
+		
+		//, local_sum_grads[lid].x,local_sum_grads[lid].y,local_sum_grads[lid].z,local_sum_grads[lid].w\
+		, local_sum_grads[local_size+lid].x, local_sum_grads[local_size+lid].y, local_sum_grads[local_size+lid].z, local_sum_grads[local_size+lid].w \
+		, local_sum_grads[2*local_size+lid].x, local_sum_grads[2*local_size+lid].y, local_sum_grads[2*local_size+lid].z, local_sum_grads[2*local_size+lid].w \
+		, local_sum_grads[3*local_size+lid].x, local_sum_grads[3*local_size+lid].y, local_sum_grads[3*local_size+lid].z, local_sum_grads[3*local_size+lid].w \
 		);
 		
-		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };	// Write layer data to first entry
+		//  global_sum_grads[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		//, global_sum_grads[group_id][0], global_sum_grads[group_id][1], global_sum_grads[group_id][2], global_sum_grads[group_id][3],    global_sum_grads[group_id][4], global_sum_grads[group_id][5], global_sum_grads[group_id][6], global_sum_grads[group_id][7]\
+		*/
+		
+		
+		float4 layer_data = {num_groups, reduction, 0.0f, 0.0f };	// Write layer data to first entry
 		if (global_id_u == 0) {global_sum_grads[global_sum_offset] = layer_data; }
 		global_sum_offset += 1+ group_id;
 		
-		if (local_sum_grads[0][7] >0){														// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
+		if (local_sum_grads[0][3] >0){														// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			for (int i=0; i<6; i++){
-				global_sum_grads[global_sum_offset   ] =  local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;	// local_sum_grads  
+				float4 temp_float4 = local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;
+				global_sum_grads[global_sum_offset + i] = temp_float4 ;	// local_sum_grads  
 			}
 			
 			//global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!

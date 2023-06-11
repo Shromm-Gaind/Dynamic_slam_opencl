@@ -962,6 +962,14 @@ RunCL::~RunCL()
 void RunCL::CleanUp(){
 																																			cout<<"\nRunCL::CleanUp_chk0"<<flush;
 	cl_int status;
+	
+	
+	
+	
+	
+	
+	
+	
 	for (int i=0; i<2; i++){
 		status = clReleaseMemObject(imgmem[i]);				if (status != CL_SUCCESS)	{ cout << "\nimgmem["<<i<<"]             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 		status = clReleaseMemObject(gxmem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngxmem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
@@ -984,7 +992,6 @@ void RunCL::CleanUp(){
 	status = clReleaseMemObject(cdatabuf);			if (status != CL_SUCCESS)	{ cout << "\ncdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.8"<<flush;
 	status = clReleaseMemObject(hdatabuf);			if (status != CL_SUCCESS)	{ cout << "\nhdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.9"<<flush;
 	status = clReleaseMemObject(img_sum_buf);		if (status != CL_SUCCESS)	{ cout << "\nhdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.10"<<flush;
-	
 	status = clReleaseMemObject(fp32_param_buf);	if (status != CL_SUCCESS)	{ cout << "\nfp32_param_buf   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.11"<<flush;
 	status = clReleaseMemObject(k2kbuf);			if (status != CL_SUCCESS)	{ cout << "\nk2kbuf           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.12"<<flush;
 	status = clReleaseMemObject(SE3_k2kbuf);		if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.13"<<flush;
@@ -992,9 +999,13 @@ void RunCL::CleanUp(){
 	status = clReleaseMemObject(mipmap_buf);		if (status != CL_SUCCESS)	{ cout << "\nmipmap_buf       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.15"<<flush;
 	
 	status = clReleaseMemObject(gaussian_buf);		if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.16"<<flush;
-	
 	status = clReleaseMemObject(se3_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.17"<<flush;
 	status = clReleaseMemObject(se3_sum2_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(SE3_rho_map_mem	);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(img_stats_buf);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(pix_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(var_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	
 	
 																																			cout<<"\nRunCL::CleanUp_chk1_finished"<<flush;
 }
