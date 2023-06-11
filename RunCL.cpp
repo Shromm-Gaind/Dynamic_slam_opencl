@@ -959,17 +959,10 @@ RunCL::~RunCL()
 	status = clReleaseContext(m_context);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
 }
 
-void RunCL::CleanUp(){
+void RunCL::CleanUp(){// TODO do this with loops and #define names
 																																			cout<<"\nRunCL::CleanUp_chk0"<<flush;
 	cl_int status;
-	
-	
-	
-	
-	
-	
-	
-	
+	// release memory
 	for (int i=0; i<2; i++){
 		status = clReleaseMemObject(imgmem[i]);				if (status != CL_SUCCESS)	{ cout << "\nimgmem["<<i<<"]             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 		status = clReleaseMemObject(gxmem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngxmem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
@@ -1001,12 +994,32 @@ void RunCL::CleanUp(){
 	status = clReleaseMemObject(gaussian_buf);		if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.16"<<flush;
 	status = clReleaseMemObject(se3_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.17"<<flush;
 	status = clReleaseMemObject(se3_sum2_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
-	status = clReleaseMemObject(SE3_rho_map_mem	);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
-	status = clReleaseMemObject(img_stats_buf);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
-	status = clReleaseMemObject(pix_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
-	status = clReleaseMemObject(var_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(SE3_rho_map_mem	);	if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19"<<flush;
+	status = clReleaseMemObject(img_stats_buf);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.20"<<flush;
+	status = clReleaseMemObject(pix_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.21"<<flush;
+	status = clReleaseMemObject(var_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.22"<<flush;
 	
+
+	// release kernels
+	status = clReleaseKernel(cvt_color_space_linear_kernel);	if (status != CL_SUCCESS)	{ cout << "\ncvt_color_space_linear_kernel 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.23"<<flush;
+	status = clReleaseKernel(img_variance_kernel);				if (status != CL_SUCCESS)	{ cout << "\nimg_variance_kernel 			status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.24"<<flush;
+	status = clReleaseKernel(reduce_kernel);					if (status != CL_SUCCESS)	{ cout << "\nreduce_kernel 					status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.25"<<flush;
+	status = clReleaseKernel(mipmap_linear_kernel);				if (status != CL_SUCCESS)	{ cout << "\nmipmap_linear_kernel 			status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.26"<<flush;
+	status = clReleaseKernel(img_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nimg_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.27"<<flush;
+	status = clReleaseKernel(comp_param_maps_kernel);			if (status != CL_SUCCESS)	{ cout << "\ncomp_param_maps_kernel 		status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.28"<<flush;
+	status = clReleaseKernel(se3_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
 	
+	// release command queues
+	status = clReleaseCommandQueue(m_queue);		if (status != CL_SUCCESS)	{ cout << "\nm_queue 		status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.30"<<flush;
+	status = clReleaseCommandQueue(uload_queue);	if (status != CL_SUCCESS)	{ cout << "\nuload_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.31"<<flush;
+	status = clReleaseCommandQueue(dload_queue);	if (status != CL_SUCCESS)	{ cout << "\ndload_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.32"<<flush;
+	status = clReleaseCommandQueue(track_queue);	if (status != CL_SUCCESS)	{ cout << "\ntrack_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.33"<<flush;
+	
+	// release Program
+	clReleaseProgram(m_program);	if (status != CL_SUCCESS)	{ cout << "\nm_program 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.34"<<flush;
+	
+	// release context
+	clReleaseContext(m_context);	if (status != CL_SUCCESS)	{ cout << "\nm_context 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.35"<<flush;
 																																			cout<<"\nRunCL::CleanUp_chk1_finished"<<flush;
 }
 
