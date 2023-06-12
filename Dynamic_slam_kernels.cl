@@ -547,6 +547,8 @@ __kernel void se3_grad(
 	 
 	float4 rho = {0.0f,0.0f,0.0f,1.0f}; 
 	bool intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+	
+	for (int i=0; i<6; i++) local_sum_grads[i*local_size + lid] = 0;						// Essential to zero local mem.
 	if (  intersection  ) {																	// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		rho = img_cur[read_index] - img_new[read_index_new];
@@ -561,7 +563,7 @@ __kernel void se3_grad(
 			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
 			float4 delta = {0.0f,0.0f,0.0f,1.0f};											// Count hits in delta.w, passed on to local_sum_grads, and divide group by num hits, without using atomics!
 			for (uint j=0; j<3; j++){
-				float SE3_grad = (SE3_grad_cur_px[j] );										// Using mean of jacobiand produces lots of noise. 
+				float SE3_grad = (SE3_grad_cur_px[j] );										// Using mean of Jacobians produced lots of noise, possibly due to indexing bug, now fixed. 
 				if (fabs(SE3_grad)> 0.01 ) delta[j] = (-2 * rho[j] / SE3_grad) ;			// Descent on the mean of the gradient : image intensity / SE3 , protected against zero gradient null regions of SE3.
 			}
 			delta.w=1.0f;
@@ -570,7 +572,7 @@ __kernel void se3_grad(
 		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
-	int max_iter = ilogb((float)(group_size));
+	int max_iter = 9;//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		barrier(CLK_LOCAL_MEM_FENCE);														// No 'if->return' before fence between write & read local mem
@@ -580,6 +582,7 @@ __kernel void se3_grad(
 			}
 		}
 	}
+	barrier(CLK_LOCAL_MEM_FENCE);
 	if (lid==0) {
 		uint group_id 	= get_group_id(0);
 		uint global_sum_offset = read_offset_ / local_size ;								// Compute offset for this layer
@@ -588,7 +591,7 @@ __kernel void se3_grad(
 		
 		printf("\n__kernel se3_grad(..) reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, read_index=%u,       local_sum_grads[lid]=", reduction, global_sum_offset,  num_groups, group_id, read_index );
 		for (int i=0; i<6; i++){
-			printf("\n  group_id=%u, i=%d, (%f, %f, %f, %f),",  group_id, i, local_sum_grads[i*local_size+lid].x, local_sum_grads[i*local_size+lid].y, local_sum_grads[i*local_size+lid].z, local_sum_grads[i*local_size+lid].w );
+			printf("\n  group_id=%u, i=%d, (%f, %f, %f, %f),  max_iter=%d",  group_id, i, local_sum_grads[i*local_size+lid].x, local_sum_grads[i*local_size+lid].y, local_sum_grads[i*local_size+lid].z, local_sum_grads[i*local_size+lid].w,  max_iter );
 		}
 		/*
 		 *  //(%f, %f, %f, %f),    (%f, %f, %f, %f),     (%f, %f, %f, %f),     (%f, %f, %f, %f),  "\
@@ -606,12 +609,12 @@ __kernel void se3_grad(
 		
 		float4 layer_data = {num_groups, reduction, 0.0f, 0.0f };	// Write layer data to first entry
 		if (global_id_u == 0) {global_sum_grads[global_sum_offset] = layer_data; }
-		global_sum_offset += 1+ group_id;
+		global_sum_offset += 6+ group_id*6;
 		
 		if (local_sum_grads[0][3] >0){														// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			for (int i=0; i<6; i++){
 				float4 temp_float4 = local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;
-				global_sum_grads[global_sum_offset + i] = temp_float4 ;	// local_sum_grads  
+				global_sum_grads[global_sum_offset + i] = temp_float4 ;						// local_sum_grads  
 			}
 			
 			//global_sum_grads[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!

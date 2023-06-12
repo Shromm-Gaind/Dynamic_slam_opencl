@@ -106,6 +106,18 @@ int Dynamic_slam::nextFrame() {
 	
 	getFrameData();																										// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	
+	//############################################																		// debugging, introduce known pose error
+	Matx44f poseSteps[6];
+	
+	for (int i=0; i<6; i++){
+		for (int j=0; j<16; j++){
+			poseSteps[i].operator()(j/4,j%4)  = SE3_k2k[i*16+j];
+		}
+	}
+	
+	K2K = old_K * pose2pose * poseSteps[1] * inv_K;
+	//############################################
+	
 	buildDepthCostVol();
 	
 	int outer_iter = obj["regularizer_outer_iter"].asInt();
@@ -473,8 +485,8 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set
 	// SE3 
 	// Rotate 0.001 radians i.e 0.0573  degrees
 	// Translate 0.001 'units' of distance 
-	const float delta_theta = 0.001; //0.001;
-	const float delta 	  	= 0.001; //0.001;
+	const float delta_theta = 0.01; //0.001;
+	const float delta 	  	= 0.01; //0.001;
 	const float cos_theta   = cos(delta_theta);
 	const float sin_theta   = sin(delta_theta);
 	

@@ -424,7 +424,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	res = clSetKernelArg(se3_grad_kernel, 7, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
 	res = clSetKernelArg(se3_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[!frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[!frame_bool_idx]	//8
 	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB GT_depth, not inv_depth depth_mem
-	res = clSetKernelArg(se3_grad_kernel,10, local_work_size*6*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float16*	local_sum_grads					//10	6 DoF, float4 channels
+	res = clSetKernelArg(se3_grad_kernel,10, local_work_size*6*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_grads					//10	6 DoF, float4 channels
 	res = clSetKernelArg(se3_grad_kernel,11, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		g1p,							//11
 	res = clSetKernelArg(se3_grad_kernel,12, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
 	res = clSetKernelArg(se3_grad_kernel,13, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     rho_					        //13
@@ -479,15 +479,6 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
                                                                                                                                             }                                                       // if start, stop  larger layers, call reduce kernel. ? cut off between large vs small layers ?   
     float SE3_reults[8][6][4] = {{{0}}}; 																									// max 8 layers, 6 DoF, 4 channels
-                                                                                                                                            /*
-                                                                                                                                            for (int i=0; i<=mm_num_reductions+1; i++){ 
-                                                                                                                                                uint read_offset_ 	= MipMap[i*8 + MiM_READ_OFFSET];                         // mipmap_params_[MiM_READ_OFFSET];
-                                                                                                                                                uint global_sum_offset = read_offset_ / local_size ;
-                                                                                                                                                cout << "\ni = "<< i << ",  global_sum_offset = " << global_sum_offset << " : " << flush;  
-                                                                                                                                                cout << se3_sum_mat.at<float>(global_sum_offset, 0) << " , " << flush;
-                                                                                                                                                cout << se3_sum_mat.at<float>(global_sum_offset, 1) << " , " << flush;
-                                                                                                                                            }
-                                                                                                                                            */
 	cout << "\n\nse3_sum_mat.at<float> (i*6 + j,  k) ";
 	
 	for (int i=0; i< se3_sum_size ; i++){
@@ -509,10 +500,12 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
         uint start_group = global_sum_offset + 1;
         uint stop_group = start_group + groups_to_sum -1;                                                                                   // skip the last group due to odd 7th value.
         
+        cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
+        
         for (int j=start_group; j< stop_group  ; j++){
             for (int k=0; k<6; k++){
 				for (int l=0; l<4; l++){
-					SE3_reults[i][k][l] += se3_sum_mat.at<float>(j*6*4  + k*4 , l); // se3_sum_mat.at<float>(j, k);                         // sum j groups for this layer of the MipMap.
+					SE3_reults[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); // se3_sum_mat.at<float>(j, k);                         // sum j groups for this layer of the MipMap.
 				}
             }
         }
@@ -528,19 +521,13 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
     for (int i=0; i<=mm_num_reductions+1; i++){ 																							// results / (num_valid_px * img_variance) 
         cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
         for (int k=0; k<6; k++){
+			cout << "(";
 			for (int l=0; l<3; l++){
-				cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3] * img_stats[i*4 + IMG_VAR + l ]  ) ;
-			}cout << ", " << SE3_reults[i][k][3] ;
+				cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3]  *  img_stats[IMG_VAR+l]  );		// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+			}
+			cout << ", " << SE3_reults[i][k][3] << ")";
         }cout << ")";
     }
-    
-    ///
-    /*
-    uint layer = 0;
-    for (int i=0; i<3; i++){
-		img_stats[layer*4 + IMG_VAR + i ]	=	var_sum_reults[i] / var_sum_reults[3];
-	}
-    */
     
     
 }
