@@ -352,7 +352,7 @@ __kernel void  img_grad(
 	__global 	float4*		gyp,			//6
 	__global 	float4*		g1p,			//7
 	__constant 	float2*		SE3_map,		//8
-	__global 	float4*		SE3_grad_map	//9  // We keep hsv sepate at this stage, so 6*4=24, but float16 is the largest type. 
+	__global 	float8*		SE3_grad_map	//9  // We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -387,7 +387,7 @@ __kernel void  img_grad(
 	pu =  img[offset + upoff];
 	pd =  img[offset + dnoff];
 
-	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f }; //{ fabs(pr.x - pl.x), fabs(pr.y - pl.y), fabs(pr.z - pl.z), 1.0f };		// taking the absolute loses the direction of the gradient. 
+	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
 	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
 	 
 	float4 g1  = { \
@@ -397,17 +397,17 @@ __kernel void  img_grad(
 		 1.0f };
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
-	gxp[offset]= fabs(gx);
+	gxp[offset]= fabs(gx);																			// NB taking the absolute loses the sign of the gradient. 
 	gyp[offset]= fabs(gy);
 	
 	for (uint i=0; i<6; i++) {	
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
-		float4 SE3_grad_px = (gx*SE3_px[0])  +  (gy*SE3_px[1]);
-		SE3_grad_px[3] = 1;
+		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
 		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px; 
 		
-		if (global_id_u ==1)printf("\nSE3_grad_map[%u + %u * %u] = (%f, %f, %f, %f),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
-		, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],    SE3_px[0], SE3_px[1]  \
+		if (global_id_u ==1)printf("\nSE3_grad_map[%u + %u * %u] = ((%f, %f, %f, %f),  (%f, %f, %f, %f)),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
+		, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],   SE3_grad_px[4], SE3_grad_px[5], SE3_grad_px[6], SE3_grad_px[7]\
+		,    SE3_px[0], SE3_px[1]  \
 		, gx[0], gx[1], gx[2], gx[3],   gy[0], gy[1], gy[2], gy[3] \
 				  );
 	} 
@@ -493,7 +493,7 @@ __kernel void se3_grad(
 	__local		float4*	local_sum_grads,		//10
 	__global	float4*	global_sum_grads,		//11
 	__global 	float4*	SE3_incr_map_,			//12
-	__global	float4* rho_					//13
+	__global	float4* Rho_					//13
 	)
  {// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
@@ -553,7 +553,8 @@ __kernel void se3_grad(
 		int idx = 0;
 		rho = img_cur[read_index] - img_new[read_index_new];
 		rho[3] = 1.0f;
-		rho_[read_index] = rho;																// save photometric error to buffer
+	}Rho_[read_index] = rho;																// save photometric error to buffer. NB Outside if(){}, to zero non-overlapping pixels.
+	
 		if (u<10 && v==10){
 				printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f"\
 						 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth);
@@ -570,7 +571,7 @@ __kernel void se3_grad(
 			local_sum_grads[i*local_size + lid] = delta;									// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
 		}
-	}
+	
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
 	int max_iter = 9;//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.

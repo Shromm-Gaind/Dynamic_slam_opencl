@@ -105,18 +105,7 @@ int Dynamic_slam::nextFrame() {
 	estimateCalibration(); 		// own thread, one iter.
 	
 	getFrameData();																										// Loads GT depth of the new frame. NB depends on image.size from getFrame().
-	
-	//############################################																		// debugging, introduce known pose error
-	Matx44f poseSteps[6];
-	
-	for (int i=0; i<6; i++){
-		for (int j=0; j<16; j++){
-			poseSteps[i].operator()(j/4,j%4)  = SE3_k2k[i*16+j];
-		}
-	}
-	
-	K2K = old_K * pose2pose * poseSteps[1] * inv_K;
-	//############################################
+	artificial_pose_error();
 	
 	buildDepthCostVol();
 	
@@ -132,6 +121,23 @@ int Dynamic_slam::nextFrame() {
 	runcl.frame_num++;
 	return(0);					// NB option to return an error that stops the main loop.
 };
+
+void Dynamic_slam::artificial_pose_error(){
+	
+	Matx44f poseStep = transform[1];
+	cout << "\nposeStep = "; for (int i=0; i<16; i++) cout << ", " << poseStep.operator()(i/4,i%4);
+	
+	Matx44f big_step = poseStep; for (int i = 0; i<1; i++) big_step = big_step * poseStep;
+	cout << "\nbig_step = "; for (int i=0; i<16; i++) cout << ", " << big_step.operator()(i/4,i%4);
+	cout << "\npose2pose = "; for (int i=0; i<16; i++) cout << ", " << pose2pose.operator()(i/4,i%4);
+	
+	cout << "\nold_K2K = "; for (int i=0; i<16; i++) cout << ", " << K2K.operator()(i/4,i%4);
+	K2K = old_K * pose2pose * big_step * inv_K;	// 																		// Add error of one step in the 2nd SE3 DoF.
+	cout << "\nnew_K2K = "; for (int i=0; i<16; i++) cout << ", " << K2K.operator()(i/4,i%4);
+	
+	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< runcl.fp32_k2k[i]; }
+	runcl.loadFrameData(depth_GT, K2K, pose2pose);																		// NB runcl.fp32_k2k is loaded to k2kbuf by RunCL::estimateSE3(..)
+}
 
 void Dynamic_slam::predictFrame()
 {
@@ -304,7 +310,7 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush; // K2K
 	K2K = old_K * old_pose * inv_pose * inv_K;																			// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 	
-	pose2pose = pose * inv_old_pose; 																																													// pose2pose
+	pose2pose = old_pose * inv_pose; 																																													// pose2pose
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.5"<<flush;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< runcl.fp32_k2k[i]; }
 																														// TODO insert desired pose error, to test optimisation.
@@ -483,14 +489,14 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {	// Generates a set
 																							cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )" << endl << flush;
 																						}
 	// SE3 
-	// Rotate 0.001 radians i.e 0.0573  degrees
+	// Rotate 0.01 radians i.e 0.573  degrees
 	// Translate 0.001 'units' of distance 
 	const float delta_theta = 0.01; //0.001;
 	const float delta 	  	= 0.01; //0.001;
 	const float cos_theta   = cos(delta_theta);
 	const float sin_theta   = sin(delta_theta);
 	
-	cv::Matx44f transform[6];
+	//cv::Matx44f transform[6];
 	
 	transform[Rx] = cv::Matx44f(1,         0,          0,          0,				0,         cos_theta, -sin_theta, 0,				0,           sin_theta, cos_theta, 0,				0, 0, 0, 1);
 	transform[Ry] = cv::Matx44f(cos_theta, 0,          sin_theta,  0,				0,         1,         0,          0,				-sin_theta,  0,         cos_theta, 0,				0, 0, 0, 1);

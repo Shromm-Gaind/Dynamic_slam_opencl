@@ -469,6 +469,127 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
 
+void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
+	int local_verbosity_threshold = 1;
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
+		cv::Mat temp_mat, temp_mat2;
+		
+		if (type_mat == CV_16FC3)	{
+			temp_mat2 = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_16FC3);					//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
+			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  // baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
+			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_32FC3);
+			temp_mat2.convertTo(temp_mat, CV_32FC3);							// NB conversion to FP32 req for cv::sum(..).
+		} else {
+			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, type_mat);
+			ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
+		}
+		// 
+		
+		cv::Mat mat_u, mat_v;
+		mat_u = cv::Mat::zeros (size_mat, type_mat);
+		mat_v = cv::Mat::zeros (size_mat, type_mat);
+		uint data_elem_size = 4*sizeof(float);
+		for (int i=0; i<mat_u.total(); i++){
+			for (int j=0; j<data_elem_size; j++){
+				mat_u.data[i*data_elem_size  + j] = temp_mat.data[2*i*data_elem_size  + j] ;
+				mat_v.data[i*data_elem_size  + j] = temp_mat.data[((2*i)+1)*data_elem_size  + j] ;
+			}
+		}
+		cv::imshow("mat_u", mat_u);
+		cv::imshow("mat_v", mat_v);
+		cv::waitKey(-1);
+}
+		
+/*		
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_1, "<<flush;
+		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
+		string 		type_string=checkCVtype(type_mat);
+		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
+		cv::Point 	minLoc[3]={{0,0},{0,0},{0,0}}, 		maxLoc[3]={{0,0},{0,0},{0,0}};
+		vector<cv::Mat> spl;
+		split(temp_mat, spl);													// process - extract only the correct channel
+		double max = 0;
+		for (int i =0; i < 3; ++i){
+			cv::minMaxLoc(spl[i], &minVal[i], &maxVal[i], &minLoc[i], &maxLoc[i]);
+			if (maxVal[i] > max) max = maxVal[i];
+		}
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2, "<<flush;
+		stringstream ss;
+		stringstream png_ss;
+		ss<<"/"<<folder_tiff.filename().string()<<"_"<<count<<"_sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
+		png_ss<< "/" << folder_tiff.filename().string() << "_" << count;
+		if(show){
+			cv::Mat temp;
+			temp_mat.convertTo(temp, CV_8U);									// NB need CV_U8 for imshow(..)
+			cv::imshow( ss.str(), temp);
+		}
+		boost::filesystem::path folder_png = folder_tiff;
+		folder_png  += "/png/";
+		folder_png  += png_ss.str();
+		folder_png  += ".png";
+
+		folder_tiff += ss.str();
+		folder_tiff += ".tiff";
+		
+		if (max_range == 0){ 													if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
+			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 
+			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);						// set alpha=1
+			cv::merge(spl, temp_mat);
+		}	// Squash/stretch & shift to 0.0-1.0 range
+		else if (max_range <0.0){												if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range); 
+			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
+			cv::merge(spl, temp_mat);
+		}else{ 																	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+			temp_mat /=max_range;
+		}
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_3, "<<flush;
+		cv::Mat outMat;
+		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_4, "<<flush;
+			cv::imwrite(folder_tiff.string(), temp_mat );
+			temp_mat *=256;
+			temp_mat.convertTo(outMat, CV_8U);
+			if (type_mat == CV_32FC4){
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_5, "<<flush;
+				std::vector<cv::Mat> matChannels;
+				cv::split(outMat, matChannels);
+				//matChannels.at(3)=255;											// set alpha=1
+				cv::merge(matChannels, outMat);
+			}
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
+			cv::imwrite(folder_png.string(), (outMat) );						// Has "Grayscale 16-bit gamma integer"
+		}else if (type_mat == CV_8UC3){
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
+			cv::imwrite(folder_tiff.string(), temp_mat );
+			cv::imwrite(folder_png.string(),  temp_mat );
+		}else if (type_mat == CV_16FC3) {										// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
+			
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_8, "<<flush;
+			temp_mat2 *=256;
+			cv::imwrite(folder_tiff.string(), temp_mat2 );
+			
+			temp_mat2.convertTo(outMat, CV_8UC3);
+			cv::imwrite(folder_png.string(), (outMat) );
+		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
+																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
+}
+*/
+
+
+void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
+	int local_verbosity_threshold = 0;
+																				if(verbosity> local_verbosity_threshold) {
+																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
+																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
+																				}
+	for (uint i=0; i<vol_layers; i++) {
+		stringstream ss;	ss << count << i;
+		DownloadAndSave_6Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
+	}
+																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+}
+
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
 																				if(verbosity>0) {
@@ -821,7 +942,7 @@ void RunCL::allocatemem(){
 		g1mem[i]			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 		k_map_mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*10,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // camera intrinsic map
 		dist_map_mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // distorsion map
-		SE3_grad_map_mem[i] = clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*3channels=18, but 4*6=24 because hsv img gradient is held in float4
+		SE3_grad_map_mem[i] = clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*6*8,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*3channels=18, but 4*6=24 because hsv img gradient is held in float4
 	}
 	SE3_incr_map_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // For debugging before summation.
 	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.

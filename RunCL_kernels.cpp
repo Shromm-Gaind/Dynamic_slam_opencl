@@ -337,13 +337,13 @@ void RunCL::img_gradients(){ //getFrame();
 																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_3Channel_volume(  SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
+																																				DownloadAndSave_6Channel_volume(  SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				///
 																																				ss_path.str(std::string()); // reset ss_path		
 																																				ss_path << "SE3_grad_map_mem[!" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_3Channel_volume(  SE3_grad_map_mem[!frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
+																																				DownloadAndSave_6Channel_volume(  SE3_grad_map_mem[!frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				//
 																																				cout << "\n\n SE3_grad_map_mem[frame_bool_idx] = SE3_grad_map_mem["<<frame_bool_idx<<"] = "<<SE3_grad_map_mem[frame_bool_idx];
 																																				
@@ -505,7 +505,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
         for (int j=start_group; j< stop_group  ; j++){
             for (int k=0; k<6; k++){
 				for (int l=0; l<4; l++){
-					SE3_reults[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); // se3_sum_mat.at<float>(j, k);                         // sum j groups for this layer of the MipMap.
+					SE3_reults[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); // se3_sum_mat.at<float>(j, k);                         		// sum j groups for this layer of the MipMap.
 				}
             }
         }
