@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
 																			cout <<" conf file = " << argv[1] << endl;
 																			//cout << ifs.str() <<endl << endl;
 																			cout <<"verbosity_ = "<<verbosity_<<", imagesPerCV = "<<imagesPerCV <<endl;
+																			cout <<"outpath  " <<  obj["out_path"].asString() << std::flush;
 	
 	Dynamic_slam dynamic_slam(obj);											// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;

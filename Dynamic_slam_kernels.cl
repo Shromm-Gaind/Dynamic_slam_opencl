@@ -372,11 +372,18 @@ __kernel void  img_grad(
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;						// NB 4 channels.  + margin
 	
 	/// adapted
-	int upoff			= -(read_row  != 0)*mm_cols;												// up, down, left, right offsets, by boolean logic.
-	int dnoff			=  (read_row  < read_rows_-1) * mm_cols;
-    int lfoff			= -(read_column != 0);
-	int rtoff			=  (read_column < mm_cols-1);
+	int upoff			= -(read_row  >1 )*mm_cols;								//-(read_row  != 0)*mm_cols;						// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;					// (read_row  < read_rows_-1) * mm_cols;
+    int lfoff			= -(read_column >1);										//-(read_column != 0);
+	int rtoff			=  (read_column < read_cols_-2);								// (read_column < mm_cols-1);
 	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
+	
+	if (read_row<8 && read_column == 15)   										printf("\nreadrow=%u, -(read_row >1 )=%i, upoff=%i ",read_row, -(read_row >1), upoff );
+	if (read_row<=read_rows_ && read_row>=read_rows_-4 && read_column == 15)	printf("\nreadrow=%u, (read_row < read_rows_-2)=%i, dnoff=%i ",read_row, (read_row < read_rows_-2), dnoff );
+	
+	if (read_column <8 && read_row== 15)   												printf("\nread_column=%u, -(read_column >1)=%i, lfoff=%i ",read_column, -(read_column >1), lfoff );
+	if (read_column<read_cols_ && read_column>=read_cols_-8 && read_row == 15)	printf("\nread_column=%u, (read_column < read_cols_-2)=%i, rtoff=%i ",read_column, (read_column < read_cols_-2), rtoff );
+	
 	
 	float alphaG		= fp32_params[ALPHA_G];
 	float betaG 		= fp32_params[BETA_G];
@@ -487,8 +494,8 @@ __kernel void se3_grad(
 	__global	float16*k2k,					//4
 	__global 	float4*	img_cur,				//5 
 	__global 	float4*	img_new,				//6
-	__global 	float4*	SE3_grad_map_cur_frame,	//7
-	__global 	float4*	SE3_grad_map_new_frame,	//8
+	__global 	float8*	SE3_grad_map_cur_frame,	//7
+	__global 	float8*	SE3_grad_map_new_frame,	//8
 	__global	float* 	depth_map,				//9		// NB GT_depth, not inv_depth
 	__local		float4*	local_sum_grads,		//10
 	__global	float4*	global_sum_grads,		//11
@@ -499,6 +506,7 @@ __kernel void se3_grad(
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
+	
 	
 	uint local_size 	= get_local_size(0);
 	uint group_size 	= local_size;
@@ -526,6 +534,7 @@ __kernel void se3_grad(
 	float u_flt			= u * reduction;													// NB this causes sparse sampling of the original space, to use the same k2k at every scale.
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	float alpha			= img_cur[read_index].w;
 	
 	uint depth_index	= v * reduction * base_cols + u * reduction;						// Sparse sampling of the depth map of the base image.
 	float inv_depth 	= 1/depth_map[depth_index]; 										//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.
@@ -545,32 +554,31 @@ __kernel void se3_grad(
 		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
 	}
 	 
-	float4 rho = {0.0f,0.0f,0.0f,1.0f}; 
-	bool intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	
 	for (int i=0; i<6; i++) local_sum_grads[i*local_size + lid] = 0;						// Essential to zero local mem.
 	if (  intersection  ) {																	// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		rho = img_cur[read_index] - img_new[read_index_new];
-		rho[3] = 1.0f;
+		rho[3] = alpha;
 	}Rho_[read_index] = rho;																// save photometric error to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 	
-		if (u<10 && v==10){
-				printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f"\
-						 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth);
-		}
-		for (uint i=0; i<6; i++) {															// for each SE3 DoF
-			float4 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
-			float4 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
-			float4 delta = {0.0f,0.0f,0.0f,1.0f};											// Count hits in delta.w, passed on to local_sum_grads, and divide group by num hits, without using atomics!
-			for (uint j=0; j<3; j++){
-				float SE3_grad = (SE3_grad_cur_px[j] );										// Using mean of Jacobians produced lots of noise, possibly due to indexing bug, now fixed. 
-				if (fabs(SE3_grad)> 0.01 ) delta[j] = (-2 * rho[j] / SE3_grad) ;			// Descent on the mean of the gradient : image intensity / SE3 , protected against zero gradient null regions of SE3.
-			}
-			delta.w=1.0f;
-			local_sum_grads[i*local_size + lid] = delta;									// write grads to local mem for summing over the work group.
-			SE3_incr_map_[read_index + i * mm_pixels ] = delta;
-		}
+	if (u<10 && v==10){
+			printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f"\
+					 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth);
+	}
+	for (uint i=0; i<6; i++) {															// for each SE3 DoF
+		float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
+		float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
+			
+		float4 delta4;
+		delta4.w=alpha;
+		for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
+			
+		local_sum_grads[i*local_size + lid] = delta4;									// write grads to local mem for summing over the work group.
+		SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
+	}
 	
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
 	int max_iter = 9;//ceil(log2((float)(group_size)));
