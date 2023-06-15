@@ -20,6 +20,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
+#include "utils/utils.hpp"
 
 #define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 #define MIN_INV_DEPTH		1
@@ -138,7 +139,7 @@ public:
 	void loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose);
 	void generate_SE3_k2k(float *_SE3_k2k);
 	void estimateSO3(uint start=0, uint stop=8);
-	void estimateSE3(uint start=0, uint stop=8);
+	void estimateSE3(float SE3_reults[8][6][4], int count, uint start=0, uint stop=8);
 	void estimateCalibration();
 	void buildDepthCostVol();
 	void SpatialCostFns();

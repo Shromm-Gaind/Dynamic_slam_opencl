@@ -354,13 +354,13 @@ void RunCL::img_gradients(){ //getFrame();
 }
 
 void RunCL::loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose){ //getFrameData();
-    int local_verbosity_threshold = 1;
-	
-    for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold+2) cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
+    int local_verbosity_threshold = 0;
+																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_0:"<<flush;
+    for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold+2) cout << "\nRunCL::loadFrameData(..)_chk_1:  K2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
     
     cl_event 			writeEvt;
 	cl_int 				status;
-    status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+    status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::loadFrameData(..)_chk_2\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
     
 }
 
@@ -404,12 +404,18 @@ void RunCL::estimateSO3(uint start, uint stop){ //estimateSO3();	(uint start=0, 
 
 }
 
-void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
+void RunCL::estimateSE3(float SE3_reults[8][6][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 ."<<flush;}
     cl_event writeEvt;
     cl_int status;
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\nRunCL::estimateSE3(..)__chk_0.5:";
+																																				for (int i=0; i<16; i++){
+																																					cout << "  K2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; 
+																																				}cout << flush;
+																																			}
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::estimateSE3(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
                                                                                                                                             // NB GT_depth loaded to depth_mem by void RunCL::loadFrameData(..)
 	cl_int 				res;
 	//size_t local_size = local_work_size;
@@ -431,7 +437,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
-																																				stringstream ss;	ss << frame_num << "_img_grad";
+																																				stringstream ss;	ss << frame_num << "_iter_"<< count << "_img_grad";
                                                                                                                                                 stringstream ss_path;
                                                                                                                                                 ss_path << "SE3_incr_map_mem"; 
                                                                                                                                                 cout << "\n" << ss_path.str() <<flush;
@@ -479,7 +485,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 }cout << "\n)\n" << flush;
                                                                                                                                                 cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
                                                                                                                                             }                                                       // if start, stop  larger layers, call reduce kernel. ? cut off between large vs small layers ?   
-    float SE3_reults[8][6][4] = {{{0}}}; 																									// max 8 layers, 6 DoF, 4 channels
+    //float SE3_reults[8][6][4] = {{{0}}}; 																									// max 8 layers, 6 DoF, 4 channels
 																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk6 ."<<flush;
 																																				cout << "\n\nse3_sum_mat.at<float> (i*6 + j,  k) ";
 																																				for (int i=0; i< se3_sum_size ; i++){

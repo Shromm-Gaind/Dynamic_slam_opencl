@@ -115,7 +115,7 @@ static void LieToP(InputArray Lie, OutputArray _P){
         p = p.t();
     } 
     
-    Mat R=rodrigues(p.colRange(Range(0,3)));
+    Mat R=rodrigues(p.colRange(Range(0,3))); // makes rotation Mat from SO3 Lie vector.
     Mat T=p.colRange(Range(3,6)).t();
     hconcat(R,T,P);
     make4x4(P).copyTo(_P);
