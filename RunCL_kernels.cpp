@@ -11,7 +11,7 @@ void RunCL::predictFrame(){ //predictFrame();
 }
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
                                                                                                                                             if(verbosity>0) {cout << "\n RunCL::loadFrame_chk 0\n" << flush;}
 	cl_int status;
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
@@ -88,10 +88,11 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
                                                                                                                                             }
 	cv::Mat pix_sum_mat = cv::Mat::zeros (pix_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)						// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
 	ReadOutput( pix_sum_mat.data, pix_sum_mem, pix_sum_size_bytes );                                                                        // se3_sum_size_bytes
-	cout << "\n\npix_sum_mat.size()="<<pix_sum_mat.size()<<flush;
-    cout << "\n\npix_sum_size="<<pix_sum_size<<flush;
+	
                                                                                                                                             if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::cvt_color_space(..)_chk2 ."<<flush;
-                                                                                                                                                cout << "\n\n pix_sum_mat.data = (\n";
+																																				cout << "\npix_sum_mat.size()="<<pix_sum_mat.size()<<flush;
+																																				cout << "\npix_sum_size="<<pix_sum_size<<flush;
+                                                                                                                                                cout << "\n pix_sum_mat.data = (\n";
                                                                                                                                                 for (int i=0; i<pix_sum_size; i++){
                                                                                                                                                     cout << "\n group="<<i<<" : ( " << flush;
                                                                                                                                                     for (int j=0; j<4; j++){
@@ -104,7 +105,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 	uint groups_to_sum = pix_sum_mat.at<float>(0, 0);
 	uint start_group   = 1;
 	uint stop_group    = start_group + groups_to_sum;
-	cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
+																																			if(verbosity>local_verbosity_threshold+2) cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
         
 	for (int j=start_group; j< stop_group  ; j++){
 		for (int k=0; k<4; k++){
@@ -136,7 +137,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 
 
 void RunCL::img_variance(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
                           
 	// TODO ? create a class for data, holding buffer, CPU data, stats about the data object, functions for write, read, save, display, & set_kernel_arg ? 
 	
@@ -157,14 +158,12 @@ void RunCL::img_variance(){
 	status = clFlush(m_queue);				                                                               if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = clWaitForEvents (1, &ev);		                                                               if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) = "<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
                                                                                                                                             if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk2"<<flush;
-	
-	
 	cv::Mat var_sum_mat = cv::Mat::zeros (pix_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)						// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
 	ReadOutput( var_sum_mat.data, var_sum_mem, pix_sum_size_bytes );                                                                        // se3_sum_size_bytes
-	cout << "\n\nvar_sum_mat.size()="<<var_sum_mat.size()<<flush;
-    cout << "\n\npix_sum_size="<<pix_sum_size<<flush;
                                                                                                                                             if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::img_variance(..)_chk2 ."<<flush;
-                                                                                                                                                cout << "\n\n var_sum_mat.data = (\n";
+																																				cout << "\nvar_sum_mat.size()="<<var_sum_mat.size()<<flush;
+																																				cout << "\npix_sum_size="<<pix_sum_size<<flush;
+                                                                                                                                                cout << "\n var_sum_mat.data = (\n";
                                                                                                                                                 for (int i=0; i<pix_sum_size; i++){
                                                                                                                                                     cout << "\n group="<<i<<" : ( " << flush;
                                                                                                                                                     for (int j=0; j<4; j++){
@@ -177,8 +176,7 @@ void RunCL::img_variance(){
 	uint groups_to_sum = var_sum_mat.at<float>(0, 0);
 	uint start_group   = 1;
 	uint stop_group    = start_group + groups_to_sum;
-	cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
-        
+																																			if(verbosity>local_verbosity_threshold+2) cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
 	for (int j=start_group; j< stop_group  ; j++){
 		for (int k=0; k<4; k++){
 			var_sum_reults[k] += var_sum_mat.at<float>(j, k); 
@@ -217,7 +215,7 @@ void RunCL::img_variance(){
 */
 
 void RunCL::mipmap_linear(){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
+	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
 	cl_event 	writeEvt;//, ev;
 	cl_int 		res, status;
 	//uint 		mipmap[8];
@@ -296,7 +294,7 @@ void RunCL::mipmap_linear(){
 
 
 void RunCL::img_gradients(){ //getFrame();
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
+	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
@@ -327,19 +325,19 @@ void RunCL::img_gradients(){ //getFrame();
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_3Channel(	gymem[frame_bool_idx], ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
-																																				ss_path.str(std::string()); // reset ss_path		
+																																				ss_path.str(std::string()); // reset ss_path
 																																				ss_path << "g1mem[" << frame_bool_idx << "]"; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_3Channel(	g1mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
 																																				///
-																																				ss_path.str(std::string()); // reset ss_path		
+																																				ss_path.str(std::string()); // reset ss_path
 																																				ss_path << "SE3_grad_map_mem[" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_6Channel_volume(  SE3_grad_map_mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				///
-																																				ss_path.str(std::string()); // reset ss_path		
+																																				ss_path.str(std::string()); // reset ss_path
 																																				ss_path << "SE3_grad_map_mem[!" << frame_bool_idx << "]"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
@@ -356,8 +354,9 @@ void RunCL::img_gradients(){ //getFrame();
 }
 
 void RunCL::loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose){ //getFrameData();
-    
-    for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
+    int local_verbosity_threshold = 1;
+	
+    for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold+2) cout << "\nK2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
     
     cl_event 			writeEvt;
 	cl_int 				status;
@@ -366,7 +365,7 @@ void RunCL::loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT
 }
 
 void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk_0 "<<flush;}
 	cl_event 			writeEvt;
 	cl_int 				res, status;
@@ -429,7 +428,7 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 	res = clSetKernelArg(se3_grad_kernel,12, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
 	res = clSetKernelArg(se3_grad_kernel,13, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     rho_					        //13
 	
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << frame_num << "_img_grad";
@@ -453,19 +452,21 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                  * DownloadAndSave_3Channel(	g1mem[frame_bool_idx], ss.str(), paths.at("g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
                                                                                                                                                  */
 																																			}//(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range )
-                                                                                                                                            if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk4 ."<<flush;}
+                                                                                                                                            if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk4 ."<<flush;}
 	//	mipmap_params set in mipmap_call_kernel(..) below																					                                                          __constant 	uint*		mipmap_params,	//0
 	res = clSetKernelArg(reduce_kernel, 1, sizeof(cl_mem), &uint_param_buf);                                    if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint*		uint_params,	//1
 	res = clSetKernelArg(reduce_kernel, 2, sizeof(cl_mem), &se3_sum_mem);                                       if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float8*		se3_sum			//2
 	res = clSetKernelArg(reduce_kernel, 3, local_work_size*8*sizeof(float), 	NULL);	                                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local    	float8*		local_sum_grads	//3
 	res = clSetKernelArg(reduce_kernel, 4, sizeof(cl_mem), &se3_sum2_mem);                                      if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8*		se3_sum2,		//4
 	
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
     cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, 6*4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
 	ReadOutput( se3_sum_mat.data, se3_sum_mem, se3_sum_size_bytes );                                                                        // se3_sum_size_bytes
-	cout << "\n\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
-    cout << "\n\nse3_sum_size="<<se3_sum_size<<flush;
+																																			if(verbosity>local_verbosity_threshold+2) {
+																																				cout << "\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
+																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;
+																																			}
                                                                                                                                             if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;
                                                                                                                                                 cout << "\n\n se3_sum_mat.data = (\n";
                                                                                                                                                 for (int i=0; i<se3_sum_size; i++){
@@ -479,29 +480,30 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
                                                                                                                                                 cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
                                                                                                                                             }                                                       // if start, stop  larger layers, call reduce kernel. ? cut off between large vs small layers ?   
     float SE3_reults[8][6][4] = {{{0}}}; 																									// max 8 layers, 6 DoF, 4 channels
-	cout << "\n\nse3_sum_mat.at<float> (i*6 + j,  k) ";
+																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSE3(..)_chk6 ."<<flush;
+																																				cout << "\n\nse3_sum_mat.at<float> (i*6 + j,  k) ";
+																																				for (int i=0; i< se3_sum_size ; i++){
+																																					cout << "\ni="<<i<<":   ";
+																																					for (int j=0; j<6; j++){
+																																						cout << ",     (";
+																																						for (int k=0; k<4; k++){
+																																							cout << "," << se3_sum_mat.at<float> (i , j*4 + k)  ;
+																																						}cout << ")";
+																																					}cout << flush;
+																																				}
+																																				cout << endl << endl;
+																																			}
 	
-	for (int i=0; i< se3_sum_size ; i++){
-		cout << "\ni="<<i<<":   ";
-		for (int j=0; j<6; j++){
-			cout << ",     (";
-			for (int k=0; k<4; k++){
-				cout << "," << se3_sum_mat.at<float> (i , j*4 + k)  ;
-			}cout << ")";
-		}cout << flush;
-	}
-    
-	cout << endl << endl;
 	for (int i=0; i<=mm_num_reductions+1; i++){ 
         uint read_offset_ 	= MipMap[i*8 + MiM_READ_OFFSET];                                                                                // mipmap_params_[MiM_READ_OFFSET];
         uint global_sum_offset = read_offset_ / local_work_size ;
         
         uint groups_to_sum = se3_sum_mat.at<float>(global_sum_offset, 0);
         uint start_group = global_sum_offset + 1;
-        uint stop_group = start_group + groups_to_sum -1;                                                                                   // skip the last group due to odd 7th value.
-        
-        cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
-        
+        uint stop_group = start_group + groups_to_sum ;   // -1                                                                                // skip the last group due to odd 7th value.
+																																			if(verbosity>local_verbosity_threshold+2) {
+																																				cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
+																																			}
         for (int j=start_group; j< stop_group  ; j++){
             for (int k=0; k<6; k++){
 				for (int l=0; l<4; l++){
@@ -509,25 +511,29 @@ void RunCL::estimateSE3(uint start, uint stop){ //estimateSE3(); 	(uint start=0,
 				}
             }
         }
-        cout << "\nLayer "<<i<<" SE3_results = (";																							// raw results
-        for (int k=0; k<6; k++){
-			cout << "(";
-			for (int l=0; l<4; l++){
-                cout << ", " << SE3_reults[i][k][l] ;
-			}cout << ")";
-        }cout << ")";
+																																			if(verbosity>local_verbosity_threshold+2) {
+																																				cout << "\nLayer "<<i<<" SE3_results = (";																// raw results
+																																				for (int k=0; k<6; k++){
+																																					cout << "(";
+																																					for (int l=0; l<4; l++){
+																																						cout << ", " << SE3_reults[i][k][l] ;
+																																					}cout << ")";
+																																				}cout << ")";
+																																			}
     }
-    cout << endl;
-    for (int i=0; i<=mm_num_reductions+1; i++){ 																							// results / (num_valid_px * img_variance) 
-        cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
-        for (int k=0; k<6; k++){
-			cout << "(";
-			for (int l=0; l<3; l++){
-				cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3]  *  img_stats[IMG_VAR+l]  );		// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
-			}
-			cout << ", " << SE3_reults[i][k][3] << ")";
-        }cout << ")";
-    }
+																																			if(verbosity>local_verbosity_threshold+1) {
+																																				cout << endl;
+																																				for (int i=0; i<=mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
+																																					cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
+																																					for (int k=0; k<6; k++){
+																																						cout << "(";
+																																						for (int l=0; l<3; l++){
+																																							cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3]  *  img_stats[IMG_VAR+l]  );	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																						}
+																																						cout << ", " << SE3_reults[i][k][3] << ")";
+																																					}cout << ")";
+																																				}
+																																			}
     
     
 }

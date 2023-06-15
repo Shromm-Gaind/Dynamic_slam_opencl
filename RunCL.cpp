@@ -463,7 +463,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 }
 
 void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																				if(verbosity> local_verbosity_threshold) {
 																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
 																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
@@ -476,15 +476,15 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
 		if (type_mat == CV_16FC3)	{
 			temp_mat2 = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_16FC3);					//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
-			ReadOutput(temp_mat2.data, buffer,  2*temp_mat2.total()*temp_mat2.elemSize(),   offset );  // baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
+			ReadOutput(temp_mat2.data, buffer,  2*temp_mat2.total()*temp_mat2.elemSize(),   offset );	// baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
 			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_32FC3);
-			temp_mat2.convertTo(temp_mat, CV_32FC3);							// NB conversion to FP32 req for cv::sum(..).
+			temp_mat2.convertTo(temp_mat, CV_32FC3);													// NB conversion to FP32 req for cv::sum(..).
 		} else {
 			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, type_mat);
 			ReadOutput(temp_mat.data, buffer,  2*image_size_bytes,   2*offset);
@@ -498,23 +498,27 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 		for (int i=0; i<mat_u.total(); i++){
 			float data[8];
 			for (int j=0; j<8; j++){ data[j] = temp_mat.at<float>(i*8  + j) ;}
-			for (int j=0; j<3; j++){
+			for (int j=0; j<4; j++){
 				mat_u.at<float>(i*4  + j) = data[j] ;
-				mat_v.at<float>(i*4  + j) = data[j+4] ;
-				mat_u.at<float>(i*4  + 3) = 1.0f;
-				mat_v.at<float>(i*4  + 3) = 1.0f;
+				mat_v.at<float>(i*4  + j) = data[j+4] ;					// NB in buffer, alphachan carries 
+				mat_u.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;	// sets alpha=0 when , else alpha=1.
+				mat_v.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;
 			}
 		}
 		//cv::imshow("mat_u", mat_u);
 		//cv::imshow("mat_v", mat_v);
-		//cv::waitKey(-1);
+		cv::waitKey(-1);
+		cout << "\nmat_v alpha = ";
+		for (int px=0; px< (mat_v.rows * mat_v.cols ) ; px += 1000){
+			cout <<", " << mat_v.at<float>(px*4  + 3);
+		}cout << flush;
 		
 		SaveMat(mat_u, type_mat,  folder_tiff,  show,  max_range, "mat_u", count);
 		SaveMat(mat_v, type_mat,  folder_tiff,  show,  max_range, "mat_v", count);
 }
 
 void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
 		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
@@ -581,10 +585,8 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_9, finished "<<flush;
 }
 
-
-
 void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																				if(verbosity> local_verbosity_threshold) {
 																					cout<<"\n\nDownloadAndSave_6Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
 																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
@@ -830,7 +832,7 @@ void RunCL::initialize(){
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap_call_kernel(cl_kernel "<<kernel_to_call<<", cl_command_queue "<<queue_to_call<<", "<<start<<", "<<stop<<" )_chk0"<<flush;
 																																			}
@@ -1005,15 +1007,15 @@ void RunCL::allocatemem(){
 	status = clEnqueueWriteBuffer(uload_queue, basemem, 		CL_FALSE, 0, image_size_bytes, 	baseImage.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.2\n\n" << flush;
 	float depth = 1/( obj["max_depth"].asFloat() - obj["min_depth"].asFloat() );
-	float zero = 0;
-	float one = 1;
+	float zero  = 0;
+	float one   = 1;
 																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk4 \t Initial inverse depth = "<< depth <<"\n\n" << flush;
 	for (int i=0; i<2; i++){
-		status = clEnqueueFillBuffer(uload_queue, gxmem[i], &one, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-		status = clEnqueueFillBuffer(uload_queue, gymem[i], &one, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+		status = clEnqueueFillBuffer(uload_queue, gxmem[i], &zero, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+		status = clEnqueueFillBuffer(uload_queue, gymem[i], &zero, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	}																																	if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
 	
-	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&one, sizeof(float),    0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&zero, sizeof(float),    0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, img_sum_buf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, se3_sum_mem, 	&zero, sizeof(float),   0, se3_sum_size_bytes,0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
