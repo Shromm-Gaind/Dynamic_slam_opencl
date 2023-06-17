@@ -527,7 +527,7 @@ void RunCL::estimateSE3(float SE3_reults[8][6][4], int count, uint start, uint s
 																																				}cout << ")";
 																																			}
     }
-																																			if(verbosity>local_verbosity_threshold+1) {
+																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << endl;
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
 																																					cout << "\nLayer "<<i<<" SE3_results/num_groups = (";

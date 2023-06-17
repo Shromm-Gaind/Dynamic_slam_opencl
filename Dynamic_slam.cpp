@@ -146,10 +146,17 @@ void Dynamic_slam::predictFrame()
 {
 // generate initial prediction while data loads. OR do this at the end of the loop ?
 	// new_pose = old pose + vel*timestep + accel*timestep²
+	cv::Matx33f pose2pose_R;
+	cv::Matx31f pose2pose_T;
+	LieToRT(pose2pose, pose2pose_R, pose2pose_T); 																							// LieToRT(InputArray Lie, OutputArray _R, OutputArray _T)
+	cv::Matx31f pose2pose_R_vec;
+	cv::Mat R_Jacobian;
+	cv::Rodrigues(pose2pose_R, pose2pose_R_vec, R_Jacobian);
+	
 	
 	// kernel update DepthMap with RelVelMap
 	
-	// kernel predict new frame
+	// kernel predict new frame 
 };
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
@@ -594,7 +601,8 @@ void Dynamic_slam::estimateSE3(){
 																																			}
 		Matx16f update;
 		float factor = -0.005;
-		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_reults[5][SE3][channel] / ( SE3_reults[5][SE3][3] * runcl.img_stats[IMG_VAR+channel] ); }
+		uint layer = 3;
+		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_reults[layer][SE3][channel] / ( SE3_reults[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] ); }
 		
 		cv::Matx44f SE3Incr_matx; 
 		LieToP(update, SE3Incr_matx);												// LieToP(InputArray Lie, OutputArray _P)
@@ -608,15 +616,12 @@ void Dynamic_slam::estimateSE3(){
 																																				cout << "\n\nSE3Incr_matx = "; 			for (int SE3=0; SE3<16; SE3++) cout << ", " << SE3Incr_matx.operator()(SE3/4,SE3%4);
 																																				cout << "\n\nnew pose2pose = "; 			for (int SE3=0; SE3<16; SE3++) cout << ", " << pose2pose.operator()(SE3/4,SE3%4);
 																																				cout << "\n\nnew K2K = "; 				for (int SE3=0; SE3<16; SE3++) cout << ", " << K2K.operator()(SE3/4,SE3%4);
-																																			}		
-		
+																																			}				
 		// # Predict dammped least squares step of SE3 for whole image + residual of translation for relative velocity map.
 		//
 
-
 		// # Pass prediction to lower layers. Does it fit better ?
 		//
-
 
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 		//
