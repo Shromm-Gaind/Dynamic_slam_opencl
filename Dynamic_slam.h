@@ -31,6 +31,8 @@ class Dynamic_slam
     
     // camera & pose params
     cv::Matx44f K, inv_K, pose, inv_pose, K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose, transform[6]  ;
+    cv::Matx61f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;
+    
     cv::Mat image, R, T, depth_GT, cameraMatrix, projection;       // TODO should these be Matx ? 
     cv::Mat old_R, old_T, R_dif, T_dif;
     float SE3_k2k[6*16];

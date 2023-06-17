@@ -25,6 +25,42 @@ static Mat  makeGray(Mat image){
     return image;
 }
 
+////  TODO replace all functions with Matx--f , if I use them, otherwise remove them and dependency on OpenCV other tha Matx-- itself.
+static Matx61f SE3_Algebra(const Matx44f& SE3_Matx){
+    Matx61f SE3_Algebra;
+    SE3_Algebra.operator()(0,0) = SE3_Matx.operator()(0,3)  ;
+    SE3_Algebra.operator()(1,0) = SE3_Matx.operator()(1,3)  ;
+    SE3_Algebra.operator()(2,0) = SE3_Matx.operator()(2,3)  ;
+    SE3_Algebra.operator()(3,0) = SE3_Matx.operator()(1,2)  - SE3_Matx.operator()(2,1);
+    SE3_Algebra.operator()(4,0) = SE3_Matx.operator()(2,0)  - SE3_Matx.operator()(0,2);
+    SE3_Algebra.operator()(5,0) = SE3_Matx.operator()(0,1)  - SE3_Matx.operator()(1,0);
+    return  SE3_Algebra;
+}
+
+static Matx44f SE3_Matx44f(const Matx61f& SE3_Algebra){
+    Matx44f SE3_Matx;
+    SE3_Matx.operator()(0,0 )   = 1.0f;
+    SE3_Matx.operator()(1,1 )   = 1.0f;
+    SE3_Matx.operator()(2,2 )   = 1.0f;
+    SE3_Matx.operator()(3,3 )   = 1.0f;
+    
+    SE3_Matx.operator()(0,3 )   = SE3_Algebra.operator()(0,0)  ;
+    SE3_Matx.operator()(1,3)    = SE3_Algebra.operator()(1,0)  ;
+    SE3_Matx.operator()(2,3)    = SE3_Algebra.operator()(2,0)  ;
+    
+    SE3_Matx.operator()(1,2)    = SE3_Algebra.operator()(3,0)  ;
+    SE3_Matx.operator()(2,0)    = SE3_Algebra.operator()(4,0)  ;
+    SE3_Matx.operator()(0,1)    = SE3_Algebra.operator()(5,0)  ;
+    
+    SE3_Matx.operator()(2,1)    = - SE3_Algebra.operator()(3,0);
+    SE3_Matx.operator()(0,2)    = - SE3_Algebra.operator()(4,0);
+    SE3_Matx.operator()(1,0)    = - SE3_Algebra.operator()(5,0);
+    return  SE3_Matx;
+}
+
+
+////
+
 static Mat make4x4(const Mat& mat){
     
     if (mat.rows!=4||mat.cols!=4){
