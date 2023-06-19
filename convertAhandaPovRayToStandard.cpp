@@ -129,7 +129,7 @@ Mat loadDepthAhanda(string filename, int r,int c,Mat cameraMatrix){
             float y=i;
             x=(x-cx)/fx;
             y=(y-cy)/fy;
-            *p=*p/sqrt(x*x+y*y+1);
+            *p=*p/sqrt(x*x+y*y+1);      // converts radial depth to z-depth
         }
     }
     return out;
