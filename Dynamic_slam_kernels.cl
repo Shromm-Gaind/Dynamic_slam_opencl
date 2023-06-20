@@ -402,16 +402,16 @@ __kernel void  img_grad(
 	uint v    			= global_id_u / read_cols_;													// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
 	uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
-	
+	/*
 	float depth = depth_map[depth_index] ;
 	float inv_depth = 0.0f;						
 	if (depth!=0){ inv_depth = 80/depth; }															// inv_depth   range 1/255 to 1		// NB ahanda daaset depth range 0-255.
 	float rotation_wt = 1 - inv_depth;																// rotation_wt range 1 to 1/255		furthest to closest
-	
+	*/
 	for (uint i=0; i<3; i++) {	
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
-		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px * rotation_wt; 
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* rotation_wt; 
 		/*
 		if (global_id_u ==1)printf("\nSE3_grad_map[%u + %u * %u] = ((%f, %f, %f, %f),  (%f, %f, %f, %f)),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
 		, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],   SE3_grad_px[4], SE3_grad_px[5], SE3_grad_px[6], SE3_grad_px[7]\
@@ -423,7 +423,7 @@ __kernel void  img_grad(
 	for (uint i=3; i<6; i++) {	
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
-		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px * inv_depth ; 
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ; 
 	}
 }
 
@@ -561,7 +561,7 @@ __kernel void se3_grad(
 	uint num_DoFs = 6;
 	
 	if (global_id_u==1){
-		printf("\n\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)\n\n"\
+		printf("\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
 		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
 	}
 	
