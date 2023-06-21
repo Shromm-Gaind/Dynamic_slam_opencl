@@ -178,6 +178,7 @@ RunCL::RunCL(Json::Value obj_){
 	mipmap_linear_kernel			= clCreateKernel(m_program, "mipmap_linear_flt", 			NULL);
 	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					NULL);
 	comp_param_maps_kernel			= clCreateKernel(m_program, "compute_param_maps", 			NULL);
+	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					NULL);
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
 	
 	basemem=imgmem[0]=imgmem[1]=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem[0]=gymem[0]=g1mem[0]=gxmem[1]=gymem[1]=g1mem[1]=lomem=himem=0;			// set device pointers to zero
@@ -210,7 +211,7 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;										// Vector of device buffer names
 																						// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SE3_incr_map_mem", "depth_GT", "SE3_rho_map_mem" };
+	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SO3_incr_map_mem", "SE3_incr_map_mem", "depth_GT", "SO3_rho_map_mem","SE3_rho_map_mem" };
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
 	for (std::string key : names){
@@ -763,10 +764,15 @@ void RunCL::initialize(){
 																																			cout << "\nfp32_params[10 SCALE_EAUX]="		<<fp32_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
 																																			cout << "\n" << flush;
 																																		}
-	fp32_k2k[0]  =  1.0 ;	// (1,0,0,0)																								// initialize fp32_k2k as 'unity' transform, i.e. zero rotation & zero translation.
+	
+	for (int i=0; i<3; i++){ fp32_so3_k2k[i+ i*3]=1.0; }																				// initialize fp32_so3_k2k & fp32_k2k as 'unity' transform, i.e. zero rotation & zero translation.	
+	for (int i=0; i<4; i++){ fp32_k2k[i+ i*4]    =1.0; }																				// NB instantiated as {{0}}.
+	/*
+	fp32_k2k[0]  =  1.0 ;	// (1,0,0,0)																								
 	fp32_k2k[5]  =  1.0 ;	// (0,1,0,0)
 	fp32_k2k[10] =  1.0 ;	// (0,0,1,0)
 	fp32_k2k[15] =  1.0 ;	// (0,0,0,1)
+	*/
 																																		if(verbosity>local_verbosity_threshold) {
 																																			cout << "\n";
 																																			cout << ",mm_Image_size = " << mm_Image_size << endl;
@@ -827,6 +833,8 @@ void RunCL::initialize(){
 	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 4 * num_DoFs;																	if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
 	se3_sum2_size_bytes = 2 * mm_num_reductions * sizeof(float) * 4 * num_DoFs;															// NB the data returned is 6xfloat4 per group, holding one float4 per 6DoF of SE3, where alpha channel=pixel count.
 	
+	so3_sum_size_bytes	= se3_sum_size_bytes / 2;
+	so3_sum_size		= se3_sum_size / 2;
 	//pix_sum_size		= 1 + ceil( (float)(baseImage_width * baseImage_height) / (float)local_work_size ) ;  							// i.e. num workgroups used = baseImage_width * baseImage_height / local_work_size,   will give one row of vector per group.
 	pix_sum_size		= se3_sum_size;
 	pix_sum_size_bytes	= pix_sum_size * sizeof(float) * 4;																				// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
@@ -872,6 +880,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 #define MiM_READ_ROWS		6	// rows without margins
 #define MiM_WRITE_ROWS		7
 */
+
 /*
 		cl_int clEnqueueNDRangeKernel(
 										cl_command_queue command_queue,
@@ -884,6 +893,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 										const cl_event* event_wait_list,
 										cl_event* event);
 */
+
 /*
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop){
 	int local_verbosity_threshold = 0;
@@ -968,6 +978,8 @@ void RunCL::allocatemem(){
 	img_sum_buf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 2 * mm_vol_size_bytes,0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
 	fp32_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
+	SO3_k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9*sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // NB used in place of k2kbuf for RunCL::estimateSO3(..)
 	SE3_k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 6*16*sizeof(float),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	uint_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8 * sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	mipmap_buf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 8*8*sizeof(uint),  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -1079,6 +1091,7 @@ void RunCL::allocatemem(){
 
 RunCL::~RunCL()
 {
+	/*
 	cl_int status;
 	status = clReleaseKernel(cost_kernel);      	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
 	status = clReleaseKernel(cache3_kernel);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
@@ -1091,10 +1104,7 @@ RunCL::~RunCL()
 	status = clReleaseCommandQueue(dload_queue);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
 	status = clReleaseCommandQueue(track_queue);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
 	status = clReleaseContext(m_context);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; }
-}
-
-void RunCL::CleanUp(){// TODO do this with loops and #define names
-																																			cout<<"\nRunCL::CleanUp_chk0"<<flush;
+	*/
 	cl_int status;
 	// release memory
 	for (int i=0; i<2; i++){
@@ -1156,11 +1166,80 @@ void RunCL::CleanUp(){// TODO do this with loops and #define names
 	// release context
 	clReleaseContext(m_context);	if (status != CL_SUCCESS)	{ cout << "\nm_context 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.35"<<flush;
 																																			cout<<"\nRunCL::CleanUp_chk1_finished"<<flush;
+	
+}
+
+void RunCL::CleanUp(){// TODO do this with loops and #define names
+																																			cout<<"\nRunCL::CleanUp_chk0"<<flush;
+	/*
+																																			cl_int status;
+	// release memory
+	for (int i=0; i<2; i++){
+		status = clReleaseMemObject(imgmem[i]);				if (status != CL_SUCCESS)	{ cout << "\nimgmem["<<i<<"]             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(gxmem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngxmem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(gymem[i]);				if (status != CL_SUCCESS)	{ cout << "\ngymem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(g1mem[i]);				if (status != CL_SUCCESS)	{ cout << "\ng1mem["<<i<<"]              status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(k_map_mem[i]);			if (status != CL_SUCCESS)	{ cout << "\nk_map_mem["<<i<<"]          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(dist_map_mem[i]);		if (status != CL_SUCCESS)	{ cout << "\ndist_map_mem["<<i<<"]       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+		status = clReleaseMemObject(SE3_grad_map_mem[i]);	if (status != CL_SUCCESS)	{ cout << "\nSE3_grad_map_mem["<<i<<"]   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	}
+	status = clReleaseMemObject(SE3_incr_map_mem);	if (status != CL_SUCCESS)	{ cout << "\nSE3_incr_map_mem status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(SE3_map_mem);		if (status != CL_SUCCESS)	{ cout << "\nSE3_map_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(basemem);			if (status != CL_SUCCESS)	{ cout << "\nbasemem          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
+	status = clReleaseMemObject(depth_mem);			if (status != CL_SUCCESS)	{ cout << "\ndepth_mem        status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
+	status = clReleaseMemObject(dmem);				if (status != CL_SUCCESS)	{ cout << "\ndmem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.3"<<flush;
+	status = clReleaseMemObject(amem);				if (status != CL_SUCCESS)	{ cout << "\namem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.4"<<flush;
+	status = clReleaseMemObject(lomem);				if (status != CL_SUCCESS)	{ cout << "\nlomem            status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.5"<<flush;
+	status = clReleaseMemObject(himem);				if (status != CL_SUCCESS)	{ cout << "\nhimem            status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.6"<<flush;
+	status = clReleaseMemObject(qmem);				if (status != CL_SUCCESS)	{ cout << "\ndmem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.7"<<flush;
+	
+	status = clReleaseMemObject(cdatabuf);			if (status != CL_SUCCESS)	{ cout << "\ncdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.8"<<flush;
+	status = clReleaseMemObject(hdatabuf);			if (status != CL_SUCCESS)	{ cout << "\nhdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.9"<<flush;
+	status = clReleaseMemObject(img_sum_buf);		if (status != CL_SUCCESS)	{ cout << "\nhdatabuf         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.10"<<flush;
+	status = clReleaseMemObject(fp32_param_buf);	if (status != CL_SUCCESS)	{ cout << "\nfp32_param_buf   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.11"<<flush;
+	status = clReleaseMemObject(k2kbuf);			if (status != CL_SUCCESS)	{ cout << "\nk2kbuf           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.12"<<flush;
+	status = clReleaseMemObject(SE3_k2kbuf);		if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.13"<<flush;
+	status = clReleaseMemObject(uint_param_buf);	if (status != CL_SUCCESS)	{ cout << "\nuint_param_buf   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.14"<<flush;
+	status = clReleaseMemObject(mipmap_buf);		if (status != CL_SUCCESS)	{ cout << "\nmipmap_buf       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.15"<<flush;
+	
+	status = clReleaseMemObject(gaussian_buf);		if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.16"<<flush;
+	status = clReleaseMemObject(se3_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.17"<<flush;
+	status = clReleaseMemObject(se3_sum2_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(SE3_rho_map_mem	);	if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19"<<flush;
+	status = clReleaseMemObject(se3_sum_rho_sq_mem);if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19.5"<<flush;
+	status = clReleaseMemObject(img_stats_buf);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.20"<<flush;
+	status = clReleaseMemObject(pix_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.21"<<flush;
+	status = clReleaseMemObject(var_sum_mem);		if (status != CL_SUCCESS)	{ cout << "\nreduce_param_buf status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.22"<<flush;
+	
+
+	// release kernels
+	status = clReleaseKernel(cvt_color_space_linear_kernel);	if (status != CL_SUCCESS)	{ cout << "\ncvt_color_space_linear_kernel 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.23"<<flush;
+	status = clReleaseKernel(img_variance_kernel);				if (status != CL_SUCCESS)	{ cout << "\nimg_variance_kernel 			status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.24"<<flush;
+	status = clReleaseKernel(reduce_kernel);					if (status != CL_SUCCESS)	{ cout << "\nreduce_kernel 					status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.25"<<flush;
+	status = clReleaseKernel(mipmap_linear_kernel);				if (status != CL_SUCCESS)	{ cout << "\nmipmap_linear_kernel 			status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.26"<<flush;
+	status = clReleaseKernel(img_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nimg_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.27"<<flush;
+	status = clReleaseKernel(comp_param_maps_kernel);			if (status != CL_SUCCESS)	{ cout << "\ncomp_param_maps_kernel 		status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.28"<<flush;
+	status = clReleaseKernel(se3_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
+	
+	// release command queues
+	status = clReleaseCommandQueue(m_queue);		if (status != CL_SUCCESS)	{ cout << "\nm_queue 		status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.30"<<flush;
+	status = clReleaseCommandQueue(uload_queue);	if (status != CL_SUCCESS)	{ cout << "\nuload_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.31"<<flush;
+	status = clReleaseCommandQueue(dload_queue);	if (status != CL_SUCCESS)	{ cout << "\ndload_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.32"<<flush;
+	status = clReleaseCommandQueue(track_queue);	if (status != CL_SUCCESS)	{ cout << "\ntrack_queue 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.33"<<flush;
+	
+	// release Program
+	clReleaseProgram(m_program);	if (status != CL_SUCCESS)	{ cout << "\nm_program 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.34"<<flush;
+	
+	// release context
+	clReleaseContext(m_context);	if (status != CL_SUCCESS)	{ cout << "\nm_context 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.35"<<flush;
+																																			cout<<"\nRunCL::CleanUp_chk1_finished"<<flush;
+																																			
+	*/
 }
 
 void RunCL::exit_(cl_int res)
 {
-	CleanUp();
+	//CleanUp();
 	//~RunCL(); Never need to call a destructor manually.
 	exit(res);
 }

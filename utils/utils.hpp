@@ -26,6 +26,32 @@ static Mat  makeGray(Mat image){
 }
 
 ////  TODO replace all functions with Matx--f , if I use them, otherwise remove them and dependency on OpenCV other tha Matx-- itself.
+static Matx31f SO3_Algebra(const Matx33f& SO3_Matx){
+    Matx31f SO3_Algebra;
+    SO3_Algebra.operator()(0,0) = SO3_Matx.operator()(1,2)  - SO3_Matx.operator()(2,1);
+    SO3_Algebra.operator()(1,0) = SO3_Matx.operator()(2,0)  - SO3_Matx.operator()(0,2);
+    SO3_Algebra.operator()(2,0) = SO3_Matx.operator()(0,1)  - SO3_Matx.operator()(1,0);
+    
+    return  SO3_Algebra;
+}
+
+static Matx33f SO3_Matx33f(const Matx31f& SO3_Algebra){
+    Matx33f SO3_Matx;
+    SO3_Matx.operator()(0,0 )   = 1.0f;
+    SO3_Matx.operator()(1,1 )   = 1.0f;
+    SO3_Matx.operator()(2,2 )   = 1.0f;
+    
+    SO3_Matx.operator()(1,2)    = SO3_Algebra.operator()(0,0)  ;
+    SO3_Matx.operator()(2,0)    = SO3_Algebra.operator()(1,0)  ;
+    SO3_Matx.operator()(0,1)    = SO3_Algebra.operator()(2,0)  ;
+    
+    SO3_Matx.operator()(2,1)    = - SO3_Algebra.operator()(0,0);
+    SO3_Matx.operator()(0,2)    = - SO3_Algebra.operator()(1,0);
+    SO3_Matx.operator()(1,0)    = - SO3_Algebra.operator()(2,0);
+    
+    return  SO3_Matx;
+}
+
 static Matx61f SE3_Algebra(const Matx44f& SE3_Matx){
     Matx61f SE3_Algebra;
     SE3_Algebra.operator()(0,0) = SE3_Matx.operator()(1,2)  - SE3_Matx.operator()(2,1);

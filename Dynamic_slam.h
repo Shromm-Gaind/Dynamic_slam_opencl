@@ -30,6 +30,9 @@ class Dynamic_slam
     int verbosity;
     
     // camera & pose params
+    cv::Matx33f SO3_pose2pose;
+    cv::Matx31f SO3_pose2pose_algebra;
+    
     cv::Matx44f K, inv_K, pose, inv_pose, K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose, transform[6]  ;
     cv::Matx61f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;
     
@@ -69,6 +72,7 @@ class Dynamic_slam
     void getFrame();
     void getFrameData();
     void use_GT_pose();
+    void artificial_SO3_pose_error();
     void artificial_pose_error();
     
     void generate_invK();
