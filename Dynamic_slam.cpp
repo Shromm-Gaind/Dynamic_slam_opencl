@@ -783,7 +783,6 @@ void Dynamic_slam::estimateSO3(){
 																																			}
 	}
 	
-	
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSO3()_chk finished\n" << flush;}
 }
 

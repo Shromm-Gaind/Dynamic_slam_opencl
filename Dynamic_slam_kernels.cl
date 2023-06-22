@@ -556,12 +556,12 @@ __kernel void so3_grad(
 	
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	uint num_DoFs = 3;
-	
+	/*
 	if (global_id_u==1){
 		printf("\nkernel so3_grad(..)  so3_k2k=( %f,%f,%f   ,%f,%f,%f    ,%f,%f,%f )"\
 		,so3_k2k[0],so3_k2k[1],so3_k2k[2],  so3_k2k[3],so3_k2k[4],so3_k2k[5],  so3_k2k[6],so3_k2k[7],so3_k2k[8] );
 	}
-	
+	*/
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}, zero_f4={0.0f,0.0f,0.0f,0.0f}; 
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	
@@ -574,7 +574,7 @@ __kernel void so3_grad(
 	Rho_[read_index]      = rho;															// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 	float4 rho_sq         = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 	local_sum_rho_sq[lid] = rho_sq;															// Also compute global Rho^2.
-	
+	/*
 	if (u<10 && v==10){
 			printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f,  uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),        intersection=%f "\
 					 ,reduction,     global_id_u,    u,    u_flt,     uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  intersection);
@@ -582,20 +582,23 @@ __kernel void so3_grad(
 	
 	//if (intersection >0 ) {printf("\n  rho=(%f,%f,%f,%f)", rho.x,rho.y,rho.z,rho.w );}
 	
+	*/
+	/*
 	for (uint i=0; i<num_DoFs; i++) {														// for each SO3 DoF
-		float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
-		float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
-			
-		float4 delta4;
-		delta4.w=alpha;
-		for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
-			
+		float4 delta4 = zero_f4;
+		if ( intersection ){ 																// never read outside the buffer.
+			float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
+			float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
+			delta4.w=alpha;
+			for (int j=0; j<3; j++)  delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
+		}
 		local_sum_grads[i*local_size + lid] = delta4;										// write grads to local mem for summing over the work group.
 		SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 	}
 	for (uint i=3; i<6; i++)SE3_incr_map_[read_index + i * mm_pixels ]=zero_f4;				// zero the unused DoFs.
-	
+	*/
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
+	/*
 	int max_iter = 9;//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
@@ -607,6 +610,7 @@ __kernel void so3_grad(
 			local_sum_rho_sq[lid] += local_sum_rho_sq[lid + group_size];					// Also compute global Rho^2.
 		}
 	}
+	*/
 	barrier(CLK_LOCAL_MEM_FENCE);
 	if (lid==0) {
 		uint group_id 				= get_group_id(0);
@@ -619,6 +623,7 @@ __kernel void so3_grad(
 			printf("\n  group_id=%u, i=%d, (%f, %f, %f, %f),  max_iter=%d",  group_id, i, local_sum_grads[i*local_size+lid].x, local_sum_grads[i*local_size+lid].y, local_sum_grads[i*local_size+lid].z, local_sum_grads[i*local_size+lid].w,  max_iter );
 		}
 		*/
+		/*
 		float4 layer_data = {num_groups, reduction, 0.0f, 0.0f };							// Write layer data to first entry
 		if (global_id_u == 0) {
 			global_sum_rho_sq[rho_global_sum_offset] 	= layer_data;
@@ -639,6 +644,7 @@ __kernel void so3_grad(
 				global_sum_grads[rho_global_sum_offset] = 0;
 			}
 		}
+		*/
 		/*
 		printf("\n global_sum_grads[%u] =  (%f,%f,%f,%f),  local_sum_rho_sq[%u] = (%f,%f,%f,%f)"\
 		, rho_global_sum_offset, global_sum_grads[rho_global_sum_offset].x, global_sum_grads[rho_global_sum_offset].y, global_sum_grads[rho_global_sum_offset].z, global_sum_grads[rho_global_sum_offset].w \
@@ -714,12 +720,12 @@ __kernel void se3_grad(
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;										// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	uint num_DoFs = 6;
-	
+	/*
 	if (global_id_u==1){
 		printf("\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
 		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
 	}
-	
+	*/
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	
@@ -737,9 +743,10 @@ __kernel void se3_grad(
 			printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f, inv_depth=%f, uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),  inv_depth=%f,  intersection=%f "\
 					 ,reduction,     global_id_u,    u,    u_flt,    inv_depth,    uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  inv_depth, intersection);
 	}
-	*/
+	
 	//if (intersection >0 ) {printf("\n  rho=(%f,%f,%f,%f)", rho.x,rho.y,rho.z,rho.w );}
 	
+	*/
 	for (uint i=0; i<6; i++) {																// for each SE3 DoF
 		float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
 		float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
@@ -751,7 +758,6 @@ __kernel void se3_grad(
 		local_sum_grads[i*local_size + lid] = delta4;										// write grads to local mem for summing over the work group.
 		SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 	}
-	
 	////////////////////////////////////////////////////////////////////////////////////////// Reduction
 	int max_iter = 9;//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)		// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
