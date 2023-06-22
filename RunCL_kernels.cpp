@@ -11,7 +11,7 @@ void RunCL::predictFrame(){ //predictFrame();
 }
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
                                                                                                                                             if(verbosity>0) {cout << "\n RunCL::loadFrame_chk 0\n" << flush;}
 	cl_int status;
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
@@ -355,7 +355,7 @@ void RunCL::img_gradients(){ //getFrame();
 }
 
 void RunCL::load_GT_depth(cv::Mat GT_depth){ //getFrameData();, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose
-    int local_verbosity_threshold = 0;
+    int local_verbosity_threshold = 1;
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_0:"<<flush;
     //for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_1:  K2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
     
@@ -576,10 +576,6 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_finished ."<<flush;}
 }
 
-
-
-
-
 void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 ."<<flush;}
@@ -765,21 +761,15 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 																																			}
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void RunCL::tracking_result(string result){
+	int local_verbosity_threshold = 0;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
+																																				stringstream ss;			ss << frame_num << "_iter_"<< count << "_img_grad_" << result;
+																																				stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
+																																				cout << " , " << ss_path_rho.str() << " , " <<  paths.at(ss_path_rho.str()) << " , " << ss.str()  <<flush;
+																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
+																																			}
+}
 
 /*
 {

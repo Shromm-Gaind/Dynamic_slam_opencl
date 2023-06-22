@@ -146,6 +146,8 @@ public:
 	
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+	void tracking_result(string result);
+	
 	//void estimateSE3 ( float SE3_results[4][6][8], float Rho_sq_results[4][8], int count = 48, uint start = 0, uint stop = 8 );
 	void estimateCalibration();
 	void buildDepthCostVol();

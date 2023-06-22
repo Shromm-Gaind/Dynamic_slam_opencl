@@ -44,7 +44,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 };
 
 void Dynamic_slam::initialize_camera(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 	K = K.zeros();																										// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
 	K.operator()(3,3) = 1;
 	for (int i=0; i<9; i++){K.operator()(i/3,i%3) = obj["cameraMatrix"][i].asFloat(); }
@@ -131,6 +131,7 @@ int Dynamic_slam::nextFrame() {
 	//estimateCalibration(); 		// own thread, one iter.
 	
 	report_GT_error();
+	display_frame_resluts();
 	
 	predictFrame();
 	
@@ -154,14 +155,13 @@ int Dynamic_slam::nextFrame() {
 
 void Dynamic_slam::report_GT_error(){
 	int local_verbosity_threshold = 0;
-	Matx61f pose2pose_accumulated_GT_algebra 	= SE3_Algebra(pose2pose_accumulated_GT);
-	Matx61f pose2pose_accumulated_algebra 		= SE3_Algebra(pose2pose_accumulated);
-	Matx61f pose2pose_accumulated_error_algebra = pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
+	pose2pose_accumulated_GT_algebra 	= SE3_Algebra(pose2pose_accumulated_GT);
+	pose2pose_accumulated_algebra 		= SE3_Algebra(pose2pose_accumulated);
+	pose2pose_accumulated_error_algebra = pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
 	
-	Matx61f pose2pose_GT_algebra 	= SE3_Algebra(pose2pose_GT);
-	Matx61f pose2pose_algebra 		= SE3_Algebra(pose2pose);
-	Matx61f pose2pose_error_algebra = pose2pose_algebra - pose2pose_GT_algebra;
-	
+	pose2pose_GT_algebra 	= SE3_Algebra(pose2pose_GT);
+	pose2pose_algebra 		= SE3_Algebra(pose2pose);
+	pose2pose_error_algebra = pose2pose_algebra - pose2pose_GT_algebra;
 																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::report_GT_error_chk 0\n" << flush;
 																															cout << "\npose2pose_accumulated, runcl.frame_num = " << runcl.frame_num ;
 																															cout << "\npose2pose_accumulated_GT = "; for (int i=0; i<16; i++) cout << ", " << pose2pose_accumulated_GT.operator()(i/4,i%4);
@@ -176,8 +176,19 @@ void Dynamic_slam::report_GT_error(){
 																														}
 }
 
+void Dynamic_slam::display_frame_resluts(){
+	int local_verbosity_threshold = 1;
+																														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::display_frame_resluts_chk 0\n" << flush;}
+	stringstream ss; 
+	ss << "_p2p_error_" ;
+	for (int i=0; i<6; i++) ss << "," << pose2pose_error_algebra.operator()(i);
+	ss << "_cumulative_error_" ;
+	for (int i=0; i<6; i++) ss << "," << pose2pose_accumulated_error_algebra.operator()(i);
+	runcl.tracking_result( ss.str() );
+}
+
 void Dynamic_slam::artificial_SO3_pose_error(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																														if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::artificial_SO3_pose_error()_chk_0" << flush;}
 																														if(verbosity>local_verbosity_threshold) {cout << "\ntransform[2]       = "; for (int i=0; i<16; i++) cout << ", " << transform[2].operator()(i/4,i%4);}
 	Matx44f poseStep = transform[2];
@@ -194,7 +205,7 @@ void Dynamic_slam::artificial_SO3_pose_error(){
 }
 
 void Dynamic_slam::artificial_pose_error(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 	Matx44f poseStep = transform[5];
 																														if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::artificial_pose_error()_chk_0" << flush;}
 																														if(verbosity>local_verbosity_threshold) {cout << "\nposeStep = "; for (int i=0; i<16; i++) cout << ", " << poseStep.operator()(i/4,i%4);}
@@ -215,7 +226,7 @@ void Dynamic_slam::artificial_pose_error(){
 }
 
 void Dynamic_slam::predictFrame(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 	//for (int i=0; i<16; i++)  pose2pose.operator()(i/4,i%4) =     ;   
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0\n" << flush;
 																																				cout << "\nOld K2K        		= ";  for (int i=0; i<16; i++) cout << ", " << K2K.operator()(i/4,i%4);
@@ -302,7 +313,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 
 void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 {
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
 	R.copyTo(old_R);																									// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
@@ -520,7 +531,7 @@ void Dynamic_slam::getFrameData()  // can load use separate CPU thread(s) ?
 }
 
 void Dynamic_slam::use_GT_pose(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																														if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose_chk_0,"<<flush;	
 	old_K		= old_K_GT;
 	inv_K		= inv_K_GT;
@@ -666,7 +677,7 @@ void Dynamic_slam::generate_invPose(){ // Replaced by  getInvPose(), for now.
 */
 
 void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																				// Generates a set of 6 k2k to be used to compute the SE3 maps for the current camera intrinsic matrix.
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] )" << endl << flush;
 	// SE3 
 	// Rotate 0.01 radians i.e 0.573  degrees
@@ -750,7 +761,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 }
 
 void Dynamic_slam::estimateSO3(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 	const uint DoF = 3;
 	const uint matxDoF = 9;
 	const uint channels = 4;
@@ -767,9 +778,7 @@ void Dynamic_slam::estimateSO3(){
 		float SO3_results[8][DoF][channels] = {{{0,0,0,0}}};
 		float Rho_sq_results[8][channels] = {{0,0,0,0}};
 		runcl.estimateSO3(SO3_results, Rho_sq_results, iter, 0, 8);	
-		
-		cout << "\n Dynamic_slam::estimateSO3()_chk 0.6: iter="<<iter<<",  layer="<<layer << flush;
-																																			if(verbosity>local_verbosity_threshold) {
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSO3()_chk 0.6: iter="<<iter<<",  layer="<<layer << flush;
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
 																																					cout << "\nDynamic_slam::estimateSE3(), Layer "<<i<<" SE3_results/num_groups = (";
@@ -837,7 +846,7 @@ void Dynamic_slam::estimateSO3(){
 }
 
 void Dynamic_slam::estimateSE3(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0" << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX,   next_layer_Rho_sq_result=FLT_MAX;

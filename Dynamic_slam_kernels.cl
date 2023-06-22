@@ -556,13 +556,12 @@ __kernel void so3_grad(
 	
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	uint num_DoFs = 3;
-	
+	/*
 	if (global_id_u==1){
 		printf("\nkernel so3_grad(..)  so3_k2k=( %f,%f,%f,%f   ,%f,%f,%f,%f    ,%f,%f,%f,%f  ,%f,%f,%f,%f)"\
 		,so3_k2k[0],so3_k2k[1],so3_k2k[2],so3_k2k[3],  so3_k2k[4],so3_k2k[5],so3_k2k[6],so3_k2k[7],  so3_k2k[8],so3_k2k[9],so3_k2k[10],so3_k2k[11],  so3_k2k[12],so3_k2k[13],so3_k2k[14],so3_k2k[15] );
 	}
-	
-	
+	*/
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}, zero_f4={0.0f,0.0f,0.0f,0.0f}; 
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	if (!intersection) read_index_new = read_index;
@@ -577,12 +576,12 @@ __kernel void so3_grad(
 	float4 rho_sq         = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 	local_sum_rho_sq[lid] = rho_sq;															// Also compute global Rho^2.
 	
-	
+	/*
 	if (u<10 && v==10){
 			printf("\nreduction=%u,  global_id_u=%u, u=%u, u_flt=%f,  uh2=%f, wh2=%f, u2_flt=%f, u2=%u,  rho=(%f,%f,%f,%f),        intersection=%f "\
 					 ,reduction,     global_id_u,    u,    u_flt,     uh2,    wh2,    u2_flt,    u2,     rho.x,rho.y,rho.z,rho.w,  intersection);
 	}
-	
+	*/
 	//if (intersection >0 ) {printf("\n  rho=(%f,%f,%f,%f)", rho.x,rho.y,rho.z,rho.w );}
 	
 	

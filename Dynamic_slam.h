@@ -43,6 +43,8 @@ class Dynamic_slam
     cv::Matx44f K_start, inv_K_start, pose_start, inv_pose_start, K2K_start, pose2pose_start ;
     cv::Matx44f pose2pose_accumulated, pose2pose_accumulated_GT;
     
+    cv::Matx61f pose2pose_accumulated_GT_algebra, pose2pose_accumulated_algebra, pose2pose_accumulated_error_algebra, pose2pose_GT_algebra, pose2pose_algebra, pose2pose_error_algebra;
+    
     cv::Mat image, R, T, depth_GT, cameraMatrix, projection;       // TODO should these be Matx ? 
     cv::Mat old_R, old_T, R_dif, T_dif;
     float SE3_k2k[6*16];
@@ -68,6 +70,8 @@ class Dynamic_slam
     // functions
     void initialize_camera();
     void report_GT_error();
+    void display_frame_resluts();
+    
     void getPose(); // cv::Mat R, cv::Mat T, cv::Matx44f& pose
     void getInvPose(); // cv::Matx44f pose, cv::Matx44f& inv_pose
     cv::Matx44f getPose(cv::Mat R, cv::Mat T);
