@@ -30,6 +30,9 @@ class Dynamic_slam
     int verbosity;
     
     // camera & pose params
+    const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
+    const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
+    
     cv::Matx33f SO3_pose2pose;
     cv::Matx31f SO3_pose2pose_algebra;
     
@@ -37,6 +40,8 @@ class Dynamic_slam
     cv::Matx61f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;
     
     cv::Matx44f K_GT, inv_K_GT, pose_GT, inv_pose_GT, K2K_GT, pose2pose_GT, old_K_GT, inv_old_K_GT, old_pose_GT, inv_old_pose_GT, transform_GT[6]  ; // Ground Truth from the dataset.
+    cv::Matx44f K_start, inv_K_start, pose_start, inv_pose_start, K2K_start, pose2pose_start ;
+    cv::Matx44f pose2pose_accumulated, pose2pose_accumulated_GT;
     
     cv::Mat image, R, T, depth_GT, cameraMatrix, projection;       // TODO should these be Matx ? 
     cv::Mat old_R, old_T, R_dif, T_dif;
@@ -62,6 +67,7 @@ class Dynamic_slam
     
     // functions
     void initialize_camera();
+    void report_GT_error();
     void getPose(); // cv::Mat R, cv::Mat T, cv::Matx44f& pose
     void getInvPose(); // cv::Matx44f pose, cv::Matx44f& inv_pose
     cv::Matx44f getPose(cv::Mat R, cv::Mat T);

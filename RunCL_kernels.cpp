@@ -215,7 +215,7 @@ void RunCL::img_variance(){
 */
 
 void RunCL::mipmap_linear(){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
+	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap(..)_chk0"<<flush;}
 	cl_event 	writeEvt;//, ev;
 	cl_int 		res, status;
 	//uint 		mipmap[8];
@@ -294,7 +294,7 @@ void RunCL::mipmap_linear(){
 
 
 void RunCL::img_gradients(){ //getFrame();
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
+	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
@@ -366,7 +366,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth){ //getFrameData();, cv::Matx44f GT_K
 }
 
 void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk_0 "<<flush;}
 	cl_event 			writeEvt;
 	cl_int 				res, status;
@@ -401,7 +401,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 }
 
 void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSO3();	(uint start=0, uint stop=8)
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk0 ."<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -581,7 +581,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 
 
 void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 ."<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -764,6 +764,22 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 																																				}
 																																			}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
 {
