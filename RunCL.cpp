@@ -834,7 +834,7 @@ void RunCL::initialize(){
 	se3_sum2_size_bytes = 2 * mm_num_reductions * sizeof(float) * 4 * num_DoFs;															// NB the data returned is 6xfloat4 per group, holding one float4 per 6DoF of SE3, where alpha channel=pixel count.
 	
 	so3_sum_size_bytes	= se3_sum_size_bytes / 2;
-	so3_sum_size		= se3_sum_size / 2;
+	so3_sum_size		= se3_sum_size ;
 	//pix_sum_size		= 1 + ceil( (float)(baseImage_width * baseImage_height) / (float)local_work_size ) ;  							// i.e. num workgroups used = baseImage_width * baseImage_height / local_work_size,   will give one row of vector per group.
 	pix_sum_size		= se3_sum_size;
 	pix_sum_size_bytes	= pix_sum_size * sizeof(float) * 4;																				// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
@@ -857,7 +857,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 																											if (res != CL_SUCCESS)		{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
 			status 	= clFlush(queue_to_call);																if (status != CL_SUCCESS)	{ cout << "\nclFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
 			status 	= clWaitForEvents (1, &ev);																if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
-		}
+		} 																																	// TODO execute layers in asynchronous parallel. i.e. relax clWaitForEvents.
 	}
 }
 
