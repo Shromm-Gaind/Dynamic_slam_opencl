@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	
 	Dynamic_slam dynamic_slam(obj);											// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
-	// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
+																			// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
 	int max_frame_count = obj["max_frame_count"].asUInt();	
 	int frame_count 	= 0;
 	int ds_error 		= 0;

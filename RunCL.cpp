@@ -19,17 +19,14 @@ void RunCL::testOpencl(){
 								cl_platform_id *platforms, 
 								cl_uint *num_platforms)
 	*/
-	err = clGetPlatformIDs(1, NULL, &num_platforms);											// Find number of platforms
-	if(err < 0) { perror("Couldn't find any platforms."); exit(1); }
-	
+																																			// Find number of platforms
+	err = clGetPlatformIDs(1, NULL, &num_platforms);										if(err < 0) { perror("Couldn't find any platforms."); exit(1); }
 	platforms = (cl_platform_id*)
-	malloc(sizeof(cl_platform_id) * num_platforms);												// Allocate platform array
-	
-	clGetPlatformIDs(num_platforms, platforms, NULL);											// Initialize platform array
-	cout << "\nnum_platforms="<<num_platforms<<"\n" << flush;
-	
+	malloc(sizeof(cl_platform_id) * num_platforms);																							// Allocate platform array
+	clGetPlatformIDs(num_platforms, platforms, NULL);																						// Initialize platform array
+																																			cout << "\nnum_platforms="<<num_platforms<<"\n" << flush;
 	for(i=0; i<num_platforms; i++) {
-		cout << "\n##Platform num="<<i<<" #####################################################\n" << flush;
+																																			cout << "\n##Platform num="<<i<<" #####################################################\n" << flush;
 		char* name_data;
 		/*
 		cl_int clGetPlatformInfo(	cl_platform_id platform,
@@ -38,18 +35,18 @@ void RunCL::testOpencl(){
 									void *param_value, 
 									size_t *param_value_size_ret)
 		*/
-		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &ext_size);			// Find size of name data
-		if(err < 0) { perror("Couldn't read platform name data."); exit(1); }
+																																			// Find size of name data
+		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &ext_size);		if(err < 0) { perror("Couldn't read platform name data."); exit(1); }
+		
 		name_data = (char*)malloc(ext_size);	
-		clGetPlatformInfo( platforms[i],  CL_PLATFORM_NAME, ext_size, name_data, NULL);
-		printf("Platform %d name: %s\n", i, name_data);
+		clGetPlatformInfo( platforms[i],  CL_PLATFORM_NAME, ext_size, name_data, NULL);														printf("Platform %d name: %s\n", i, name_data);
 		free(name_data);
-		//
-		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_EXTENSIONS, 0, NULL, &ext_size);		// Find size of extension data
-		if(err < 0) { perror("Couldn't read extension data."); exit(1); }
-		ext_data = (char*)malloc(ext_size);							// Readdata extension
+																																			// Find size of extension data
+		err = clGetPlatformInfo(platforms[i], CL_PLATFORM_EXTENSIONS, 0, NULL, &ext_size);	if(err < 0) { perror("Couldn't read extension data."); exit(1); }
+		
+		ext_data = (char*)malloc(ext_size);																									// Read data extension
 		clGetPlatformInfo( platforms[i],  CL_PLATFORM_EXTENSIONS, ext_size, ext_data, NULL);
-		printf("Platform %d supports extensions: %s\n", i, ext_data);
+																																			printf("Platform %d supports extensions: %s\n", i, ext_data);
 		free(ext_data);
 		/*
 		cl_int clGetDeviceIDs(	cl_platform_id platform,
@@ -58,19 +55,17 @@ void RunCL::testOpencl(){
 								cl_device_id *devices, 
 								cl_uint *num_devices)
 		*/
-		cl_uint			num_devices		= 0;													/*Step 2:Query the platform.*//////////////////////////////////
-		cl_device_id    *devices;
-		err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);			// Find number of platforms
-		if(err < 0) { perror("Couldn't find any platforms."); continue; }
+		cl_uint			num_devices		= 0;																								/*Step 2:Query the platform.*//////////////////////////////////
+		cl_device_id    *devices;																											// Find number of platforms
+		err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);		if(err < 0) { perror("Couldn't find any platforms."); continue; }
 		
-		devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);					// Allocate platform array
-		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);				// Initialize platform array
-		cout << "\nnum_devices="<<num_devices<<"\n" << flush;
-		
+		devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);																// Allocate platform array
+		clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);														// Initialize platform array
+																																			cout << "\nnum_devices="<<num_devices<<"\n" << flush;
 		getDeviceInfoOpencl(platforms[i]);
 	}
-	if(platform_index > -1) printf("Platform %d supports the %s extension.\n", platform_index, icd_ext);
-	else printf("No platforms support the %s extension.\n", icd_ext);
+																																			if(platform_index > -1) printf("Platform %d supports the %s extension.\n", platform_index, icd_ext);
+																																			else printf("No platforms support the %s extension.\n", icd_ext);
 	free(platforms);
 	cout << "\nRunCL::testOpencl() finished ##################################################\n\n" << flush;
 }
@@ -81,97 +76,96 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 	cl_uint num_devices, addr_data;
 	cl_int i, err;
 	char name_data[48], ext_data[4096];
-	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, NULL, &num_devices); 	if(err < 0) {perror("Couldn't find any devices"); exit(1); }
+	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, NULL, &num_devices); 																if(err < 0) {perror("Couldn't find any devices"); exit(1); }
 	devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);
 	clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
 	for(i=0; i<num_devices; i++) {
-		err = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name_data), name_data, NULL); 		if(err < 0) {perror("Couldn't read extension data"); exit(1); }
+		err = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name_data), name_data, NULL); 												if(err < 0) {perror("Couldn't read extension data"); exit(1); }
 		clGetDeviceInfo(devices[i], CL_DEVICE_ADDRESS_BITS, sizeof(ext_data), &addr_data, NULL);
 		clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, sizeof(ext_data), ext_data, NULL);
-		printf("\nDevice num: %i \nNAME: %s\nADDRESS_WIDTH: %u\nEXTENSIONS: %s \n", i, name_data, addr_data, ext_data);
+																																			printf("\nDevice num: %i \nNAME: %s\nADDRESS_WIDTH: %u\nEXTENSIONS: %s \n", i, name_data, addr_data, ext_data);
 	}
 	free(devices);
-	cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
+																																			cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
 }
 
 RunCL::RunCL(Json::Value obj_){
 	obj = obj_;
 	verbosity = obj["verbosity"].asInt();
-	std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
-	testOpencl();																			// Displays available OpenCL Platforms and Devices. 
-																							if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
-	createFolders( );																		/*Step1: Getting platforms and choose an available one.*/////////
-	cl_uint 		numPlatforms;															//the NO. of platforms
-	cl_platform_id 	platform 		= NULL;													//the chosen platform
+																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
+	testOpencl();																															// Displays available OpenCL Platforms and Devices. 
+																																			if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
+	createFolders( );																														/*Step1: Getting platforms and choose an available one.*/////////
+	cl_uint 		numPlatforms;																											//the NO. of platforms
+	cl_platform_id 	platform 		= NULL;																									//the chosen platform
 	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); };
-	uint			conf_platform	= obj["opencl_platform"].asUInt();						if(verbosity>0) cout << "numPlatforms = " << numPlatforms << ", conf_platform=" << conf_platform << "\n" << flush;
+	uint			conf_platform	= obj["opencl_platform"].asUInt();																		if(verbosity>0) cout << "numPlatforms = " << numPlatforms << ", conf_platform=" << conf_platform << "\n" << flush;
 	
-	if (numPlatforms > conf_platform){														/*Choose the platform.*/
+	if (numPlatforms > conf_platform){																										/*Choose the platform.*/
 		cl_platform_id* platforms 	= (cl_platform_id*)malloc(numPlatforms * sizeof(cl_platform_id));
 		
 		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);		if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
 		
-		platform 					= platforms[ conf_platform ];							if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1] <<", \nplatforms[2] = "<<platforms[2] \
-																												<<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
+		platform 					= platforms[ conf_platform ];																			if(verbosity>0) cout << "\nplatforms[0] = "<<platforms[0]<<", \nplatforms[1] = "<<platforms[1] <<", \nplatforms[2] = "<<platforms[2] <<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
 		cl_int err;
 		size_t param_value_size;
 		char* platform_name;
 		for (int i=0; i<numPlatforms; i++){
-			err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &param_value_size);		// Find size of platform name data
+			err = clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &param_value_size);											// Find size of platform name data
 			if(err < 0) { perror("Couldn't read platform name data."); exit(1); }
 			platform_name = (char*)malloc(param_value_size);	
-			clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, param_value_size, platform_name, NULL);	// Get platform names data
-			cout << "\n\n platform_name = ";
-			for(int j=0; j<5; j++){ cout << platform_name[j] ; }
-			cout << "\n"<< flush;
+			clGetPlatformInfo( platforms[i], CL_PLATFORM_NAME, param_value_size, platform_name, NULL);										// Get platform names data
+																																			cout << "\n\n platform_name = ";
+																																			for(int j=0; j<5; j++){ cout << platform_name[j] ; }
+																																			cout << "\n"<< flush;
 			free(platform_name);
 		}
 		free(platforms);																	
-	} else {cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
+	} else {																																cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
 	
-	cl_uint			numDevices		= 0;													/*Step 2:Query the platform.*//////////////////////////////////
+	cl_uint			numDevices		= 0;																									/*Step 2:Query the platform.*//////////////////////////////////
 	cl_device_id    *devices;
 	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\n3 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 	uint conf_device = obj["opencl_device"].asUInt();
 	
-	if (numDevices > conf_device){															/*Choose the device*/
+	if (numDevices > conf_device){																											/*Choose the device*/
 		devices = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));
 		status  = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);
 	}																						if (status != CL_SUCCESS) {cout << "\n4 status = " << checkerror(status) <<"\n"<<flush; exit_(status);} 
 	
-	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};	/*Step 3: Create context.*////////////////////////////////////
-	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) 			{cout<<"\n5 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};													/*Step 3: Create context.*////////////////////////////////////
+	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) {cout<<"\n5 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	
-	deviceId  	= devices[conf_device];														/*Step 4: Create command queue & associate context.*///////////
-	cl_command_queue_properties prop[] = { 0 };												//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
+	deviceId  	= devices[conf_device];																										/*Step 4: Create command queue & associate context.*///////////
+	cl_command_queue_properties prop[] = { 0 };																								//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
 	m_queue 	= clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n6 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	uload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n7 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	dload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n8 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	track_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n9 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-																							// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
-																							// NB Might want to create command queues on multiple platforms & devices.
-																							// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
+																																			// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
+																																			// NB Might want to create command queues on multiple platforms & devices.
+																																			// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
 	
-	const char *filename = obj["kernel_filepath"].asCString();								/*Step 5: Create program object*///////////////////////////////
+	const char *filename = obj["kernel_filepath"].asCString();																				/*Step 5: Create program object*///////////////////////////////
 	string sourceStr;
-	status 						= convertToString(filename, sourceStr);						if(status!=CL_SUCCESS)	{cout<<"\n10 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+	status 						= convertToString(filename, sourceStr);																		if(status!=CL_SUCCESS)	{cout<<"\n10 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	const char 	*source 		= sourceStr.c_str();
 	size_t 		sourceSize[] 	= { strlen(source) };
 	m_program 	= clCreateProgramWithSource(m_context, 1, &source, sourceSize, NULL);
 	
-	status = clBuildProgram(m_program, 1, devices, NULL, NULL, NULL);						/*Step 6: Build program.*/////////////////////
-	if (status != CL_SUCCESS){
-		printf("\nclBuildProgram failed: %d\n", status);
-		char buf[0x10000];
-		clGetProgramBuildInfo(m_program, deviceId, CL_PROGRAM_BUILD_LOG, 0x10000, buf, NULL);
-		printf("\n%s\n", buf);
-		exit_(status);
-	}
-	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);				/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
+	status = clBuildProgram(m_program, 1, devices, NULL, NULL, NULL);																		/*Step 6: Build program.*/////////////////////
+																							if (status != CL_SUCCESS){
+																								printf("\nclBuildProgram failed: %d\n", status);
+																								char buf[0x10000];
+																								clGetProgramBuildInfo(m_program, deviceId, CL_PROGRAM_BUILD_LOG, 0x10000, buf, NULL);
+																								printf("\n%s\n", buf);
+																								exit_(status);
+																							}
+	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);																/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
 	//cache3_kernel   = clCreateKernel(m_program, "CacheG3", 			NULL);
 	//updateQD_kernel = clCreateKernel(m_program, "UpdateQD", 			NULL);
 	//updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 			NULL);
-																											// New kernels
+																																			// New kernels
 	cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
 	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				NULL);
 	reduce_kernel					= clCreateKernel(m_program, "reduce", 						NULL);
@@ -182,35 +176,33 @@ RunCL::RunCL(Json::Value obj_){
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
 	
 	basemem=imgmem[0]=imgmem[1]=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem[0]=gymem[0]=g1mem[0]=gxmem[1]=gymem[1]=g1mem[1]=lomem=himem=0;			// set device pointers to zero
-																							if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
+																																			if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
 }
 
 void RunCL::createFolders(){
-																						if(verbosity>0) cout << "\n createFolders_chk 0\n" << flush;
+																																			if(verbosity>0) cout << "\n createFolders_chk 0\n" << flush;
 	std::time_t   result  = std::time(nullptr);
 	std::string   out_dir = std::asctime(std::localtime(&result));
-	out_dir.pop_back(); 																// req to remove new_line from end of string.
+	out_dir.pop_back(); 																													// req to remove new_line from end of string.
 	
 	boost::filesystem::path 	out_path(boost::filesystem::current_path());
 	boost::filesystem::path 	conf_outpath( obj["out_path"].asString() );
-	cout << "\nconf_outpath = " << conf_outpath ;
-	
+																																			cout << "\nconf_outpath = " << conf_outpath ;
 	if (conf_outpath.empty()  ) {	// ||  conf_outpath.is_absolute()
-		out_path = out_path.parent_path().parent_path();								// move "out_path" up two levels in the directory tree.
+		out_path = out_path.parent_path().parent_path();																					// move "out_path" up two levels in the directory tree.
 		out_path += conf_outpath;
-		cout << "  conf_outpath.empty()==true" ;
+																																			cout << "  conf_outpath.empty()==true" ;
 	}else {out_path = conf_outpath;}
 	out_path += "/output/";
+																																			cout << "  out_path = " << out_path << endl << flush;
 	
-	cout << "  out_path = " << out_path << endl << flush;
-	
-	if(boost::filesystem::create_directory(out_path)) { std::cerr<< "Directory Created: "<<out_path<<std::endl;}else{ std::cerr<< "Output directory previously created: "<<out_path<<std::endl;}
-	out_path +=  out_dir;																if(verbosity>0) cout <<"Creating output sub-directories: "<< out_path <<std::endl;
+	if(boost::filesystem::create_directory(out_path)) { std::cerr<< "Directory Created: "<<out_path<<std::endl;}  else{ std::cerr<< "Output directory previously created: "<<out_path<<std::endl;}
+	out_path +=  out_dir;																													if(verbosity>0) cout <<"Creating output sub-directories: "<< out_path <<std::endl;
 	boost::filesystem::create_directory(out_path);
-	out_path += "/";																	if(verbosity>0) cout << "\n createFolders_chk 1\n" << flush;
+	out_path += "/";																														if(verbosity>0) cout << "\n createFolders_chk 1\n" << flush;
 	
-	boost::filesystem::path temp_path = out_path;										// Vector of device buffer names
-																						// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
+	boost::filesystem::path temp_path = out_path;																							// Vector of device buffer names
+																																			// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
 	std::vector<std::string> names = {"basemem","imgmem[0]","imgmem[1]","cdatabuf","hdatabuf","pbuf","dmem", "amem","basegraymem","gxmem[0]","gymem[0]","g1mem[0]","qmem[0]","gxmem[1]","gymem[1]","g1mem[1]","qmem[1]","lomem","himem","img_sum_buf","SE3_map_mem", "SE3_grad_map_mem[0]", "SE3_grad_map_mem[1]", "SE3_grad_map_mem[!0]", "SE3_grad_map_mem[!1]", "SO3_incr_map_mem", "SE3_incr_map_mem", "depth_GT", "SO3_rho_map_mem","SE3_rho_map_mem" };
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
@@ -223,29 +215,29 @@ void RunCL::createFolders(){
 		temp_path += "/png/";
 		boost::filesystem::create_directory(temp_path);
 	}
-	if(verbosity>0) {
-		cout << "\nRunCL::createFolders() chk1\n";
-		cout << "KEY\tPATH\n";															// print the folder paths
-		for (auto itr=paths.begin(); itr!=paths.end(); ++itr) { cout<<"First:["<< itr->first << "]\t:\t Second:"<<itr->second<<"\n"; }
-		cout<<"\npaths.at(\"basemem\")="<<paths.at("basemem")<<"\n"<<flush;
-	}
+																																			if(verbosity>0) {
+																																				cout << "\nRunCL::createFolders() chk1\n";
+																																				cout << "KEY\tPATH\n";																												// print the folder paths
+																																				for (auto itr=paths.begin(); itr!=paths.end(); ++itr) { cout<<"First:["<< itr->first << "]\t:\t Second:"<<itr->second<<"\n"; }
+																																				cout<<"\npaths.at(\"basemem\")="<<paths.at("basemem")<<"\n"<<flush;
+																																			}
 }
 
 void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
-																				//if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
-																				if(verbosity>0) cout<<"\n\nDownloadAndSave filename = ["<<folder_tiff.filename().string()<<"] "<<flush;
-																				/*
-																				cout <<", folder="<<folder_tiff<<flush;
-																				cout <<", image_size_bytes="<<image_size_bytes<<flush;
-																				cout <<", size_mat="<<size_mat<<flush;
-																				cout <<", type_mat="<<size_mat<<"\t"<<flush;
-																				*/
-		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					// (int rows, int cols, int type)
-		ReadOutput(temp_mat.data, buffer,  image_size_bytes); 					// NB contains elements of type_mat, (CV_32FC1 for most buffers)
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave finished ReadOutput\n\n"<<flush;
-		if (temp_mat.type() == CV_16FC1)	temp_mat.convertTo(temp_mat, CV_32FC1);	// NB conversion to FP32 req for cv::sum(..).	
-		cv::Scalar sum = cv::sum(temp_mat);										// NB always returns a 4 element vector.
+																																			//if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
+																																			if(verbosity>0) cout<<"\n\nDownloadAndSave filename = ["<<folder_tiff.filename().string()<<"] "<<flush;
+																																			/*
+																																			cout <<", folder="<<folder_tiff<<flush;
+																																			cout <<", image_size_bytes="<<image_size_bytes<<flush;
+																																			cout <<", size_mat="<<size_mat<<flush;
+																																			cout <<", type_mat="<<size_mat<<"\t"<<flush;
+																																			*/
+		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);																				// (int rows, int cols, int type)
+		ReadOutput(temp_mat.data, buffer,  image_size_bytes); 																				// NB contains elements of type_mat, (CV_32FC1 for most buffers)
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave finished ReadOutput\n\n"<<flush;
+		if (temp_mat.type() == CV_16FC1)	temp_mat.convertTo(temp_mat, CV_32FC1);															// NB conversion to FP32 req for cv::sum(..).	
+		cv::Scalar sum = cv::sum(temp_mat);																									// NB always returns a 4 element vector.
 
 		double minVal=1, maxVal=1;
 		cv::Point minLoc={0,0}, maxLoc{0,0};
@@ -262,13 +254,13 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave filename = ["<<ss.str()<<"]";
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave filename = ["<<ss.str()<<"]";
 		cv::Mat outMat;
 		if (type_mat != CV_32FC1 && type_mat != CV_16FC1 ) {
 			cout << "\n\n## Error  (type_mat != CV_32FC1 or CV_16FC1) ##\n\n" << flush;
 			return;
 		}
-		if (max_range == 0){ temp_mat /= maxVal;}								// Squash/stretch & shift to 0.0-1.0 range
+		if (max_range == 0){ temp_mat /= maxVal;}																							// Squash/stretch & shift to 0.0-1.0 range
 		else if (max_range <0.0){
 			temp_mat /=(-2*max_range);
 			temp_mat +=0.5;
@@ -283,36 +275,36 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 
 void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
 	int local_verbosity_threshold = 1;
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() vol_layers="<<vol_layers<<", max_range="<<max_range<<", folder = ["<<folder_tiff.filename().string()<<"] "<<flush;
-		if (type_mat != CV_32FC2){cout <<"Error (type_mat != CV_32FC2)"<<flush; return;}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume() vol_layers="<<vol_layers<<", max_range="<<max_range<<", folder = ["<<folder_tiff.filename().string()<<"] "<<flush;
+	if (type_mat != CV_32FC2){cout <<"Error (type_mat != CV_32FC2)"<<flush; return;}
 		
 	for (uint layer=0; layer<vol_layers; layer++  ) {	
 		
 		uint offset = layer * image_size_bytes;
 		
-		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					// (int rows, int cols, int type)
-		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset); 			// NB contains elements of type_mat, (CV_32FC1 for most buffers)
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_1, layer="<<layer<<flush;
+		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);																				// (int rows, int cols, int type)
+		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset); 																		// NB contains elements of type_mat, (CV_32FC1 for most buffers)
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_1, layer="<<layer<<flush;
 		cv::Mat channels[4];
-		split(temp_mat, channels);												// Split u and v (col and row) channels.
+		split(temp_mat, channels);																											// Split u and v (col and row) channels.
 		cv::Scalar sum_u = cv::sum(channels[0]);
 		cv::Scalar sum_v = cv::sum(channels[1]);
 		//cv::Scalar sum_w = cv::sum(channels[2]);
 		channels[2] = cv::Mat::zeros( channels[1].size(), channels[1].type() );
 		channels[3] = cv::Mat::ones( channels[1].size(), channels[1].type() );
 		
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_2"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_2"<<flush;
 		cv::Mat temp_mat_u, temp_mat_v;
-		cv::Mat channels_u[4] = {channels[0],channels[0]*(-1),channels[2],channels[3] };	// Compose BGR 3channel for each of u & v.
-		cv::Mat channels_v[4] = {channels[1],channels[1]*(-1),channels[2],channels[3] };	// NB Blue = +ve, , Green = -ve , Red not used. 
-		merge(channels_u,4,temp_mat_u);											// Origin is top right corner of the image.
+		cv::Mat channels_u[4] = {channels[0],channels[0]*(-1),channels[2],channels[3] };													// Compose BGR 3channel for each of u & v.
+		cv::Mat channels_v[4] = {channels[1],channels[1]*(-1),channels[2],channels[3] };													// NB Blue = +ve, , Green = -ve , Red not used. 
+		merge(channels_u,4,temp_mat_u);																										// Origin is top right corner of the image.
 		merge(channels_v,4,temp_mat_v);
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_3"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_3"<<flush;
 		double minVal_u=1, maxVal_u=1,  minVal_v=1, maxVal_v=1;
 		cv::Point minLoc_u={0,0}, maxLoc_u{0,0}, minLoc_v={0,0}, maxLoc_v{0,0};
 		cv::minMaxLoc(channels[0], &minVal_u, &maxVal_u, &minLoc_u, &maxLoc_u); 
 		cv::minMaxLoc(channels[1], &minVal_v, &maxVal_v, &minLoc_v, &maxLoc_v);
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_4"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_Chk_4"<<flush;
 		string type_string = checkCVtype(type_mat);
 		stringstream ss_u, ss_v;
 		stringstream png_ss_u, png_ss_v;
@@ -337,13 +329,13 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		folder_png_v  += "/png/";
 		folder_png_v  += png_ss_v.str();
 		folder_png_v  += ".png";
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume(), max_range="<<max_range<<",   filename = ["<<ss_u.str()<<" , "<<ss_v.str()<<"]";
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume(), max_range="<<max_range<<",   filename = ["<<ss_u.str()<<" , "<<ss_v.str()<<"]";
 		cv::Mat outMat_u, outMat_v;
 		if (type_mat != CV_32FC2 && type_mat != CV_16FC2 ) {
 			cout << "\n\n## Error  (type_mat != CV_32FC2 or CV_16FC2) ##\n\n" << flush;
 			return;
 		}
-		if (max_range == 0){ temp_mat_u /= maxVal_u;  temp_mat_v /= maxVal_v; }	// Squash/stretch & shift to 0.0-1.0 range
+		if (max_range == 0){ temp_mat_u /= maxVal_u;  temp_mat_v /= maxVal_v; }																// Squash/stretch & shift to 0.0-1.0 range
 		else if (max_range <0.0){
 			temp_mat_u /=(-2*max_range);
 			temp_mat_v /=(-2*max_range);
@@ -355,7 +347,7 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		}
 		cv::imwrite(folder_tiff_u.string(), temp_mat_u );
 		cv::imwrite(folder_tiff_v.string(), temp_mat_v );
-		temp_mat_u *= 256*256 *5;												// NB This is mosty for SE3_map_mem, which is dark due to small increment of each DoF.
+		temp_mat_u *= 256*256 *5;																											// NB This is mosty for SE3_map_mem, which is dark due to small increment of each DoF.
 		temp_mat_v *= 256*256 *5;
 		temp_mat_u.convertTo(outMat_u, CV_16UC4);
 		temp_mat_v.convertTo(outMat_v, CV_16UC4);
@@ -367,43 +359,43 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 			cv::imshow( ss_v.str(), outMat_v );
 		}
 	}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_finished"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_finished"<<flush;
 }
 
 void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
 	int local_verbosity_threshold = 1;
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
 		if (type_mat == CV_16FC3)	{
-			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);					//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
-			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  // baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
+			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);																				//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
+			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  										// baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
 			temp_mat = cv::Mat::zeros (size_mat, CV_32FC3);
-			temp_mat2.convertTo(temp_mat, CV_32FC3);							// NB conversion to FP32 req for cv::sum(..).
+			temp_mat2.convertTo(temp_mat, CV_32FC3);																						// NB conversion to FP32 req for cv::sum(..).
 		} else {
 			temp_mat = cv::Mat::zeros (size_mat, type_mat);
 			ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 		}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_1, "<<flush;
-		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_1, "<<flush;
+		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
 		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
 		cv::Point 	minLoc[3]={{0,0},{0,0},{0,0}}, 		maxLoc[3]={{0,0},{0,0},{0,0}};
 		vector<cv::Mat> spl;
-		split(temp_mat, spl);													// process - extract only the correct channel
+		split(temp_mat, spl);																												// process - extract only the correct channel
 		double max = 0;
 		for (int i =0; i < 3; ++i){
 			cv::minMaxLoc(spl[i], &minVal[i], &maxVal[i], &minLoc[i], &maxLoc[i]);
 			if (maxVal[i] > max) max = maxVal[i];
 		}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2, "<<flush;
 		stringstream ss;
 		stringstream png_ss;
 		ss<<"/"<<folder_tiff.filename().string()<<"_"<<count<<"_sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
 		png_ss<< "/" << folder_tiff.filename().string() << "_" << count;
 		if(show){
 			cv::Mat temp;
-			temp_mat.convertTo(temp, CV_8U);									// NB need CV_U8 for imshow(..)
+			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
@@ -414,78 +406,78 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 		
-		if (max_range == 0){ 													if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
+		if (max_range == 0){ 																												if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
 			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 
-			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);						// set alpha=1
+			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);																					// set alpha=1
 			cv::merge(spl, temp_mat);
 		}	// Squash/stretch & shift to 0.0-1.0 range
-		else if (max_range <0.0){												if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+		else if (max_range <0.0){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
 			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range); 
 			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
 			cv::merge(spl, temp_mat);
-		}else{ 																	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+		}else{ 																																if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
 			temp_mat /=max_range;
 		}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_3, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_3, "<<flush;
 		cv::Mat outMat;
 		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_4, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_4, "<<flush;
 			cv::imwrite(folder_tiff.string(), temp_mat );
 			temp_mat *=256;
 			temp_mat.convertTo(outMat, CV_8U);
 			if (type_mat == CV_32FC4){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_5, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_5, "<<flush;
 				std::vector<cv::Mat> matChannels;
 				cv::split(outMat, matChannels);
-				//matChannels.at(3)=255;											// set alpha=1
+				//matChannels.at(3)=255;																									// set alpha=1
 				cv::merge(matChannels, outMat);
 			}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			cv::imwrite(folder_png.string(), (outMat) );						// Has "Grayscale 16-bit gamma integer"
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
+			cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
 		}else if (type_mat == CV_8UC3){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
 			cv::imwrite(folder_tiff.string(), temp_mat );
 			cv::imwrite(folder_png.string(),  temp_mat );
-		}else if (type_mat == CV_16FC3) {										// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
+		}else if (type_mat == CV_16FC3) {																									// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
 			/*
 			//cout << "\n Writing CV_16FC3 to .tiff & .png .\n"<< flush;
 			//cout << "\n temp_mat2.at<cv::float16_t>(101,100-105) = " << temp_mat2.at<cv::float16_t>(101,100) << "," << temp_mat2.at<cv::float16_t>(101,101) << ","<< temp_mat2.at<cv::float16_t>(101,102) << ","<< temp_mat2.at<cv::float16_t>(101,103) << ","<< temp_mat2.at<cv::float16_t>(101,104) << ","<< temp_mat2.at<cv::float16_t>(101,105) << ","<< flush; 
 			//cout << "\n temp_mat2.at<cl_half>(101,100-105) = " << temp_mat2.at<cl_half>(101,100) << "," << temp_mat2.at<cl_half>(101,101) << ","<< temp_mat2.at<cl_half>(101,102) << ","<< temp_mat2.at<cl_half>(101,103) << ","<< temp_mat2.at<cl_half>(101,104) << ","<< temp_mat2.at<cl_half>(101,105) << ","<< flush; 
 			//cout << "\n temp_mat2.at<cl_half>(101,100) x,y,z,w,s0,s3 = " << temp_mat2.at<cl_half3>(101,100).x << "," << temp_mat2.at<cl_half3>(101,100).y << ","<< temp_mat2.at<cl_half3>(101,100).z << ","<< temp_mat2.at<cl_half3>(101,100).w << ","<< temp_mat2.at<cl_half3>(101,100).s0 << ","<< temp_mat2.at<cl_half3>(101,100).s3 << ","<< flush; 
 			*/
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_8, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_8, "<<flush;
 			temp_mat2 *=256;
 			cv::imwrite(folder_tiff.string(), temp_mat2 );
 			
 			temp_mat2.convertTo(outMat, CV_8UC3);
 			cv::imwrite(folder_png.string(), (outMat) );
 		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
 }
 
 void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
 	int local_verbosity_threshold = 1;
-																				if(verbosity> local_verbosity_threshold) {
-																					cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
-																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
-																				}
+																																			if(verbosity> local_verbosity_threshold) {
+																																				cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
+																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
+																																			}
 	for (uint i=0; i<vol_layers; i++) {
 		stringstream ss;	ss << count << i;
 		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
 	}
-																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
 
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
 	int local_verbosity_threshold = 1;
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
 		if (type_mat == CV_16FC3)	{
-			temp_mat2 = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_16FC3);					//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
-			ReadOutput(temp_mat2.data, buffer,  2*temp_mat2.total()*temp_mat2.elemSize(),   offset );	// baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
+			temp_mat2 = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_16FC3);														//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
+			ReadOutput(temp_mat2.data, buffer,  2*temp_mat2.total()*temp_mat2.elemSize(),   offset );										// baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
 			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, CV_32FC3);
-			temp_mat2.convertTo(temp_mat, CV_32FC3);													// NB conversion to FP32 req for cv::sum(..).
+			temp_mat2.convertTo(temp_mat, CV_32FC3);																						// NB conversion to FP32 req for cv::sum(..).
 		} else {
 			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, type_mat);
 			ReadOutput(temp_mat.data, buffer,  2*image_size_bytes,   2*offset);
@@ -501,46 +493,46 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 			for (int j=0; j<8; j++){ data[j] = temp_mat.at<float>(i*8  + j) ;}
 			for (int j=0; j<4; j++){
 				mat_u.at<float>(i*4  + j) = data[j] ;
-				mat_v.at<float>(i*4  + j) = data[j+4] ;					// NB in buffer, alphachan carries 
-				mat_u.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;	// sets alpha=0 when , else alpha=1.
+				mat_v.at<float>(i*4  + j) = data[j+4] ;																						// NB in buffer, alphachan carries 
+				mat_u.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;																		// sets alpha=0 when , else alpha=1.
 				mat_v.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;
 			}
 		}
 		//cv::imshow("mat_u", mat_u);
 		//cv::imshow("mat_v", mat_v);
 		cv::waitKey(-1);
-																				if(verbosity>local_verbosity_threshold){
-																					cout << "\nmat_v alpha = ";
-																					for (int px=0; px< (mat_v.rows * mat_v.cols ) ; px += 1000){
-																						cout <<", " << mat_v.at<float>(px*4  + 3);
-																					}cout << flush;
-																				}
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\nmat_v alpha = ";
+																																				for (int px=0; px< (mat_v.rows * mat_v.cols ) ; px += 1000){
+																																					cout <<", " << mat_v.at<float>(px*4  + 3);
+																																				}cout << flush;
+																																			}
 		SaveMat(mat_u, type_mat,  folder_tiff,  show,  max_range, "mat_u", count);
 		SaveMat(mat_v, type_mat,  folder_tiff,  show,  max_range, "mat_v", count);
 }
 
 void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count){
 	int local_verbosity_threshold = 1;
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
-		cv::Scalar 	sum = cv::sum(temp_mat);									// NB always returns a 4 element vector.
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
+		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
 		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
 		cv::Point 	minLoc[3]={{0,0},{0,0},{0,0}}, 		maxLoc[3]={{0,0},{0,0},{0,0}};
 		vector<cv::Mat> spl;
-		split(temp_mat, spl);													// process - extract only the correct channel
+		split(temp_mat, spl);																												// process - extract only the correct channel
 		double max = 0;
 		for (int i =0; i < 3; ++i){
 			cv::minMaxLoc(spl[i], &minVal[i], &maxVal[i], &minLoc[i], &maxLoc[i]);
 			if (maxVal[i] > max) max = maxVal[i];
 		}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2, "<<flush;
 		stringstream ss;
 		stringstream png_ss;
 		ss<<"/"<<folder_tiff.filename().string()<<"_"<<mat_name<<"_"<<count<<"_sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
 		png_ss<< "/" << folder_tiff.filename().string() <<"_"<<mat_name<< "_" << count;
 		if(show){
 			cv::Mat temp;
-			temp_mat.convertTo(temp, CV_8U);									// NB need CV_U8 for imshow(..)
+			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
@@ -551,71 +543,71 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 		
-		if (max_range == 0){ 													if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
+		if (max_range == 0){ 																												if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
 			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 
-			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);						// set alpha=1
+			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);																					// set alpha=1
 			cv::merge(spl, temp_mat);
 		}	// Squash/stretch & shift to 0.0-1.0 range
-		else if (max_range <0.0){												if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+		else if (max_range <0.0){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
 			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range); 
 			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
 			cv::merge(spl, temp_mat);
-		}else{ 																	if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+		}else{ 																																if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
 			temp_mat /=max_range;
 		}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_3, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_3, "<<flush;
 		cv::Mat outMat;
 		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
 			cv::imwrite(folder_tiff.string(), temp_mat );
 			temp_mat *=256;
 			temp_mat.convertTo(outMat, CV_8U);
 			if (type_mat == CV_32FC4){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_5, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_5, "<<flush;
 				std::vector<cv::Mat> matChannels;
 				cv::split(outMat, matChannels);
-				//matChannels.at(3)=255;											// set alpha=1
+				//matChannels.at(3)=255;																									// set alpha=1
 				cv::merge(matChannels, outMat);
 			}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			cv::imwrite(folder_png.string(), (outMat) );						// Has "Grayscale 16-bit gamma integer"
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
+			cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
 		}else if (type_mat == CV_8UC3){
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_7, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_7, "<<flush;
 			cv::imwrite(folder_tiff.string(), temp_mat );
 			cv::imwrite(folder_png.string(),  temp_mat );
-		}																		else {cout << "\n\nError RunCL::SaveMat(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
-																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_9, finished "<<flush;
+		}																																	else {cout << "\n\nError RunCL::SaveMat(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_9, finished "<<flush;
 }
 
 void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
 	int local_verbosity_threshold = 1;
-																				if(verbosity> local_verbosity_threshold) {
-																					cout<<"\n\nDownloadAndSave_6Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
-																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
-																				}
+																																			if(verbosity> local_verbosity_threshold) {
+																																				cout<<"\n\nDownloadAndSave_6Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
+																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
+																																			}
 	for (uint i=0; i<vol_layers; i++) {
 		stringstream ss;	ss << count <<"_"<< i <<"_";
 		DownloadAndSave_6Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
 	}
-																				if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
-																				if(verbosity>0) {
-																					cout<<"\n\nDownloadAndSaveVolume, costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
-																					cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
-																				}
+																																			if(verbosity>0) {
+																																				cout<<"\n\nDownloadAndSaveVolume, costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
+																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
+																																			}
 	
 
 	for(int i=0; i<costVolLayers; i++){
-																				if(verbosity>local_verbosity_threshold) cout << "\ncostVolLayers="<<costVolLayers<<", i="<<i<<"\t";
+																																			if(verbosity>local_verbosity_threshold) cout << "\ncostVolLayers="<<costVolLayers<<", i="<<i<<"\t";
 		size_t offset = i * image_size_bytes;
-		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);					//(int rows, int cols, int type)
+		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);																				//(int rows, int cols, int type)
 		
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes, offset);
-																				if(verbosity>local_verbosity_threshold) cout << "\nRunCL::DownloadAndSaveVolume, ReadOutput completed\n"<<flush;
-		if (temp_mat.type() == CV_16FC1)	temp_mat.convertTo(temp_mat, CV_32FC1);	// NB conversion to FP32 req for cv::sum(..).
+																																			if(verbosity>local_verbosity_threshold) cout << "\nRunCL::DownloadAndSaveVolume, ReadOutput completed\n"<<flush;
+		if (temp_mat.type() == CV_16FC1)	temp_mat.convertTo(temp_mat, CV_32FC1);															// NB conversion to FP32 req for cv::sum(..).
 		cv::Scalar sum = cv::sum(temp_mat);
 		
 		double minVal=1, maxVal=1;
@@ -632,7 +624,7 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		png_ss << "/"<< folder.filename().string() << "_" << count << "_layer"<< i;
 		if(show){
 			cv::Mat temp;
-			temp_mat.convertTo(temp, CV_8U);									// NB need CV_U8 for imshow(..)
+			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)
 			cv::imshow(ss.str(), temp);
 		}
 		new_filepath += ss.str();
@@ -640,14 +632,14 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		folder_png += "/png/";
 		folder_png += png_ss.str();
 		folder_png += ".png";
-																				if(verbosity>local_verbosity_threshold) cout << "\nnew_filepath.string() = "<<new_filepath.string() <<"\n";
+																																			if(verbosity>local_verbosity_threshold) cout << "\nnew_filepath.string() = "<<new_filepath.string() <<"\n";
 		cv::Mat outMat;
 
 		if (type_mat != CV_32FC1 && type_mat != CV_16FC1 ) {
 			cout << "\n\n## Error  (type_mat != CV_32FC1 or CV_16FC1) ##\n\n" << flush;
 			return;
 		}
-		if (max_range == 0){ temp_mat /= maxVal;}								// Squash/stretch & shift to 0.0-1.0 range
+		if (max_range == 0){ temp_mat /= maxVal;}																							// Squash/stretch & shift to 0.0-1.0 range
 		else if (max_range <0.0){
 			temp_mat /=(-2*max_range);
 			temp_mat +=0.5;
@@ -670,9 +662,9 @@ void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, f
 
 void RunCL::initialize(){
 	int local_verbosity_threshold = 1;
-																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
-																																		if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
-	image_size_bytes	= baseImage.total() * baseImage.elemSize();																		// Constant parameters of the base image
+																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
+																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
+	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
 	image_size_bytes_C1	= baseImage.total() * sizeof(float);
 	costVolLayers 		= 2*( 1 + obj["layers"].asUInt() );
 	baseImage_size 		= baseImage.size();
@@ -681,7 +673,7 @@ void RunCL::initialize(){
 	baseImage_height	= baseImage.rows;
 	layerstep 			= baseImage_width * baseImage_height;
 	
-	mm_num_reductions	= obj["num_reductions"].asUInt();																				// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
+	mm_num_reductions	= obj["num_reductions"].asUInt();																					// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
 	mm_gaussian_size	= obj["gaussian_size"].asUInt();
 	mm_margin			= obj["MipMap_margin"].asUInt() * mm_num_reductions;
 	mm_width 			= baseImage_width  + 2 * mm_margin;
@@ -691,40 +683,40 @@ void RunCL::initialize(){
 	cv::Mat temp(mm_height, mm_width, CV_32FC3);
 	mm_Image_size		= temp.size();
 	mm_Image_type		= temp.type();
-	mm_size_bytes_C3	= temp.total() * temp.elemSize() ;																				// for mipmaps with CV_16FC3  mm_width*mm_height*fp16_size;// for FP16 'half', or BF16 on Tensor cores
+	mm_size_bytes_C3	= temp.total() * temp.elemSize() ;																					// for mipmaps with CV_16FC3  mm_width*mm_height*fp16_size;// for FP16 'half', or BF16 on Tensor cores
 	mm_size_bytes_C4	= temp.total() * 4 * sizeof(float);
 	cv::Mat temp2(mm_height, mm_width, CV_32FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
-																																		if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1\n\n" << flush;
-																																		// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
+																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1\n\n" << flush;
+																																			// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
 	cl_int 				status;
 	status = clGetKernelWorkGroupInfo(cvt_color_space_linear_kernel, deviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local_work_size), &local_work_size, NULL); 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
-																																		// Number of total work items, calculated here after 1st image is loaded &=> know the size.
-																																		// NB localSize must be devisor
-																																		// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
+																																			// Number of total work items, calculated here after 1st image is loaded &=> know the size.
+																																			// NB localSize must be devisor
+																																			// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
 	global_work_size 	= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
 	mm_global_work_size = ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
-																																		if(verbosity>local_verbosity_threshold){ 
-																																			cout << "\n\nRunCL::initialize_chk1.2,\t global_work_size="<<global_work_size<<",\t mm_global_work_size="<<mm_global_work_size <<"\n" << flush;
-																																			cout << "layerstep="<<layerstep <<",\t mm_layerstep"<< mm_layerstep<<"\n\n" << flush;
-																																			cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
-																																			cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
-																																			cout<<"\n";
-																																			cout<<"\nallocatemem chk1, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
-																																			cout<<"\nbaseImage.elemSize()="<< baseImage.elemSize()<<", baseImage.elemSize1()="<<baseImage.elemSize1()<<flush;
-																																			cout<<"\nbaseImage.type()="<< baseImage.type() <<", sizeof(baseImage.type())="<< sizeof(baseImage.type())<<flush;
-																																			cout<<"\n";
-																																			cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
-																																			cout<<"\n";
-																																			cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
-																																			cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
-																																			cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_size_bytes_C4="<< mm_size_bytes_C4 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
-																																			cout<<"\n";
-																																			cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
-																																			cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
-																																		}
-	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																	// This works: Initialize 'params[]' from conf.json . 
+																																			if(verbosity>local_verbosity_threshold){ 
+																																				cout << "\n\nRunCL::initialize_chk1.2,\t global_work_size="<<global_work_size<<",\t mm_global_work_size="<<mm_global_work_size <<"\n" << flush;
+																																				cout << "layerstep="<<layerstep <<",\t mm_layerstep"<< mm_layerstep<<"\n\n" << flush;
+																																				cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
+																																				cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
+																																				cout<<"\n";
+																																				cout<<"\nallocatemem chk1, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
+																																				cout<<"\nbaseImage.elemSize()="<< baseImage.elemSize()<<", baseImage.elemSize1()="<<baseImage.elemSize1()<<flush;
+																																				cout<<"\nbaseImage.type()="<< baseImage.type() <<", sizeof(baseImage.type())="<< sizeof(baseImage.type())<<flush;
+																																				cout<<"\n";
+																																				cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
+																																				cout<<"\n";
+																																				cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
+																																				cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
+																																				cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_size_bytes_C4="<< mm_size_bytes_C4 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
+																																				cout<<"\n";
+																																				cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
+																																				cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
+																																			}
+	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json . 
 	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
 				//INV_DEPTH_STEP	;
 	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
@@ -737,7 +729,7 @@ void RunCL::initialize(){
 	fp32_params[SCALE_EAUX]		=    obj["scale_E_aux"].asFloat()	;
 	fp32_params[SE3_LM_A]		=    obj["SE3_LM_A"].asFloat()		;
 	fp32_params[SE3_LM_B]		=    obj["SE3_LM_B"].asFloat()		;
-																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.8\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.8\n\n" << flush;
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;
 	uint_params[COLS]			= 	baseImage_width ;
@@ -746,60 +738,60 @@ void RunCL::initialize(){
 	uint_params[MM_PIXELS]		= 	mm_height * mm_width ;
 	uint_params[MM_ROWS]		= 	mm_height ;
 	uint_params[MM_COLS]		= 	mm_width ;
-																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.9\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.9\n\n" << flush;
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
-																																		//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
-																																		if(verbosity>local_verbosity_threshold){
-																																			cout << "\n\nChecking fp32_params[]";
-																																			cout << "\nfp32_params[0 MAX_INV_DEPTH]="	<<fp32_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
-																																			cout << "\nfp32_params[1 MIN_INV_DEPTH]="	<<fp32_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
-																																			cout << "\nfp32_params[2 INV_DEPTH_STEP]="	<<fp32_params[INV_DEPTH_STEP];
-																																			cout << "\nfp32_params[3 ALPHA_G]="			<<fp32_params[ALPHA_G]				<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
-																																			cout << "\nfp32_params[4 BETA_G]="			<<fp32_params[BETA_G]				<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
-																																			cout << "\nfp32_params[5 EPSILON]="			<<fp32_params[EPSILON]				<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
-																																			cout << "\nfp32_params[6 SIGMA_Q]="			<<fp32_params[SIGMA_Q];
-																																			cout << "\nfp32_params[7 SIGMA_D ]="		<<fp32_params[SIGMA_D ];
-																																			cout << "\nfp32_params[8 THETA]="			<<fp32_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
-																																			cout << "\nfp32_params[9 LAMBDA]="			<<fp32_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
-																																			cout << "\nfp32_params[10 SCALE_EAUX]="		<<fp32_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
-																																			cout << "\n" << flush;
-																																		}
+																																			//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n\nChecking fp32_params[]";
+																																				cout << "\nfp32_params[0 MAX_INV_DEPTH]="	<<fp32_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
+																																				cout << "\nfp32_params[1 MIN_INV_DEPTH]="	<<fp32_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
+																																				cout << "\nfp32_params[2 INV_DEPTH_STEP]="	<<fp32_params[INV_DEPTH_STEP];
+																																				cout << "\nfp32_params[3 ALPHA_G]="			<<fp32_params[ALPHA_G]				<<"\t\tobj[\"alpha_g\"].asFloat()="		<<obj["alpha_g"].asFloat();
+																																				cout << "\nfp32_params[4 BETA_G]="			<<fp32_params[BETA_G]				<<"\t\tobj[\"beta_g\"].asFloat()="		<<obj["beta_g"].asFloat();
+																																				cout << "\nfp32_params[5 EPSILON]="			<<fp32_params[EPSILON]				<<"\t\tobj[\"epsilon\"].asFloat()="		<<obj["epsilon"].asFloat();
+																																				cout << "\nfp32_params[6 SIGMA_Q]="			<<fp32_params[SIGMA_Q];
+																																				cout << "\nfp32_params[7 SIGMA_D ]="		<<fp32_params[SIGMA_D ];
+																																				cout << "\nfp32_params[8 THETA]="			<<fp32_params[THETA]				<<"\t\tobj[\"thetaStart\"].asFloat()="	<<obj["thetaStart"].asFloat();
+																																				cout << "\nfp32_params[9 LAMBDA]="			<<fp32_params[LAMBDA]				<<"\t\tobj[\"lambda\"].asFloat()="		<<obj["lambda"].asFloat();
+																																				cout << "\nfp32_params[10 SCALE_EAUX]="		<<fp32_params[SCALE_EAUX]			<<"\t\tobj[\"scale_E_aux\"].asFloat()="	<<obj["scale_E_aux"].asFloat();
+																																				cout << "\n" << flush;
+																																			}
 	
-	for (int i=0; i<3; i++){ fp32_so3_k2k[i+ i*3]=1.0; }																				// initialize fp32_so3_k2k & fp32_k2k as 'unity' transform, i.e. zero rotation & zero translation.	
-	for (int i=0; i<4; i++){ fp32_k2k[i+ i*4]    =1.0; }																				// NB instantiated as {{0}}.
+	for (int i=0; i<3; i++){ fp32_so3_k2k[i+ i*3]=1.0; }																					// initialize fp32_so3_k2k & fp32_k2k as 'unity' transform, i.e. zero rotation & zero translation.	
+	for (int i=0; i<4; i++){ fp32_k2k[i+ i*4]    =1.0; }																					// NB instantiated as {{0}}.
 	/*
 	fp32_k2k[0]  =  1.0 ;	// (1,0,0,0)																								
 	fp32_k2k[5]  =  1.0 ;	// (0,1,0,0)
 	fp32_k2k[10] =  1.0 ;	// (0,0,1,0)
 	fp32_k2k[15] =  1.0 ;	// (0,0,0,1)
 	*/
-																																		if(verbosity>local_verbosity_threshold) {
-																																			cout << "\n";
-																																			cout << ",mm_Image_size = " << mm_Image_size << endl;
-																																			cout << ",mm_Image_type = "	<< mm_Image_type << endl;
-																																			cout << ",mm_size_bytes_C3 = " << mm_size_bytes_C3 << endl;
-																																			cout << ",mm_size_bytes_C4 = " << mm_size_bytes_C4 << endl;
-																																			cout << ",mm_size_bytes_C1 = " << mm_size_bytes_C1 << endl;
-																																			cout << "\n";
-																																			cout << ",baseImage_size, = " << baseImage_size << endl;
-																																			cout << ",baseImage_type = " << baseImage_type << endl;
-																																			cout << ",image_size_bytes = " << image_size_bytes	<< endl;
-																																			cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
-																																			cout << "\n" << flush;
-																																		}
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\n";
+																																				cout << ",mm_Image_size = " << mm_Image_size << endl;
+																																				cout << ",mm_Image_type = "	<< mm_Image_type << endl;
+																																				cout << ",mm_size_bytes_C3 = " << mm_size_bytes_C3 << endl;
+																																				cout << ",mm_size_bytes_C4 = " << mm_size_bytes_C4 << endl;
+																																				cout << ",mm_size_bytes_C1 = " << mm_size_bytes_C1 << endl;
+																																				cout << "\n";
+																																				cout << ",baseImage_size, = " << baseImage_size << endl;
+																																				cout << ",baseImage_type = " << baseImage_type << endl;
+																																				cout << ",image_size_bytes = " << image_size_bytes	<< endl;
+																																				cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
+																																				cout << "\n" << flush;
+																																			}
 	// ####################################################################################################################################################################
-																																		if(verbosity>local_verbosity_threshold) { 
-																																			cout <<"	"<<endl;
-																																			cout <<"	#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer."<<endl;
-																																			cout <<"	#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data"<<endl;
-																																			cout <<"	#define MiM_WRITE_OFFSET	2"<<endl;
-																																			cout <<"	#define MiM_READ_COLS		3	// cols without margins"<<endl;
-																																			cout <<"	#define MiM_WRITE_COLS		4"<<endl;
-																																			cout <<"	#define MiM_GAUSSIAN_SIZE	5	// filter box size"<<endl;
-																																			cout <<"	#define MiM_READ_ROWS		6	// rows without margins"<<endl;
-																																			cout <<"	#define MiM_WRITE_ROWS		7"<<endl;
-																																			cout <<"	"<<endl;
-																																		}
+																																			if(verbosity>local_verbosity_threshold) { 
+																																				cout <<"	"<<endl;
+																																				cout <<"	#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer."<<endl;
+																																				cout <<"	#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data"<<endl;
+																																				cout <<"	#define MiM_WRITE_OFFSET	2"<<endl;
+																																				cout <<"	#define MiM_READ_COLS		3	// cols without margins"<<endl;
+																																				cout <<"	#define MiM_WRITE_COLS		4"<<endl;
+																																				cout <<"	#define MiM_GAUSSIAN_SIZE	5	// filter box size"<<endl;
+																																				cout <<"	#define MiM_READ_ROWS		6	// rows without margins"<<endl;
+																																				cout <<"	#define MiM_WRITE_ROWS		7"<<endl;
+																																				cout <<"	"<<endl;
+																																			}
 	
 	uint 							mipmap[8];
 	mipmap[MiM_READ_ROWS] 			= baseImage_height;
@@ -814,11 +806,11 @@ void RunCL::initialize(){
 	mipmap[MiM_PIXELS]				= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	
 	for(int reduction = 0; reduction <= mm_num_reductions+1; reduction++) {   
-		num_threads[reduction]		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;					// global_work_size formula for num_treads req for this layer. 
-		for (int i=0; i<8; i++) 	{																									// Initialize the global MipMap[8*8] array. 
+		num_threads[reduction]		= ceil( (float)(mipmap[MiM_PIXELS])/(float)local_work_size ) * local_work_size ;						// global_work_size formula for num_treads req for this layer. 
+		for (int i=0; i<8; i++) 	{																										// Initialize the global MipMap[8*8] array. 
 			MipMap[reduction*8 +i] = mipmap[i];
-																																		if(verbosity>local_verbosity_threshold) { cout << "\nMipMap["<<reduction<<"*8 +"<<i<<"]="<<MipMap[reduction*8 +i] ;}
-		}																																if(verbosity>local_verbosity_threshold) { cout << endl << flush; }
+																																			if(verbosity>local_verbosity_threshold) { cout << "\nMipMap["<<reduction<<"*8 +"<<i<<"]="<<MipMap[reduction*8 +i] ;}
+		}																																	if(verbosity>local_verbosity_threshold) { cout << endl << flush; }
 		mipmap[MiM_READ_OFFSET] 	= mipmap[MiM_WRITE_OFFSET];
 		mipmap[MiM_WRITE_OFFSET] 	= mipmap[MiM_WRITE_OFFSET] + read_cols_with_margin * (margin + write_rows);
 		mipmap[MiM_READ_ROWS] 		= write_rows;
@@ -827,17 +819,17 @@ void RunCL::initialize(){
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	}
-																																		// Summation buffer sizes
-	se3_sum_size 		= 1 + ceil( (float)(MipMap[(mm_num_reductions+1)*8 + MiM_READ_OFFSET]) / (float)local_work_size ) ;				// i.e. num workgroups used = MiM_READ_OFFSET for 1 layer more than used / local_work_size,   will give one row of vector per group.
-	uint num_DoFs		= 6 ; 																											// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
-	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 4 * num_DoFs;																	if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
-	se3_sum2_size_bytes = 2 * mm_num_reductions * sizeof(float) * 4 * num_DoFs;															// NB the data returned is 6xfloat4 per group, holding one float4 per 6DoF of SE3, where alpha channel=pixel count.
+																																			// Summation buffer sizes
+	se3_sum_size 		= 1 + ceil( (float)(MipMap[(mm_num_reductions+1)*8 + MiM_READ_OFFSET]) / (float)local_work_size ) ;					// i.e. num workgroups used = MiM_READ_OFFSET for 1 layer more than used / local_work_size,   will give one row of vector per group.
+	uint num_DoFs		= 6 ; 																												// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
+	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 4 * num_DoFs;																		if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
+	se3_sum2_size_bytes = 2 * mm_num_reductions * sizeof(float) * 4 * num_DoFs;																// NB the data returned is 6xfloat4 per group, holding one float4 per 6DoF of SE3, where alpha channel=pixel count.
 	
 	so3_sum_size_bytes	= se3_sum_size_bytes / 2;
 	so3_sum_size		= se3_sum_size ;
-	//pix_sum_size		= 1 + ceil( (float)(baseImage_width * baseImage_height) / (float)local_work_size ) ;  							// i.e. num workgroups used = baseImage_width * baseImage_height / local_work_size,   will give one row of vector per group.
+	//pix_sum_size		= 1 + ceil( (float)(baseImage_width * baseImage_height) / (float)local_work_size ) ;  								// i.e. num workgroups used = baseImage_width * baseImage_height / local_work_size,   will give one row of vector per group.
 	pix_sum_size		= se3_sum_size;
-	pix_sum_size_bytes	= pix_sum_size * sizeof(float) * 4;																				// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
+	pix_sum_size_bytes	= pix_sum_size * sizeof(float) * 4;																					// NB the data returned is one float4 per group, for the base image, holding hsv channels plus entry[3]=pixel count.
 	
 }
 
