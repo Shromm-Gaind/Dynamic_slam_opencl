@@ -6,7 +6,7 @@
 #define CL_TARGET_OPENCL_VERSION			200  // defined as 120 in CMakeLists.txt 
 #define CL_HPP_TARGET_OPENCL_VERSION		200  // OpenCL 1.2
 
-#include <CL/opencl.hpp>	//<CL/cl.hpp>
+#include <CL/opencl.hpp>		//<CL/cl.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -68,7 +68,7 @@ public:
 	cl_device_id		m_device_id;
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
-	cl_kernel			cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
+	cl_kernel			depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
@@ -76,6 +76,7 @@ public:
 	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem; // param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;// reduce_param_buf;
+	cl_mem 				keyframe_basemem, keyframe_gxmem, keyframe_gymem, keyframe_g1mem;
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
@@ -102,7 +103,8 @@ public:
 	RunCL(Json::Value obj_);
 	void testOpencl();
 	void getDeviceInfoOpencl(cl_platform_id platform);
-	void createFolders();	// Called by RunCL(..) constructor, above.
+	void createFolders();																												// Called by RunCL(..) constructor, above.
+	
 	void saveCostVols(float max_range);
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
@@ -117,51 +119,55 @@ public:
 	void SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
-	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q);
-	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
-	//void computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q);
-
-	void initialize();
+	void initialize();																													// Setting up buffers & mipmap parameters
 	void allocatemem();
-	void calcCostVol(float* k2k, cv::Mat &image);
-	void cacheGValue2(cv::Mat &bgray, float theta);
-	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d);
-	void updateA ( float lambda, float theta );
-
-	///
-	void precom_param_maps(float SO3_k2k[6*16]);		// called by Dynamic_slam::Dynamic_slam(..) constructor
-	void predictFrame();
+	void precom_param_maps(float SO3_k2k[6*16]);
+	
+	void predictFrame();																												// image loading & preparation
 	void loadFrame(cv::Mat image);
+	void load_GT_depth(cv::Mat GT_depth);
 	void cvt_color_space();
 	void img_variance();
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);// start,stop allow running specific layers.
-	//void mipmap(uint num_reductions, uint gaussian_size);
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// start,stop allow running specific layers.
 	void mipmap_linear();
 	void img_gradients();
 	
-	//void loadFrameData();
-	//void loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose);
-	void load_GT_depth(cv::Mat GT_depth);
-	void generate_SE3_k2k(float *_SE3_k2k);
-	
-	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   
+	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   						// Tracking
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
 	void tracking_result(string result);
 	
-	//void estimateSE3 ( float SE3_results[4][6][8], float Rho_sq_results[4][8], int count = 48, uint start = 0, uint stop = 8 );
-	void estimateCalibration();
-	void buildDepthCostVol();
-	void SpatialCostFns();
+	void estimateCalibration();																											// Camera calibration
+	
+	void initializeDepthCostVol();																										// Depth costvol functions
+	void buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
+	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d);
+	void updateA(float lambda, float theta);
+	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
+
+	void SpatialCostFns();																												// SIRFS cost functions
 	void ParsimonyCostFns();
 	void ExhaustiveSearch();
-	///
-	void CleanUp();
+	
+	void RelativeVelMap();																												// RelativeVelMap - placeholder...
+	
+	void CleanUp();																														// Exit...
 	void exit_(cl_int res);
 	~RunCL();
 
+	/*
+	//void computeSigmas(float epsilon, float theta, float L, cv::float16_t &sigma_d, cv::float16_t &sigma_q);
+	//void computeSigmas(float epsilon, float theta, float L, cl_half &sigma_d, cl_half &sigma_q);
+	//void mipmap(uint num_reductions, uint gaussian_size);
+	//void loadFrameData();
+	//void loadFrameData(cv::Mat GT_depth, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose);
+	//void generate_SE3_k2k(float *_SE3_k2k);
+	//void estimateSE3 ( float SE3_results[4][6][8], float Rho_sq_results[4][8], int count = 48, uint start = 0, uint stop = 8 );
+	//void calcCostVol(float* k2k, cv::Mat &image);
+	//void cacheGValue2(cv::Mat &bgray, float theta);
 	//void DownloadAndSaveVolume_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show );
 	//void initializeCostVol(float* k2k, cv::Mat &baseImage, cv::Mat &image, float *cdata, float *hdata, float thresh, int layers);
 	//void initializeAD();
+	*/
 
 	int  convertToString(const char *filename, std::string& s){
 		size_t size;

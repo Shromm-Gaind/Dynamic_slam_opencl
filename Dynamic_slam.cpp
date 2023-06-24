@@ -995,7 +995,17 @@ void Dynamic_slam::estimateCalibration(){
 
 }
 
-void Dynamic_slam::buildDepthCostVol(){
+void Dynamic_slam::initializeDepthCostVol(){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initializeDepthCostVol()_chk 0" << flush;}
+																																			// Copy a particular imgmem to keyframe_mem, and how to calculate
+	
+	
+}
+
+void Dynamic_slam::buildDepthCostVol(){																										// Built forwards. Updates keframe only when needed.
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::buildDepthCostVol()_chk 0" << flush;}
 // # Build depth cost vol on current image, using image array[6] in MipMap buffer, plus RelVelMap, 
 // with current camera params & DepthMap if bootstrapping, otherwise with params for each frame.
 // NB 2*(1+7) = 14 layers on MipMap DepthCostVol: for model & pyramid, ID cetntre layer plus 7 samples, i.e. centre +&- 3 layers.
@@ -1012,19 +1022,23 @@ void Dynamic_slam::buildDepthCostVol(){
 	
 // Select naive depth map
 // See CostVol::updateCost(..), RunCL::calcCostVol(..) &  __kernel void BuildCostVolume2
+	uint start=0, stop=8;																													// Image pyramid layers used by mipmap_call_kernel(..)
+	int count;																																// Iteration of for loop in this function. Here used to count num imgages use in costvol.
+	cv::Matx44f K2K_ =  ; 																						// Need to calculate		// camera-to-camera transform for this image to the keyframe of this cost vol.
+	bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	runcl.buildDepthCostVol( K2K_, image_,  count, start, stop  ); 																			// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8); -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 	
 	
 }
+
+void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame.
+
+
+
+}
+
 
 // ## Regularize Maps : AbsDepth, GradDepth, SurfNormal, RelVel, 
 void Dynamic_slam::SpatialCostFns(){

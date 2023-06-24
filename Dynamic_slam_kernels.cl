@@ -806,7 +806,7 @@ __kernel void se3_grad(
 	}
 }
 
-__kernel void reduce (
+__kernel void reduce (																				// TODO use this for the second stage summation tasks.
 	__constant 	uint*		mipmap_params,	//0
 	__constant 	uint*		uint_params,	//1
 	__global	float8*		se3_sum,		//2

@@ -899,8 +899,83 @@ void RunCL::estimateCalibration(){ //estimateCalibration(); 		// own thread, one
 
 }	
 
-void RunCL::buildDepthCostVol(){ //buildDepthCostVol();
+void RunCL::initializeDepthCostVol()
+{ //buildDepthCostVol();
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
+}
 
+
+
+void RunCL::buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop)
+{ //buildDepthCostVol();
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::buildDepthCostVol(..)_chk0 ."<<flush;}
+	cl_event writeEvt;
+	cl_int status;
+	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
+	
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::buildDepthCostVol(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+                                                                                                                                            if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::buildDepthCostVol(..)_chk0.7 "<<flush;}
+	cl_int 				res;
+	
+	res = clSetKernelArg(depth_cost_vol_kernel,  1, sizeof(cl_mem), &mipmap_buf);				        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
+	res = clSetKernelArg(depth_cost_vol_kernel,  2, sizeof(cl_mem), &uint_param_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
+	res = clSetKernelArg(depth_cost_vol_kernel,  3, sizeof(cl_mem), &fp32_param_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params						//3
+	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
+	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_basemem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5		// equivalent to basemem
+	
+	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &imgmem[image_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6		// equivalent to imgmem
+	//res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &depth_mem);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB 
+	//
+	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &qmem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* qpt,
+	res = clSetKernelArg(depth_cost_vol_kernel,  8, sizeof(cl_mem), &dmem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* dpt,		// dmem,     depth D
+	res = clSetKernelArg(depth_cost_vol_kernel,  9, sizeof(cl_mem), &amem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* apt,		// amem,     auxilliary A
+	//res = clSetKernelArg(depth_cost_vol_kernel, 4, sizeof(cl_mem), &param_buf);if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
+	/* from DTAM_opencl : RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+	res = clSetKernelArg(cost_kernel, 0, sizeof(cl_mem), &k2kbuf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	res = clSetKernelArg(cost_kernel, 2, sizeof(cl_mem), &imgmem);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	*/
+	
+	/* from DTAM_opencl : RunCL::allocatemem(..)
+	res = clSetKernelArg(cost_kernel, 1, sizeof(cl_mem),  &basemem);		if(res!=CL_SUCCESS){cout<<"\nbasemem res= "   		<<checkerror(res)<<"\n"<<flush;exit_(res);} // base
+	res = clSetKernelArg(cost_kernel, 3, sizeof(cl_mem),  &cdatabuf);		if(res!=CL_SUCCESS){cout<<"\ncdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);} // cdata
+	res = clSetKernelArg(cost_kernel, 4, sizeof(cl_mem),  &hdatabuf);		if(res!=CL_SUCCESS){cout<<"\nhdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);} // hdata
+	res = clSetKernelArg(cost_kernel, 5, sizeof(cl_mem),  &lomem);			if(res!=CL_SUCCESS){cout<<"\nlomem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);} // lo
+	res = clSetKernelArg(cost_kernel, 6, sizeof(cl_mem),  &himem);			if(res!=CL_SUCCESS){cout<<"\nhimem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);} // hi
+	res = clSetKernelArg(cost_kernel, 7, sizeof(cl_mem),  &amem);			if(res!=CL_SUCCESS){cout<<"\namem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);} // a
+	res = clSetKernelArg(cost_kernel, 8, sizeof(cl_mem),  &dmem);			if(res!=CL_SUCCESS){cout<<"\ndmem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);} // d
+	res = clSetKernelArg(cost_kernel, 9, sizeof(cl_mem),  &param_buf);		if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "		<<checkerror(res)<<"\n"<<flush;exit_(res);} // param_buf
+	res = clSetKernelArg(cost_kernel,10, sizeof(cl_mem),  &img_sum_buf);	if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);} // cdata
+																				if(verbosity>0) cout << "RunCL::allocatemem_finished\n\n" << flush;
+	*/
+	
+	// ? use epth_mem[!frame_bool_idx]/[frame_bool_idx]  ?  Also for other params ?
+	/*
+	__kernel void BuildCostVolume2(						// called as "cost_kernel" in RunCL.cpp
+	// TODO rewrite with homogeneuos coords to handle points at infinity (x,y,z,0) -> (u,v,0)
+	__global float* k2k,		//0
+	__global float* base,		//1  // uchar*
+	__global float* img,		//2  // uchar*
+	__global float* cdata,		//3
+	__global float* hdata,		//4  'w' num times cost vol elem has been updated
+	__global float* lo, 		//5
+	__global float* hi,			//6
+	__global float* a,			//7
+	__global float* d,			//8
+	__constant float* params,	//9  pixels, rows, cols, layers, max_inv_depth, min_inv_depth, inv_d_step, threshold
+	__global float* img_sum)	//10
+{
+	*/
+	
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
+	mipmap_call_kernel( depth_cost_vol_kernel, m_queue, start, stop );
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;}
+	
+	
+	// __kernel void DepthCostVol()
+	
 
 }
 
