@@ -903,6 +903,13 @@ void RunCL::initializeDepthCostVol()
 { //buildDepthCostVol();
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
+																																			
+																																			// Zero the new cost vol
+																																			// Load keyframe,
+																																			
+																																			// Transform buffers from previous keyframe
+																																			// Load significant previous images, to generate the new cost volume.
+																																			// NB would need a list of which frames to load, i.e with relevant paralax for area (depth) of interest.
 }
 
 
@@ -918,20 +925,56 @@ void RunCL::buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint 
 	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::buildDepthCostVol(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::buildDepthCostVol(..)_chk0.7 "<<flush;}
 	cl_int 				res;
+	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                        //__private	    uint	    layer,		                    //0
+	res = clSetKernelArg(depth_cost_vol_kernel,  1, sizeof(cl_mem), &mipmap_buf);			if(res!=CL_SUCCESS){cout<<"\nmipmap_buf = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
+	res = clSetKernelArg(depth_cost_vol_kernel,  2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nuint_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
+	res = clSetKernelArg(depth_cost_vol_kernel,  3, sizeof(cl_mem), &fp32_param_buf);		if(res!=CL_SUCCESS){cout<<"\nfp32_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params						//3
+	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
+	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_basemem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5		// equivalent to basemem
 	
-	res = clSetKernelArg(depth_cost_vol_kernel,  1, sizeof(cl_mem), &mipmap_buf);				        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
-	res = clSetKernelArg(depth_cost_vol_kernel,  2, sizeof(cl_mem), &uint_param_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
-	res = clSetKernelArg(depth_cost_vol_kernel,  3, sizeof(cl_mem), &fp32_param_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params						//3
-	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
-	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_basemem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5		// equivalent to basemem
+	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &imgmem[image_idx]);	if(res!=CL_SUCCESS){cout<<"\nimgmem[image_idx] = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6		// equivalent to imgmem
+	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &cdatabuf);				if(res!=CL_SUCCESS){cout<<"\ncdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdata
+	res = clSetKernelArg(depth_cost_vol_kernel,  8, sizeof(cl_mem), &hdatabuf);				if(res!=CL_SUCCESS){cout<<"\nhdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// hdata
+	res = clSetKernelArg(depth_cost_vol_kernel,  9, sizeof(cl_mem), &lomem);				if(res!=CL_SUCCESS){cout<<"\nlomem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// lo
+	res = clSetKernelArg(depth_cost_vol_kernel, 10, sizeof(cl_mem), &himem);				if(res!=CL_SUCCESS){cout<<"\nhimem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// hi
+	res = clSetKernelArg(depth_cost_vol_kernel, 11, sizeof(cl_mem), &amem);					if(res!=CL_SUCCESS){cout<<"\namem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// a	//__global 		float* apt,	// amem, auxilliary A
+	res = clSetKernelArg(depth_cost_vol_kernel, 12, sizeof(cl_mem), &dmem);					if(res!=CL_SUCCESS){cout<<"\ndmem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// d	//__global 		float* dpt,	// dmem, depth D
+	res = clSetKernelArg(depth_cost_vol_kernel, 13, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdata
 	
-	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &imgmem[image_idx]);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6		// equivalent to imgmem
-	//res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &depth_mem);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB 
-	//
-	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &qmem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* qpt,
-	res = clSetKernelArg(depth_cost_vol_kernel,  8, sizeof(cl_mem), &dmem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* dpt,		// dmem,     depth D
-	res = clSetKernelArg(depth_cost_vol_kernel,  9, sizeof(cl_mem), &amem);	 							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}	//__global 		float* apt,		// amem,     auxilliary A
-	//res = clSetKernelArg(depth_cost_vol_kernel, 4, sizeof(cl_mem), &param_buf);if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	/*
+	#define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
+	#define MIN_INV_DEPTH		1
+	#define INV_DEPTH_STEP		2
+	#define ALPHA_G				3
+	#define BETA_G				4	//  __kernel void CacheG4
+	#define EPSILON 			5	//  __kernel void UpdateQD		// epsilon = 0.1
+	#define SIGMA_Q 			6									// sigma_q = 0.0559017
+	#define SIGMA_D 			7
+	#define THETA				8
+	#define LAMBDA				9	//  __kernel void UpdateA2
+	#define SCALE_EAUX			10
+	#define SE3_LM_A			11	// LM damped least squares parameters for SE3 tracking
+	#define SE3_LM_B			12
+	*/
+	
+	/* param_buf , from from DTAM_opencl : RunCL::calcCostVol(float* k2k,  cv::Mat &image) -> __kernel void BuildCostVolume2(..)
+	#define pixels_			0  // Can these be #included from a common header for both host and device code?
+	#define rows_			1
+	#define cols_			2
+	#define layers_			3
+	
+	#define max_inv_depth_	4
+	#define min_inv_depth_	5
+	#define inv_d_step_		6
+	#define alpha_g_		7
+	#define beta_g_			8	///  __kernel void CacheG4
+	#define epsilon_		9	///  __kernel void UpdateQD		// epsilon = 0.1
+	#define sigma_q_		10									// sigma_q = 0.0559017
+	#define sigma_d_		11
+	#define theta_			12
+	#define lambda_			13	///   __kernel void UpdateA2
+	#define scale_Eaux_		14
+	*/
 	
 	/* from DTAM_opencl : RunCL::calcCostVol(float* k2k,  cv::Mat &image)
 	res = clSetKernelArg(cost_kernel, 0, sizeof(cl_mem), &k2kbuf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}

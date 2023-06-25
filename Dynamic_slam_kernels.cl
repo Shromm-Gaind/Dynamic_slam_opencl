@@ -806,7 +806,7 @@ __kernel void se3_grad(
 	}
 }
 
-__kernel void reduce (																				// TODO use this for the second stage summation tasks.
+__kernel void reduce (																				// TODO use this for the second stage image summation tasks.
 	__constant 	uint*		mipmap_params,	//0
 	__constant 	uint*		uint_params,	//1
 	__global	float8*		se3_sum,		//2
@@ -856,6 +856,247 @@ __kernel void reduce (																				// TODO use this for the second stage 
 		}else se3_sum2[global_sum_offset] = 0;
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////// Depth mapping //////////////////////////////////////////
+
+__kernel void DepthCostVol(
+	__private	uint	mipmap_layer,		//0		? Not required ?
+	__constant 	uint*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float*  k2k,				//4
+	__global 	float4* base,				//5		keyframe_basemem
+	__global 	float4* img,				//6
+	__global 	float*  cdata,				//7
+	__global 	float*  hdata,				//8
+	__global 	float*  lo,					//9
+	__global 	float*  hi,					//10
+	__global 	float*  a,					//11
+	__global 	float*  d,					//12
+	__global 	float*  img_sum				//13
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	/////////////////////////////////////////////////////////////
+	
+	int global_id = get_global_id(0);
+	/*
+	int pixels 			= floor(params[pixels_]);
+	int rows 			= floor(params[rows_]);
+	int cols 			= floor(params[cols_]);
+	int layers			= floor(params[layers_]);
+	float max_inv_depth = params[max_inv_depth_];  // not used
+	float min_inv_depth = params[min_inv_depth_];
+	float inv_d_step 	= params[inv_d_step_];
+	float u 			= global_id % cols;														// keyframe pixel coords
+	float v 			= (int)(global_id / cols);
+	*/
+	//int offset_3 		= global_id *3;															// Get keyframe pixel values
+	float3 B;		B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
+	
+	int layers			= uint_params[LAYERS];
+	int pixels 			= uint_params[PIXELS];
+	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
+	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
+	
+	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;			// variables for the cost vol
+	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=global_id,	layer = 0;
+	float3 	c, c_00, c_01, c_10, c_11;
+	float 	c0 = cdata[cv_idx];																	// cost for this elem of cost vol
+	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
+
+	// layer zero, ////////////////////////////////////////////////////////////////////////////////////////
+	// inf depth, roation without paralax, i.e. reproj without translation.
+	// Use depth=1 unit sphere, with rotational-preprojection matrix
+
+	// precalculate depth-independent part of reprojection, h=homogeneous coords.
+	float uh2 = k2k[0]*u + k2k[1]*v + k2k[2]*1;  // +k2k[3]/z
+	float vh2 = k2k[4]*u + k2k[5]*v + k2k[6]*1;  // +k2k[7]/z
+	float wh2 = k2k[8]*u + k2k[9]*v + k2k[10]*1; // +k2k[11]/z
+	//float h/z  = k2k[12]*u + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
+	float uh3, vh3, wh3;
+
+	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	#define MAX_LAYERS 256 //64
+	float cost[MAX_LAYERS];
+	for( layer=0;  layer<layers; layer++ ){
+		cv_idx = global_id + layer*pixels;
+		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
+		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
+		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
+		uh3  = uh2 + k2k[3]*inv_depth;
+		vh3  = vh2 + k2k[7]*inv_depth;
+		wh3  = wh2 + k2k[11]*inv_depth;
+		u2   = uh3/wh3;
+		v2   = vh3/wh3;
+		//if(u==70 && v==470)printf("\n(inv_depth=%f,   ",inv_depth);
+		int_u2 = ceil(u2-0.5);		// nearest neighbour interpolation
+		int_v2 = ceil(v2-0.5);
+
+		// should cols be "read_cols" or "mm_cols" ? TODO
+		
+		if ( !((int_u2<0) || (int_u2>cols-1) || (int_v2<0) || (int_v2>rows-1)) ) {  	// if (not within new frame) skip
+			c=img[(int_v2*cols + int_u2)*3];											// nearest neighbour interpolation
+			float rx=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);					// Compute photometric cost // L2 norm between keyframe & new frame pixels.
+			rho = sqrt( rx*rx + ry*ry + rz*rz )*50;										//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
+			cost[layer] = (cost[layer]*w + rho) / (w + 1);
+			cdata[cv_idx] = cost[layer];  												// CostVol set here ###########
+			hdata[cv_idx] = w + 1;														// Weightdata, counts updates of this costvol element.
+			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
+		}
+	}
+	for( layer=0;  layer<layers; layer++ ){
+		if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
+			minv = cost[layer];															// NB Use array private to this thread.
+			mini = layer;
+		}
+		maxv = fmax(cost[layer], maxv);
+	}
+	lo[global_id] 	= minv; 															// min photometric cost  // rho;//
+	a[global_id] 	= mini*inv_d_step + min_inv_depth;									// inverse distance
+	d[global_id] 	= mini*inv_d_step + min_inv_depth;
+	hi[global_id] 	= maxv; 															// max photometric cost
+}
+
+/*
+ __kernel void UpdateQD(
+	 __global float* g1pt,
+	 __global float* qpt,
+	 __global float* dpt,                      // dmem,     depth D
+	 __global float* apt,                      // amem,     auxilliary A
+	 //__global float* hdata,
+	 __constant float* params
+	 )
+*/
+
+__kernel void UpdateQD(
+	__private	uint	layer,				//0
+	__constant 	uint*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_param_buf,		//3
+	__global 	float* 	g1pt,				//4
+	__global 	float* 	qpt,				//5
+	__global 	float*  amem,				//6
+	__global 	float*  dmem				//7
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	///
+	
+	
+}
+
+int set_start_layer(float di, float r, float far, float depthStep, int layers, int x, int y){ //( inverse_depth, r , min_inv_depth, inv_depth_step, num_layers )
+    const float d_start = di - r;
+    const int start_layer =  floor( (d_start - far)/depthStep );
+    return (start_layer<0)? 0 : start_layer;
+}
+
+int set_end_layer(float di, float r, float far, float depthStep, int layers, int x, int y){
+    const float d_end = di + r;
+    const int end_layer = ceil((d_end - far)/depthStep) + 1;
+    return  (end_layer>(layers-1))? (layers-1) : end_layer;
+}
+
+float get_Eaux(float theta, float di, float aIdx, float far, float depthStep, float lambda, float scale_Eaux, float costval)
+{
+	const float ai = far + aIdx*depthStep;
+	return scale_Eaux*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	/*
+	// return (0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	// return 100*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	// return 10000*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	// return 1000000*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	// return 10000000*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	*/
+}
+
+/*
+ __kernel void UpdateA2(  // pointwise exhaustive search
+	__global float* cdata,                         //           cost volume
+	__global float* apt,                           // dmem,     depth D
+	__global float* dpt,                           // amem,     auxilliary A
+	__global float* lo,
+	__global float* hi,
+	//__global float* hdata,
+	__constant float* params
+)
+*/
+
+__kernel void UpdateA2(
+	__private	uint	layer,				//0
+	__constant 	uint*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_param_buf,		//3
+	__global 	float*  cdatabuf,			//4
+	__global 	float*  lomem,				//5
+	__global 	float*  himem,				//6
+	__global 	float*  amem,				//7
+	__global 	float*  dmem				//8
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	///
+	
+
+
+
+
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
 
 /*
 //uint margin 		= uint_params[MARGIN];
