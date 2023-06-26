@@ -140,8 +140,8 @@ public:
 	
 	void initializeDepthCostVol();																										// Depth costvol functions
 	void buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
-	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d);
-	void updateA(float lambda, float theta);
+	   void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
+	   void updateA(float lambda, float theta, int count, uint start, uint stop);
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
 
 	void SpatialCostFns();																												// SIRFS cost functions

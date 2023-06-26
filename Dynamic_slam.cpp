@@ -138,7 +138,22 @@ int Dynamic_slam::nextFrame() {
 	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	//use_GT_pose();
 	
-	buildDepthCostVol();
+	////////////////////////////////// Parallax depth mapping
+	
+	buildDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
+																			// NB Cost vol needs to be initialized on a particular keyframe.
+																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
+	bool doneOptimizing;
+	int  opt_count 		= 0;
+	int  max_opt_count 	= obj["max_opt_count"].asInt();
+	do{ 
+		for (int i = 0; i < 10; i++) updateQD();							// Optimize Q, D   (primal-dual)
+		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
+		opt_count ++;
+	} while (!doneOptimizing && (opt_count<max_opt_count));
+	
+	
+	//////////////////////////////////
 	
 	int outer_iter = obj["regularizer_outer_iter"].asInt();
 	int inner_iter = obj["regularizer_inner_iter"].asInt();
@@ -537,7 +552,8 @@ void Dynamic_slam::use_GT_pose(){
 	K2K 		= K2K_GT; //old_K * old_pose * inv_pose * inv_K;
 	pose2pose 	= pose2pose_GT; //old_pose * inv_pose;
 																														
-	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}   																if(verbosity>local_verbosity_threshold){ 
+	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}  
+																																			if(verbosity>local_verbosity_threshold){ 
 																																			
 																																				cout << "\n\nK = ";
 																																				for (int i=0; i<4; i++){
@@ -995,10 +1011,43 @@ void Dynamic_slam::estimateCalibration(){
 
 }
 
-void Dynamic_slam::initializeDepthCostVol(){
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+void Dynamic_slam::initialize_from_GT(){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_from_GT()_chk 0" << flush;}
+	key_frame_img			=	;
+	
+	key_frame_depth_map		=	; 
+	
+	key_frame_pose 			=	;
+	
+	initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose );
+}
+
+void Dynamic_slam::initialize_new_keyframe(){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
+	key_frame_img			=	;
+	
+	key_frame_depth_map		=	; 
+	
+	key_frame_pose 			=	;
+	
+	initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose );
+}
+
+void Dynamic_slam::initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose ){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initializeDepthCostVol()_chk 0" << flush;}
 																																			// Copy a particular imgmem to keyframe_mem, and how to calculate
+	
+	
+	
+	
+	
+	
 	
 	
 }
@@ -1033,12 +1082,40 @@ void Dynamic_slam::buildDepthCostVol(){																										// Built forwar
 	
 }
 
-void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame.
+void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame. 
 
 
 
 }
 
+
+void Dynamic_slam::updateQD()
+{														if(verbosity>1) cout<<"\nupdateQD_chk0, epsilon="<<epsilon<<" theta="<<theta<<flush;
+	computeSigmas(epsilon, theta, obj["L"].asFloat() );	if(verbosity>1) cout<<"\nupdateQD_chk1, epsilon="<<epsilon<<" theta="<<theta<<" sigma_q="<<sigma_q<<" sigma_d="<<sigma_d<<flush;
+	cvrc.updateQD(epsilon, theta, sigma_q, sigma_d);	if(verbosity>1) cout<<"\nupdateQD_chk3, epsilon="<<epsilon<<" theta="<<theta<<" sigma_q="<<sigma_q<<" sigma_d="<<sigma_d<<flush;
+}
+
+bool Dynamic_slam::updateA()
+{
+	if(verbosity>1) cout<<"\nCostVol::updateA "<<flush;
+	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
+	// bool doneOptimizing = (theta <= thetaMin);
+	cvrc.updateA(lambda,theta);
+	theta *= thetaStep;
+	//return doneOptimizing;
+	if(verbosity>1) cout<<"\nCostVol::updateA finished"<<flush;
+	return false;
+}
+
+
+
+
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ## Regularize Maps : AbsDepth, GradDepth, SurfNormal, RelVel, 
 void Dynamic_slam::SpatialCostFns(){

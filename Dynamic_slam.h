@@ -92,9 +92,16 @@ class Dynamic_slam
     void estimateSE3();
     void estimateCalibration();
     
-    void initializeDepthCostVol();
+    
+    void initialize_from_GT();
+    void initialize_new_keyframe();
+    void initializeDepthCostVol(   );
+    
     void buildDepthCostVol();                 // Built forwards. Updates keframe only when needed.
     void buildDepthCostVol_fast_peripheral(); // Higher levels only, built on current frame.
+    void updateQD();
+    bool updateA();
+    
     void SpatialCostFns();
     void ParsimonyCostFns();
     void ExhaustiveSearch();

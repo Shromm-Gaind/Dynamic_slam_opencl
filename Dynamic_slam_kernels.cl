@@ -883,6 +883,7 @@ __kernel void DepthCostVol(
 	uint group_size 	= get_local_size(0);
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint read_rows_		= mipmap_params[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
@@ -906,16 +907,16 @@ __kernel void DepthCostVol(
 	float v 			= (int)(global_id / cols);
 	*/
 	//int offset_3 		= global_id *3;															// Get keyframe pixel values
-	float3 B;		B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
+	float4 B = base[read_index];	//B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
 	
-	int layers			= uint_params[LAYERS];
+	int costvol_layers	= uint_params[LAYERS];
 	int pixels 			= uint_params[PIXELS];
 	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
 	
 	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;			// variables for the cost vol
 	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=global_id,	layer = 0;
-	float3 	c, c_00, c_01, c_10, c_11;
+	float4 	c, c_00, c_01, c_10, c_11;
 	float 	c0 = cdata[cv_idx];																	// cost for this elem of cost vol
 	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
 
@@ -933,7 +934,7 @@ __kernel void DepthCostVol(
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
-	for( layer=0;  layer<layers; layer++ ){
+	for( layer=0;  layer<costvol_layers; layer++ ){
 		cv_idx = global_id + layer*pixels;
 		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
 		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
@@ -949,8 +950,8 @@ __kernel void DepthCostVol(
 
 		// should cols be "read_cols" or "mm_cols" ? TODO
 		
-		if ( !((int_u2<0) || (int_u2>cols-1) || (int_v2<0) || (int_v2>rows-1)) ) {  	// if (not within new frame) skip
-			c=img[(int_v2*cols + int_u2)*3];											// nearest neighbour interpolation
+		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
+			c=img[(int_v2*read_cols_ + int_u2)*3];											// nearest neighbour interpolation
 			float rx=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);					// Compute photometric cost // L2 norm between keyframe & new frame pixels.
 			rho = sqrt( rx*rx + ry*ry + rz*rz )*50;										//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
 			cost[layer] = (cost[layer]*w + rho) / (w + 1);
@@ -959,7 +960,7 @@ __kernel void DepthCostVol(
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
 		}
 	}
-	for( layer=0;  layer<layers; layer++ ){
+	for( layer=0;  layer<costvol_layers; layer++ ){
 		if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
 			minv = cost[layer];															// NB Use array private to this thread.
 			mini = layer;
@@ -987,11 +988,11 @@ __kernel void UpdateQD(
 	__private	uint	layer,				//0
 	__constant 	uint*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
-	__global 	float*  fp32_param_buf,		//3
+	__global 	float*  fp32_params,		//3
 	__global 	float* 	g1pt,				//4
 	__global 	float* 	qpt,				//5
-	__global 	float*  amem,				//6
-	__global 	float*  dmem				//7
+	__global 	float*  apt,				//6
+	__global 	float*  dpt					//7
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -1001,16 +1002,69 @@ __kernel void UpdateQD(
 	uint group_size 	= get_local_size(0);
 	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint read_rows_		= mipmap_params[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
-	uint v    			= global_id_u / read_cols_;					// read_row
-	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	uint v    			= global_id_u / read_cols_;						// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);				// read_column
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
-	///
+	///////////////////////////////////
 	
+	//int g_id 			= get_global_id(0);
+	//int rows 			= floor(params[rows_]);
+	//int cols 			= floor(params[cols_]);
+	int costvol_layers	= uint_params[LAYERS];
+	float epsilon 		= fp32_params[EPSILON];
+	float sigma_q 		= fp32_params[SIGMA_Q];
+	float sigma_d 		= fp32_params[SIGMA_D];
+	float theta 		= fp32_params[THETA];
+	
+	int y = global_id_u / read_cols_;
+	int x = global_id_u % read_cols_;
+	unsigned int pt = x + y * mm_cols;									// index of this pixel
+	if (pt >= (mm_cols*read_rows_ + read_offset_))return;
+	//if (hdata[pt+ (costvol_layers-1)*rows*cols] <=0.0) return;		// if no input image overlaps, on layer 0 of hitbuffer, skip this pixel. // makes no difference
+	barrier(CLK_GLOBAL_MEM_FENCE);
+	const int wh = (mm_cols*read_rows_ + read_offset_);
+	
+	float g1 = g1pt[pt];
+	float qx = qpt[pt];
+	float qy = qpt[pt+wh];
+	float d  = dpt[pt];
+	float a  = apt[pt];
+	
+	const float dd_x = (x==read_cols_-1)? 0.0f : dpt[pt+1]       - d;	// Sample depth gradient in x&y
+	const float dd_y = (y==read_rows_-1)? 0.0f : dpt[pt+mm_cols] - d;
+	
+	qx = (qx + sigma_q*g1*dd_x) / (1.0f + sigma_q*epsilon);				// DTAM paper, primal-dual update step
+	qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1
+	const float maxq = fmax(1.0f, sqrt(qx*qx + qy*qy));
+	qx 			= qx/maxq;
+	qy 			= qy/maxq;
+	qpt[pt]		= qx;  													//dd_x;//pt2;//wh;//pt;//dd_x;//qx / maxq;
+	qpt[pt+wh]	= qy;  													//dd_y;//pt;//;//y;//dd_y;//dpt[pt+1] - d; //dd_y;//qy / maxq;
+	
+	barrier(CLK_GLOBAL_MEM_FENCE);										// needs to be after all Q updates.
+	
+	float dqx_x;														// = div_q_x(q, w, x, i);				// div_q_x(..)
+	if (x == 0) dqx_x = qx;
+	else if (x == read_cols_-1) dqx_x =  -qpt[pt-1];
+	else dqx_x =  qx- qpt[pt-1];
+	
+	float dqy_y;														// = div_q_y(q, w, h, wh, y, i);		// div_q_y(..)
+	if (y == 0) dqy_y =  qy;											// return q[i];
+	else if (y == read_rows_-1) dqy_y = -qpt[pt+wh-mm_cols];			// return -q[i-1];
+	else dqy_y =  qy - qpt[pt+wh-read_cols_];							// return q[i]- q[i-w];
+	
+	const float div_q = dqx_x + dqy_y;
+	
+	dpt[pt] = (d + sigma_d * (g1*div_q + a/theta)) / (1.0f + sigma_d/theta);
+	
+	//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
+		 dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
 	
 }
 
@@ -1055,12 +1109,12 @@ __kernel void UpdateA2(
 	__private	uint	layer,				//0
 	__constant 	uint*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
-	__global 	float*  fp32_param_buf,		//3
-	__global 	float*  cdatabuf,			//4
-	__global 	float*  lomem,				//5
-	__global 	float*  himem,				//6
-	__global 	float*  amem,				//7
-	__global 	float*  dmem				//8
+	__global 	float*  fp32_params,		//3
+	__global 	float*  cdata,				//4
+	__global 	float*  lo,					//5
+	__global 	float*  hi,					//6
+	__global 	float*  apt,				//7
+	__global 	float*  dpt					//8
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -1078,13 +1132,68 @@ __kernel void UpdateA2(
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
-	///
+	//////////////////////////////////////
 	
+	//int x 				= get_global_id(0);						// int costvol_layers	= uint_params[LAYERS];
+	//int rows 				= floor(params[rows_]);
+	//int cols 				= floor(params[cols_]);
+	int costvol_layers		= uint_params[LAYERS];					//floor(params[layers_]);
+	unsigned int layer_step = uint_params[MM_PIXELS];				//floor(params[pixels_]);
+	float lambda			= fp32_params[LAMBDA];					//params[lambda_];
+	float theta				= fp32_params[THETA];					//params[theta_];
+	float max_d				= fp32_params[MAX_INV_DEPTH];			//params[max_inv_depth_]; //near
+	float min_d				= fp32_params[MIN_INV_DEPTH];			//params[min_inv_depth_]; //far
+	float scale_Eaux		= fp32_params[SCALE_EAUX];				//params[scale_Eaux_];
+	/*
+	int y = global_id_u / read_cols_;
+	x = x % read_cols_;
+	unsigned int pt  = x + y * mm_cols * margin;					// index of this pixel
+	if (pt >= (cols*rows))return;
+	//if (hdata[pt+ (costvol_layers-1)*rows*cols] <=0.0) return;	// if no input image overlaps, on layer 0 of hitbuffer, skip this pixel.// makes no difference
+	*/
+	unsigned int cpt = read_index;
+	
+	barrier(CLK_GLOBAL_MEM_FENCE);
+	
+	float d  		= dpt[read_index];
+	float E_a  		= FLT_MAX;
+	float min_val	= FLT_MAX;
+	int   min_layer	= 0;
+	
+	const float depthStep 	= fp32_params[INV_DEPTH_STEP];			//(min_d - max_d) / (costvol_layers - 1);
+	//const int   layerStep 	= rows*cols;
+	const float r 			= sqrt( 2*theta*lambda*(hi[read_index] - lo[read_index]) );
+	const int 	start_layer = set_start_layer(d, r, max_d, depthStep, costvol_layers, u, v);  // 0;//
+	const int 	end_layer   = set_end_layer  (d, r, max_d, depthStep, costvol_layers, u, v);  // costvol_layers-1; //
+	int 		minl 		= 0;
+	float 		Eaux_min 	= 1e+30; 								// set high initial value
+	
+	for(int l = start_layer; l <= end_layer; l++) {
+		const float cost_total = get_Eaux(theta, d, (float)l, min_d, depthStep, lambda, scale_Eaux, cdata[read_index+l*layer_step]);
+		// apt[read_index+l*layerStep] = cost_total;  				// DTAM_Mapping collects an Eaux volume, for debugging.
+		if(cost_total < Eaux_min) {
+			Eaux_min = cost_total;
+			minl = l;
+		}
+	 }
+	float a = min_d + minl*depthStep;  								// NB implicit conversion: int minl -> float.
 
+	//refinement step
+	if(minl > start_layer && minl < end_layer){ 					//return;// if(minl == 0 || minl == costvol_layers-1) // first or last was best
+																	// sublayer sampling as the minimum of the parabola with the 2 points around (minl, Eaux_min)
+		const float A = get_Eaux(theta, d, minl-1, max_d, depthStep, lambda, scale_Eaux, cdata[read_index+(minl-1)*layer_step]);
+		const float B = Eaux_min;
+		const float C = get_Eaux(theta, d, minl+1, max_d, depthStep, lambda, scale_Eaux, cdata[read_index+(minl+1)*layer_step]);
+		// float delta = ((A+C)==2*B)? 0.0f : ((A-C)*depthStep)/(2*(A-2*B+C));
+		float delta = ((A+C)==2*B)? 0.0f : ((C-A)*depthStep)/(2*(A-2*B+C));
+		delta = (fabs(delta) > depthStep)? 0.0f : delta;
+		// a[i] += delta;
+		a -= delta;
+	}
+	apt[read_index] = a;
 
-
-
-
+	//if (x==200 && y==200) printf("\n\nUpdateA: theta=%f, lambda=%f, hi=%f, lo=%f, r=%f, d=%f, min_d=%f, max_d=%f, minl=%f, depthStep=%f, costvol_layers=%i, start_layer=%i, end_layer=%i", \
+	//	theta, lambda, hi[read_index], lo[read_index], r, d, min_d, max_d, minl, depthStep, costvol_layers, start_layer, end_layer );
 }
 
 

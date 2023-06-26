@@ -29,12 +29,24 @@ int main(int argc, char *argv[])
 	Dynamic_slam dynamic_slam(obj);											// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
 																			// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
+	
+	// NB need to initialize the cost volume with a key frame, and tracking with a depth map.
+	// Also need a test for when to start a new keyframe.
+																			
+	dynamic_slam.initialize_from_GT();
+	
 	int max_frame_count = obj["max_frame_count"].asUInt();	
 	int frame_count 	= 0;
 	int ds_error 		= 0;
-	do{
-		ds_error = dynamic_slam.nextFrame();
-		frame_count ++;
+	do{																		// Long do while not yet crashed loop.
+		
+		for (int i=0; i<10; i++){											// Inner loop per keyframe.
+			ds_error = dynamic_slam.nextFrame();
+			frame_count ++;
+		}
+		dynamic_slam.initialize_new_keyframe();
+		
+		
 	}while(!ds_error && ((frame_count<max_frame_count) || (max_frame_count==-1)) );
 																			if(verbosity_>0) cout << "\n main_chk 2\n" << flush;
 	dynamic_slam.getResult();												// also calls RunCL::CleanUp()
