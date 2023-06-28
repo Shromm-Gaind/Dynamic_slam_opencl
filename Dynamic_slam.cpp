@@ -134,7 +134,7 @@ int Dynamic_slam::nextFrame() {
 	report_GT_error();
 	display_frame_resluts();
 	
-	predictFrame();
+	predictFrame();					// updates pose2pose for next frame in cost volume.
 	
 	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	//use_GT_pose();
@@ -165,6 +165,7 @@ int Dynamic_slam::nextFrame() {
 		}
 		ExhaustiveSearch();
 	}
+	runcl.costvol_frame_num++;
 	runcl.frame_num++;
 	return(0);					// NB option to return an error that stops the main loop.
 };
@@ -251,11 +252,13 @@ void Dynamic_slam::predictFrame(){
 	inv_old_K			= keyframe_inv_K;		//= inv_K;
 	old_pose			= keyframe_pose;		//= pose;
 	inv_old_pose		= keyframe_inv_pose;	//= inv_pose;
-	 
+	
 	pose2pose_algebra_2 	= pose2pose_algebra_1;
 	pose2pose_algebra_1 	= SE3_Algebra(pose2pose);
-	pose2pose_algebra_0		= pose2pose_algebra_1 + (runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
-	// TODO how to handle pose2pose at new keyframe ?
+	
+	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
+	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
+	
 	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
 	K2K = old_K * pose2pose * inv_K;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4); }
@@ -1029,6 +1032,7 @@ void Dynamic_slam::initialize_new_keyframe(){
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
 	keyframe_pose 	=	pose;
 	keyframe_K		=	K;
+	
 	runcl.initializeDepthCostVol( runcl.depth_mem );
 }
 
@@ -1059,6 +1063,10 @@ void Dynamic_slam::updateDepthCostVol(){																									// Built forwar
 	runcl.updateDepthCostVol( K2K_, image_,  count, start, stop  ); 																		// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
 																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);
 																																			// -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
+
+	
+	
+	
 }
 
 void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame. 
@@ -1067,11 +1075,21 @@ void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// 
 
 }
 
+void Dynamic_slam::computeSigmas(float epsilon, float theta, float L){
+		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
+		runcl.fp32_params[SIGMA_D]	= mu / (2.0/ theta);
+		runcl.fp32_params[SIGMA_Q]	= mu / (2.0*epsilon);
+}
 
 void Dynamic_slam::updateQD()
-{														if(verbosity>1) cout<<"\nupdateQD_chk0, epsilon="<<epsilon<<" theta="<<theta<<flush;
-	computeSigmas(epsilon, theta, obj["L"].asFloat() );	if(verbosity>1) cout<<"\nupdateQD_chk1, epsilon="<<epsilon<<" theta="<<theta<<" sigma_q="<<sigma_q<<" sigma_d="<<sigma_d<<flush;
-	cvrc.updateQD(epsilon, theta, sigma_q, sigma_d);	if(verbosity>1) cout<<"\nupdateQD_chk3, epsilon="<<epsilon<<" theta="<<theta<<" sigma_q="<<sigma_q<<" sigma_d="<<sigma_d<<flush;
+{														if(verbosity>1) cout<<"\nupdateQD_chk0, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]<<flush;
+	computeSigmas(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], obj["L"].asFloat() );												if(verbosity>1) cout<<"\nupdateQD_chk1, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
+																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
+	uint start=0, stop=8;	// TODO fix this																								// Image pyramid layers used by mipmap_call_kernel(..)
+	int count;				// TODO fix this
+	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q]/*sigma_q*/, runcl.fp32_params[SIGMA_D]/*sigma_d*/,  count, start, stop);	
+																																			if(verbosity>1) cout<<"\nupdateQD_chk3, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
+																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
 }
 
 bool Dynamic_slam::updateA()
@@ -1079,8 +1097,14 @@ bool Dynamic_slam::updateA()
 	if(verbosity>1) cout<<"\nCostVol::updateA "<<flush;
 	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
 	// bool doneOptimizing = (theta <= thetaMin);
-	cvrc.updateA(lambda,theta);
-	theta *= thetaStep;
+	
+	
+	uint start=0, stop=8;	// TODO fix this																								// Image pyramid layers used by mipmap_call_kernel(..)
+	int count;				// TODO fix this
+	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], count, start, stop );
+	
+	runcl.fp32_params[THETA] *= obj["thetaStep"].asFloat();
+	
 	//return doneOptimizing;
 	if(verbosity>1) cout<<"\nCostVol::updateA finished"<<flush;
 	return false;

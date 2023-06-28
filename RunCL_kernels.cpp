@@ -912,6 +912,7 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src)			 									
 { //Dynamic_slam::initialize_from_GT(), Dynamic_slam::initialize_new_keyframe();
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
+	costvol_frame_num = 0;
 	cl_event writeEvt, ev;																													// Load keyframe
 	cl_int res, status;
 	status = clEnqueueCopyBuffer( m_queue, basemem, 								keyframe_basemem, 			0, 0, mm_size_bytes_C4, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_basemem\n" 				<< flush;exit_(status);}

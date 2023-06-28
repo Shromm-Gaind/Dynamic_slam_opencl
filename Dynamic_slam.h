@@ -102,6 +102,7 @@ class Dynamic_slam
     
     void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
     void buildDepthCostVol_fast_peripheral(); // Higher levels only, built on current frame.
+    void computeSigmas(float epsilon, float theta, float L);
     void updateQD();
     bool updateA();
     
