@@ -309,8 +309,8 @@ void RunCL::img_gradients(){ //getFrame();
 	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &gymem[frame_bool_idx]);				          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gyp,		//6
 	res = clSetKernelArg(img_grad_kernel, 7, sizeof(cl_mem), &g1mem[frame_bool_idx]);				          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//7
 	res = clSetKernelArg(img_grad_kernel, 8, sizeof(cl_mem), &SE3_map_mem);							          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float2*	SE3_map,	//8
-	res = clSetKernelArg(img_grad_kernel, 9, sizeof(cl_mem), &depth_mem);							          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	float* 		depth_map,	//9		// NB GT_depth, not inv_depth
-	res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	SE3_grad_map//10
+	//res = clSetKernelArg(img_grad_kernel, 9, sizeof(cl_mem), &depth_mem);							          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	float* 		depth_map,	//9		// NB GT_depth, not inv_depth
+	res = clSetKernelArg(img_grad_kernel, 9, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	SE3_grad_map//9
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
@@ -354,15 +354,24 @@ void RunCL::img_gradients(){ //getFrame();
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk4 Finished."<<flush;}
 }
 
-void RunCL::load_GT_depth(cv::Mat GT_depth){ //getFrameData();, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose
+void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose
     int local_verbosity_threshold = 1;
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_0:"<<flush;
     //for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_1:  K2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
     
-    cl_event 			writeEvt;
-	cl_int 				status;
+    cl_event 			ev, writeEvt;
+	cl_int 				res, status;
     status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, mm_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::loadFrameData(..)_chk_2\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
     
+	if (invert==true) {
+		res 	= clSetKernelArg(comp_param_maps_kernel, 1, sizeof(cl_mem),     &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint8*	mipmap_params,		//0
+		res 	= clSetKernelArg(comp_param_maps_kernel, 1, sizeof(cl_mem),     &depth_mem);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 	depth_map,			//1
+		res 	= clEnqueueNDRangeKernel(m_queue, invert_depth_kernel, 1, 0, &global_work_size, 0, 0, NULL, &ev);
+																									if (res != CL_SUCCESS)		{ cout << "\nres = " 											<<checkerror(res) 		<<"\n"<<flush; exit_(res);}
+		status 	= clFlush(m_queue);																	if (status != CL_SUCCESS)	{ cout << "\nclFlush(queue_to_call) status  = "	<<status<<" "	<<checkerror(status) 	<<"\n"<<flush; exit_(status);}
+		status 	= clWaitForEvents (1, &ev);															if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="		<<status<<" "	<<checkerror(status) 	<<"\n"<<flush; exit_(status);}
+	}
+	
 }
 
 void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
@@ -420,18 +429,18 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
     res = clSetKernelArg(so3_grad_kernel, 1, sizeof(cl_mem), &mipmap_buf);				                        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
 	res = clSetKernelArg(so3_grad_kernel, 2, sizeof(cl_mem), &uint_param_buf);						            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
 	res = clSetKernelArg(so3_grad_kernel, 3, sizeof(cl_mem), &fp32_param_buf);						            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params						//3
-	res = clSetKernelArg(so3_grad_kernel, 4, sizeof(cl_mem), &k2kbuf);								        	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
-	res = clSetKernelArg(so3_grad_kernel, 5, sizeof(cl_mem), &imgmem[frame_bool_idx]);				            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5
+	res = clSetKernelArg(so3_grad_kernel, 4, sizeof(cl_mem), &k2kbuf);								        	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4		// TODO keyframe2K
+	res = clSetKernelArg(so3_grad_kernel, 5, sizeof(cl_mem), &keyframe_imgmem);									if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5		// TODO need keyframe mipmap   keyframe_imgmem , keyframe_depth_mem
 	res = clSetKernelArg(so3_grad_kernel, 6, sizeof(cl_mem), &imgmem[!frame_bool_idx]);				            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6
-	res = clSetKernelArg(so3_grad_kernel, 7, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
+	res = clSetKernelArg(so3_grad_kernel, 7, sizeof(cl_mem), &keyframe_SE3_grad_map_mem);	            		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
 	res = clSetKernelArg(so3_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[!frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[!frame_bool_idx]	//8
 	//res = clSetKernelArg(so3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB GT_depth, not inv_depth depth_mem
-	res = clSetKernelArg(so3_grad_kernel,9, local_work_size*3*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_grads					//10	3 DoF, float4 channels TODO why 7 ?
-	res = clSetKernelArg(so3_grad_kernel,10, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_grads,				//11
-	res = clSetKernelArg(so3_grad_kernel,11, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
-	res = clSetKernelArg(so3_grad_kernel,12, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     Rho_					        //13
-	res = clSetKernelArg(so3_grad_kernel,13, local_work_size*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_rho_sq				//14	1 DoF, float4 channels
-	res = clSetKernelArg(so3_grad_kernel,14, sizeof(cl_mem), &se3_sum_rho_sq_mem);		 					    if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_rho_sq,				//15
+	res = clSetKernelArg(so3_grad_kernel,9, local_work_size*3*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_grads					//9		3 DoF, float4 channels TODO why 7 ?
+	res = clSetKernelArg(so3_grad_kernel,10, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_grads,				//10
+	res = clSetKernelArg(so3_grad_kernel,11, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//11
+	res = clSetKernelArg(so3_grad_kernel,12, sizeof(cl_mem), &SE3_rho_map_mem);					                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	    float4*     Rho_					        //12
+	res = clSetKernelArg(so3_grad_kernel,13, local_work_size*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_rho_sq				//13	1 DoF, float4 channels
+	res = clSetKernelArg(so3_grad_kernel,14, sizeof(cl_mem), &se3_sum_rho_sq_mem);		 					    if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_rho_sq,				//14
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk2 ."<<flush;}
 	mipmap_call_kernel( so3_grad_kernel, m_queue, start, stop );
@@ -598,12 +607,12 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
     res = clSetKernelArg(se3_grad_kernel, 1, sizeof(cl_mem), &mipmap_buf);				                        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
 	res = clSetKernelArg(se3_grad_kernel, 2, sizeof(cl_mem), &uint_param_buf);						            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
 	res = clSetKernelArg(se3_grad_kernel, 3, sizeof(cl_mem), &fp32_param_buf);						            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params						//3
-	res = clSetKernelArg(se3_grad_kernel, 4, sizeof(cl_mem), &k2kbuf);								            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
-	res = clSetKernelArg(se3_grad_kernel, 5, sizeof(cl_mem), &imgmem[frame_bool_idx]);				            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[frame_bool_idx],			//5
+	res = clSetKernelArg(se3_grad_kernel, 4, sizeof(cl_mem), &k2kbuf);								            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4		// TODO keyframe2K
+	res = clSetKernelArg(se3_grad_kernel, 5, sizeof(cl_mem), &keyframe_imgmem);				            		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		keyframe_imgmem,				//5		// TODO need keyframe mipmap   keyframe_imgmem , keyframe_depth_mem
 	res = clSetKernelArg(se3_grad_kernel, 6, sizeof(cl_mem), &imgmem[!frame_bool_idx]);				            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem[!frame_bool_idx],		//6
-	res = clSetKernelArg(se3_grad_kernel, 7, sizeof(cl_mem), &SE3_grad_map_mem[frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
+	res = clSetKernelArg(se3_grad_kernel, 7, sizeof(cl_mem), &keyframe_SE3_grad_map_mem);	            		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[frame_bool_idx]	//7
 	res = clSetKernelArg(se3_grad_kernel, 8, sizeof(cl_mem), &SE3_grad_map_mem[!frame_bool_idx]);	            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_grad_map[!frame_bool_idx]	//8
-	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &depth_mem);						                if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		depth_map					    //9		// NB GT_depth, not inv_depth depth_mem
+	res = clSetKernelArg(se3_grad_kernel, 9, sizeof(cl_mem), &keyframe_depth_mem);								if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float*		keyframe_depth_mem				//9		// NB GT_depth, now stoed as inv_depth	// TODO need keyframe mipmap
 	res = clSetKernelArg(se3_grad_kernel,10, local_work_size*7*4*sizeof(float), NULL);					        if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_grads					//10	6 DoF, float4 channels
 	res = clSetKernelArg(se3_grad_kernel,11, sizeof(cl_mem), &se3_sum_mem);		 					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_grads,				//11
 	res = clSetKernelArg(se3_grad_kernel,12, sizeof(cl_mem), &SE3_incr_map_mem);					            if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float4*		SE3_incr_map_					//12
@@ -899,20 +908,40 @@ void RunCL::estimateCalibration(){ //estimateCalibration(); 		// own thread, one
 
 }	
 
-void RunCL::initializeDepthCostVol()
-{ //buildDepthCostVol();
+void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src)			 																// Uses the current frame as the keyframe for a new depth cost volume.
+{ //Dynamic_slam::initialize_from_GT(), Dynamic_slam::initialize_new_keyframe();
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
+	cl_event writeEvt, ev;																													// Load keyframe
+	cl_int res, status;
+	status = clEnqueueCopyBuffer( m_queue, basemem, 								keyframe_basemem, 			0, 0, mm_size_bytes_C4, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_basemem\n" 				<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, imgmem[frame_bool_idx], 					keyframe_imgmem, 			0, 0, mm_size_bytes_C4, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_imgmem[frame_bool_idx]\n" 	<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src,					keyframe_depth_mem, 		0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" << flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, g1mem[frame_bool_idx], 					keyframe_g1mem, 			0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_g1mem[frame_bool_idx]\n" 	<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, SE3_grad_map_mem[frame_bool_idx], 		keyframe_SE3_grad_map_mem, 	0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_g1mem[frame_bool_idx]\n" 	<< flush;exit_(status);}
+	
+	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)\n" 	<< flush;exit_(status);}
+	
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1 ."<<flush;}
 																																			
-																																			// Zero the new cost vol
-																																			// Load keyframe,
-																																			
-																																			// Transform buffers from previous keyframe
-																																			// Load significant previous images, to generate the new cost volume.
-																																			// NB would need a list of which frames to load, i.e with relevant paralax for area (depth) of interest.
+	float depth = 1/( obj["max_depth"].asFloat() - obj["min_depth"].asFloat() );															// Zero the new cost vol. NB 'depth' _might_ be a useful start value when bootstrapping.
+	float zero  = 0;
+	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.1\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.2\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, img_sum_buf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.3\n"<< endl;exit_(status);}		clFlush(uload_queue); status = clFinish(uload_queue);
+	
+	//status = clEnqueueFillBuffer(uload_queue, dmem, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	//status = clEnqueueFillBuffer(uload_queue, amem, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, qmem, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, lomem, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.7\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, himem, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::initializeDepthCostVol_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+
+	clFlush(uload_queue); status = clFinish(uload_queue); 																					if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
+	
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk2 ."<<flush;}
 }
 
-void RunCL::buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop)
+void RunCL::updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop)
 { //buildDepthCostVol();
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::buildDepthCostVol(..)_chk0 ."<<flush;}
@@ -1037,7 +1066,7 @@ void RunCL::buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint 
 											if(verbosity>0) {
 												stringstream ss;
 												ss << "buildDepthCostVol";
-												ss << (keyFrameCount*1000 + costVolCount);																							// Save buffers to file ###########
+												ss << (keyFrameCount*1000 + costVolCount);													// Save buffers to file ###########
 												DownloadAndSave_3Channel(	imgmem[image_idx],  ss.str(), paths.at("imgmem"), mm_size_bytes_C3,   mm_Image_size,   CV_32FC3, 	false );
 												DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
 												DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[LAYERS]
@@ -1060,7 +1089,7 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 
 	cl_int status, res;
 	cl_event writeEvt, ev;
-	status = clEnqueueWriteBuffer(uload_queue, fp32_param_buf, CL_FALSE, 0, 16 * sizeof(float), fp32_params, 0, NULL, &writeEvt); 										// WriteBuffer param_buf ##########
+	status = clEnqueueWriteBuffer(uload_queue, fp32_param_buf, CL_FALSE, 0, 16 * sizeof(float), fp32_params, 0, NULL, &writeEvt); 			// WriteBuffer param_buf ##########
 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: updateQD_chk0\n"	<< endl; exit_(status);}
 	status = clFlush(uload_queue); 						if (status != CL_SUCCESS)	{ cout << "\nclFlush status = " 				<< checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = waitForEventAndRelease(&writeEvt); 	if (status != CL_SUCCESS)	{ cout << "\nwaitForEventAndRelease status = " 	<< checkerror(status) <<"\n"<<flush; exit_(status);}

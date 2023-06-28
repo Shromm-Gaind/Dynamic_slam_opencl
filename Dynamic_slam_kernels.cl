@@ -235,7 +235,6 @@ __kernel void image_variance(
 	}
 }
 
-
 __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
 	__constant 	uint8*	mipmap_params,	//1
@@ -326,7 +325,6 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	img[ write_index] = reduced_pixel;
 }
 
-
 __kernel void  img_grad(
 	__private	uint		layer,			//0
 	__constant	uint8*		mipmap_params,	//1
@@ -337,8 +335,8 @@ __kernel void  img_grad(
 	__global 	float4*		gyp,			//6
 	__global 	float4*		g1p,			//7
 	__constant 	float2*		SE3_map,		//8
-	__global	float* 		depth_map,		//9														// NB GT_depth, not inv_depth
-	__global 	float8*		SE3_grad_map	//10													// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
+	//__global	float* 		depth_map,		//9														// NB GT_depth, not inv_depth
+	__global 	float8*		SE3_grad_map	//9														// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -397,7 +395,7 @@ __kernel void  img_grad(
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;													// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
-	uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
+	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
 	/*
 	float depth = depth_map[depth_index] ;
 	float inv_depth = 0.0f;						
@@ -422,7 +420,6 @@ __kernel void  img_grad(
 		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ; 
 	}
 }
-
 
 __kernel void compute_param_maps(
 	__private	uint	layer,			//0
@@ -657,12 +654,12 @@ __kernel void se3_grad(
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
 	__constant  float*  fp32_params,			//3
-	__global	float16*k2k,					//4
-	__global 	float4*	img_cur,				//5 
+	__global	float16*k2k,					//4		// keyframe2K
+	__global 	float4*	img_cur,				//5		// keyframe	
 	__global 	float4*	img_new,				//6
-	__global 	float8*	SE3_grad_map_cur_frame,	//7
+	__global 	float8*	SE3_grad_map_cur_frame,	//7		// keyframe
 	__global 	float8*	SE3_grad_map_new_frame,	//8
-	__global	float* 	depth_map,				//9		// NB GT_depth, not inv_depth
+	__global	float* 	depth_map,				//9		// NB keyframe GT_depth, now stored as inv_depth
 	__local		float4*	local_sum_grads,		//10
 	__global	float4*	global_sum_grads,		//11
 	__global 	float4*	SE3_incr_map_,			//12
@@ -704,7 +701,7 @@ __kernel void se3_grad(
 	float alpha			= img_cur[read_index].w;
 	
 	uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
-	float inv_depth 	= 1/depth_map[depth_index]; 												//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.
+	float inv_depth 	= depth_map[depth_index]; 													//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
 	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1+ k2k_pvt[11]*inv_depth;
@@ -857,6 +854,17 @@ __kernel void reduce (																				// TODO use this for the second stage 
 	}
 }
 
+__kernel void invert_depth(
+	__constant 	uint*	mipmap_params,			//0
+	__global	float* 	depth_map				//1
+		)
+{
+	uint global_id_u 	= get_global_id(0);
+	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
+	float depth = depth_map[global_id_u];
+	if (!(depth==0)) depth_map[global_id_u] = 1/depth;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////// Depth mapping //////////////////////////////////////////
 
 __kernel void DepthCostVol(
@@ -921,7 +929,7 @@ __kernel void DepthCostVol(
 	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
 
 	// layer zero, ////////////////////////////////////////////////////////////////////////////////////////
-	// inf depth, roation without paralax, i.e. reproj without translation.
+	// inf depth, rotation without paralax, i.e. reproj without translation.
 	// Use depth=1 unit sphere, with rotational-preprojection matrix
 
 	// precalculate depth-independent part of reprojection, h=homogeneous coords.

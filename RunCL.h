@@ -68,15 +68,15 @@ public:
 	cl_device_id		m_device_id;
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
-	cl_kernel			depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
+	cl_kernel			invert_depth_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
 	cl_mem 				imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2], SE3_incr_map_mem;
-	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem;  // NB 'depth_mem' is that used by tracking & auto-calibration.
-	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem; // param_map_mem,  
-	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;// reduce_param_buf;
-	cl_mem 				keyframe_basemem, keyframe_gxmem, keyframe_gymem, keyframe_g1mem;
+	cl_mem				basemem,  cdatabuf, hdatabuf, dmem, amem, basegraymem,  qmem, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
+	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
+	cl_mem 				keyframe_basemem, keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem;	// keyframe_gxmem, keyframe_gymem,
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
@@ -85,14 +85,15 @@ public:
 	cl_device_id 		deviceId;
 	
 	size_t				img_stats_size_bytes = sizeof(float)*8*4*2;
-	float				img_stats[8*4*2]= {0};		// 8 layers, 4 channels, 2 variables.
-	size_t 				num_threads[8]	= {0};
-	uint 				MipMap[8*8]		= {0};
-	uint				uint_params[8] 	= {0};
+	float				img_stats[8*4*2]	= {0};		// 8 layers, 4 channels, 2 variables.
+	size_t 				num_threads[8]		= {0};
+	uint 				MipMap[8*8]			= {0};
+	uint				uint_params[8] 		= {0};
 	
-	float				fp32_params[16]	= {0};
-	float				fp32_so3_k2k[9]	= {0};
-	float				fp32_k2k[16]	= {0};
+	float				fp32_params[16]		= {0};
+	float				fp32_so3_k2k[9]		= {0};
+	float				fp32_k2k[16]		= {0};
+	float 				fp32_k2keyframe[16]	= {0};
 	
 	int 				frame_num;
 	uint 				mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
@@ -125,7 +126,7 @@ public:
 	
 	void predictFrame();																												// image loading & preparation
 	void loadFrame(cv::Mat image);
-	void load_GT_depth(cv::Mat GT_depth);
+	void load_GT_depth(cv::Mat GT_depth, bool invert);
 	void cvt_color_space();
 	void img_variance();
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// start,stop allow running specific layers.
@@ -138,10 +139,10 @@ public:
 	
 	void estimateCalibration();																											// Camera calibration
 	
-	void initializeDepthCostVol();																										// Depth costvol functions
-	void buildDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
-	   void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
-	   void updateA(float lambda, float theta, int count, uint start, uint stop);
+	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
+	void updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
+	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
+	void updateA(float lambda, float theta, int count, uint start, uint stop);
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
 
 	void SpatialCostFns();																												// SIRFS cost functions

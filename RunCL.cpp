@@ -163,8 +163,6 @@ RunCL::RunCL(Json::Value obj_){
 																							}
 	//cost_kernel     = clCreateKernel(m_program, "BuildCostVolume2", 	NULL);																/*Step 7: Create kernel objects.*//////////// TODO update and reactivate these kernels
 	//cache3_kernel   = clCreateKernel(m_program, "CacheG3", 			NULL);
-	//updateQD_kernel = clCreateKernel(m_program, "UpdateQD", 			NULL);
-	//updateA_kernel  = clCreateKernel(m_program, "UpdateA2", 			NULL);
 																																			// New kernels
 	cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
 	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				NULL);
@@ -175,7 +173,10 @@ RunCL::RunCL(Json::Value obj_){
 	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					NULL);
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
 	
+	invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				NULL);
+	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					NULL);
+	updateA_kernel  				= clCreateKernel(m_program, "UpdateA", 						NULL);
 	
 	basemem=imgmem[0]=imgmem[1]=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem[0]=gymem[0]=g1mem[0]=gxmem[1]=gymem[1]=g1mem[1]=lomem=himem=0;			// set device pointers to zero
 																																			if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
@@ -691,12 +692,14 @@ void RunCL::initialize(){
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1\n\n" << flush;
-																																			// Get the maximum work group size for executing the kernel on the device ///////// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
+																																			// Get the maximum work group size for executing the kernel on the device ///////
+																																			// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
 	cl_int 				status;
 	status = clGetKernelWorkGroupInfo(cvt_color_space_linear_kernel, deviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local_work_size), &local_work_size, NULL); 	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 																																			// Number of total work items, calculated here after 1st image is loaded &=> know the size.
 																																			// NB localSize must be devisor
-																																			// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
+																																			// NB global_work_size must be a whole number of "Preferred work group size multiple" for Nvidia. 
+																																			// i.e. global_work_size should be slightly more than the number of point or pixels to be processed.
 	global_work_size 	= ceil( (float)layerstep/(float)local_work_size ) * local_work_size;
 	mm_global_work_size = ceil( (float)mm_layerstep/(float)local_work_size ) * local_work_size;
 																																			if(verbosity>local_verbosity_threshold){ 
@@ -958,6 +961,8 @@ void RunCL::allocatemem(){
 		dist_map_mem[i]		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // distorsion map
 		SE3_grad_map_mem[i] = clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*6*8,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*3channels=18, but 4*6=24 because hsv img gradient is held in float4
 	}
+	keyframe_SE3_grad_map_mem = clCreateBuffer(m_context, CL_MEM_READ_WRITE 				, mm_size_bytes_C1*6*8,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
 	SE3_incr_map_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // For debugging before summation.
 	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.
 	basemem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
@@ -1035,7 +1040,7 @@ void RunCL::allocatemem(){
 		status = clEnqueueFillBuffer(uload_queue, gymem[i], &zero, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	}																																	if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
 	
-	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&zero, sizeof(float),    0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, img_sum_buf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, se3_sum_mem, 	&zero, sizeof(float),   0, se3_sum_size_bytes,0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);

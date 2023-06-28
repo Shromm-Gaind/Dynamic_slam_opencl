@@ -28,6 +28,7 @@ class Dynamic_slam
     Json::Value obj;
     RunCL runcl;
     int verbosity;
+    bool invert_GT_depth = false;
     
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
@@ -52,7 +53,10 @@ class Dynamic_slam
     // lens distortion params
     
     
-    // 
+    // keyframe params
+    cv::Matx44f keyframe_K, keyframe_inv_K, keyframe_pose, keyframe_inv_pose, keyframe_K2K, keyframe_pose2pose, keyframe_old_K, keyframe_inv_old_K, keyframe_old_pose, keyframe_inv_old_pose;
+    cv::Matx61f keyframe_pose2pose_algebra, keyframe_pose_algebra;    // NB 'pose' = absolute pose in world coords. 'pose2pose' = from previous keyframe.
+    uint keyframe_num;
     
     
     // image parameters
@@ -95,9 +99,8 @@ class Dynamic_slam
     
     void initialize_from_GT();
     void initialize_new_keyframe();
-    void initializeDepthCostVol(   );
     
-    void buildDepthCostVol();                 // Built forwards. Updates keframe only when needed.
+    void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
     void buildDepthCostVol_fast_peripheral(); // Higher levels only, built on current frame.
     void updateQD();
     bool updateA();

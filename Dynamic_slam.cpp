@@ -15,6 +15,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	obj = obj_;
 	verbosity 			= obj["verbosity"].asInt();
 	runcl.frame_num 	= obj["data_file_offset"].asUInt();
+	invert_GT_depth  	= obj["invert_GT_depth"].asBool();
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 0\n" << flush;
 	stringstream ss0;
 	ss0 << obj["data_path"].asString() << obj["data_file"].asString();
@@ -140,7 +141,7 @@ int Dynamic_slam::nextFrame() {
 	
 	////////////////////////////////// Parallax depth mapping
 	
-	buildDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
+	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
 	bool doneOptimizing;
@@ -246,14 +247,15 @@ void Dynamic_slam::predictFrame(){
 																																				cout << "\nOld K2K        		= ";  for (int i=0; i<16; i++) cout << ", " << K2K.operator()(i/4,i%4);
 																																				cout << "\nOld pose2pose        = ";  for (int i=0; i<16; i++) cout << ", " << pose2pose.operator()(i/4,i%4); cout << endl << flush;
 																																			}
-	old_K 				= K;
-	inv_old_K			= inv_K;
-	old_pose			= pose;
-	inv_old_pose		= inv_pose;
+	old_K 				= keyframe_K;			//= K;
+	inv_old_K			= keyframe_inv_K;		//= inv_K;
+	old_pose			= keyframe_pose;		//= pose;
+	inv_old_pose		= keyframe_inv_pose;	//= inv_pose;
 	 
 	pose2pose_algebra_2 	= pose2pose_algebra_1;
 	pose2pose_algebra_1 	= SE3_Algebra(pose2pose);
-	pose2pose_algebra_0		= pose2pose_algebra_1 ;		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
+	pose2pose_algebra_0		= pose2pose_algebra_1 + (runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
+	// TODO how to handle pose2pose at new keyframe ?
 	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
 	K2K = old_K * pose2pose * inv_K;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4); }
@@ -535,7 +537,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	cv::imwrite(folder_tiff.string(), depth_GT );
 	
 	//runcl.loadFrameData(depth_GT, K2K, pose2pose);
-	runcl.load_GT_depth(depth_GT);
+	runcl.load_GT_depth(depth_GT, invert_GT_depth);
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
 }
 
@@ -547,10 +549,10 @@ void Dynamic_slam::use_GT_pose(){
 	old_pose	= old_pose_GT;
 	inv_pose	= inv_pose_GT;
 	
-	pose 		= pose_GT;						// Use GT pose
+	pose 		= pose_GT;
 	inv_pose	= inv_pose_GT;
-	K2K 		= K2K_GT; //old_K * old_pose * inv_pose * inv_K;
-	pose2pose 	= pose2pose_GT; //old_pose * inv_pose;
+	K2K 		= K2K_GT;
+	pose2pose 	= pose2pose_GT;
 																														
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}  
 																																			if(verbosity>local_verbosity_threshold){ 
@@ -1017,42 +1019,20 @@ void Dynamic_slam::estimateCalibration(){
 void Dynamic_slam::initialize_from_GT(){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_from_GT()_chk 0" << flush;}
-	key_frame_img			=	;
-	
-	key_frame_depth_map		=	; 
-	
-	key_frame_pose 			=	;
-	
-	initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose );
+	keyframe_pose 	=	pose_GT;
+	keyframe_K		=	K_GT;
+	runcl.initializeDepthCostVol( runcl.depth_mem_GT );
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
-	key_frame_img			=	;
-	
-	key_frame_depth_map		=	; 
-	
-	key_frame_pose 			=	;
-	
-	initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose );
+	keyframe_pose 	=	pose;
+	keyframe_K		=	K;
+	runcl.initializeDepthCostVol( runcl.depth_mem );
 }
 
-void Dynamic_slam::initializeDepthCostVol( key_frame_img, key_frame_depth_map, key_frame_pose ){
-	int local_verbosity_threshold = 1;
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initializeDepthCostVol()_chk 0" << flush;}
-																																			// Copy a particular imgmem to keyframe_mem, and how to calculate
-	
-	
-	
-	
-	
-	
-	
-	
-}
-
-void Dynamic_slam::buildDepthCostVol(){																										// Built forwards. Updates keframe only when needed.
+void Dynamic_slam::updateDepthCostVol(){																									// Built forwards. Updates keframe only when needed.
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::buildDepthCostVol()_chk 0" << flush;}
 // # Build depth cost vol on current image, using image array[6] in MipMap buffer, plus RelVelMap, 
@@ -1073,13 +1053,12 @@ void Dynamic_slam::buildDepthCostVol(){																										// Built forwar
 // See CostVol::updateCost(..), RunCL::calcCostVol(..) &  __kernel void BuildCostVolume2
 	uint start=0, stop=8;																													// Image pyramid layers used by mipmap_call_kernel(..)
 	int count;																																// Iteration of for loop in this function. Here used to count num imgages use in costvol.
-	cv::Matx44f K2K_ =  ; 																						// Need to calculate		// camera-to-camera transform for this image to the keyframe of this cost vol.
+	cv::Matx44f K2K_ =  K2K; 		// needs K2K from keyframe. 																			// camera-to-camera transform for this image to the keyframe of this cost vol.
 	bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
-	runcl.buildDepthCostVol( K2K_, image_,  count, start, stop  ); 																			// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
-																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8); -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
-	
-	
+	runcl.updateDepthCostVol( K2K_, image_,  count, start, stop  ); 																		// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);
+																																			// -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 }
 
 void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame. 

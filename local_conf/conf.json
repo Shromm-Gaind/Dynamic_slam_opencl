@@ -15,7 +15,8 @@
     "regularizer_outer_iter":30,
     "regularizer_inner_iter":10,
     "":"",
-    "layers":7,               // NB //32;//64;//128;//256;
+    "layers":7,               // NB //32;//64;//128;//256;              // Layers of CostVol
+    "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.  
     "max_depth":450.0,                                                  // See values in DTAM_mapping/input/*.json file for each dataset.
     "min_depth":70.0,           //70.0;//3289.0;
     "occlusionThreshold":0.05,
@@ -40,9 +41,10 @@
     "kernel_filepath":"../Dynamic_slam_kernels.cl",                     // need file paths for building kernels
     "opencl_platform":2,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices 
     "opencl_device":0,
+    "":"",
     "MipMap_margin":1,          // 4
-    "num_reductions":4,
-    "gaussian_size":3,
+    "num_reductions":4,                                                 // Layers-1 of image pyramid in MipMap
+    "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
     "":"",
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
     "SE3_LM_B":0.1,
