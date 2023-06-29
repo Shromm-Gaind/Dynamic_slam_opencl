@@ -141,15 +141,15 @@ int Dynamic_slam::nextFrame() {
 	
 	////////////////////////////////// Parallax depth mapping
 	
-	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
+	updateDepthCostVol(runcl.costvol_frame_num);							// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
 	bool doneOptimizing;
 	int  opt_count 		= 0;
 	int  max_opt_count 	= obj["max_opt_count"].asInt();
 	do{ 
-		for (int i = 0; i < 10; i++) updateQD();							// Optimize Q, D   (primal-dual)
-		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
+		for (int i = 0; i < 10; i++) updateQD(i);							// Optimize Q, D   (primal-dual)
+		doneOptimizing = updateA(opt_count);								// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
 	
@@ -790,9 +790,9 @@ void Dynamic_slam::estimateSO3(){
 			layer--;
 			old_Rho_sq_result = next_layer_Rho_sq_result;
 		}																																	if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSO3()_chk 0.5: iter="<<iter<<",  layer="<<layer << flush;}
-		float SO3_results[8][DoF][channels] = {{{0,0,0,0}}};
+		float SO3_results[8][DoF][channels] = {{{0,0,0,0}}};																				// TODO find better way to fix max num mimpap layers than just [8].
 		float Rho_sq_results[8][channels] = {{0,0,0,0}};
-		runcl.estimateSO3(SO3_results, Rho_sq_results, iter, 0, 8);	
+		runcl.estimateSO3(SO3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSO3()_chk 0.6: iter="<<iter<<",  layer="<<layer << flush;
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
@@ -839,7 +839,6 @@ void Dynamic_slam::estimateSO3(){
 																																				cout << "\n\nold pose2pose = "; 	for (int SO3=0; SO3<matxDoF; SO3++) cout << ", " << pose2pose.operator()(SO3/DoF,SO3%DoF);
 																																				cout << "\n\nold K2K = "; 			for (int SO3=0; SO3<matxDoF; SO3++) cout << ", " << K2K.operator()(SO3/DoF,SO3%DoF);
 																																			}
-		
 		if (layer==1) factor *= 0.75;
 		Matx31f update; for (int SO3=0; SO3<DoF; SO3++) {update.operator()(SO3) = factor * SO3_results[layer][SO3][channel] / ( SO3_results[layer][SO3][lst_chan] * runcl.img_stats[IMG_VAR+channel] ); }
 		cv::Matx33f SO3Incr_matx 	= SO3_Matx33f(update);
@@ -872,9 +871,9 @@ void Dynamic_slam::estimateSE3(){
 			layer--;
 			old_Rho_sq_result = next_layer_Rho_sq_result;
 		}																																	if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 0.5: iter="<<iter<<",  layer="<<layer << flush;}
-		float SE3_reults[8][6][4] = {{{0}}};
+		float SE3_results[8][6][4] = {{{0}}};
 		float Rho_sq_results[8][4] = {{0}};
-		runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);																			//RunCL::estimateSE3(uint start=0, uint stop=8);
+		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
@@ -882,9 +881,9 @@ void Dynamic_slam::estimateSE3(){
 																																					for (int k=0; k<6; k++){
 																																						cout << "(";
 																																						for (int l=0; l<3; l++){
-																																							cout << ", " << SE3_reults[i][k][l] / ( SE3_reults[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  );	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																							cout << ", " << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  );	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
 																																						}
-																																						cout << ", " << SE3_reults[i][k][3] << ")";
+																																						cout << ", " << SE3_results[i][k][3] << ")";
 																																					}cout << ")";
 																																				}
 																																			}
@@ -915,7 +914,7 @@ void Dynamic_slam::estimateSE3(){
 		
 		float SE3_incr[6];
 		//uint channel = 0;
-		for (int SE3=0; SE3<6; SE3++) {SE3_incr[SE3] = SE3_reults[5][SE3][channel] / ( SE3_reults[5][SE3][3]  *  runcl.img_stats[IMG_VAR+channel]  );}																// For initial example take layer , channel[0] for each SE3 DoF.
+		for (int SE3=0; SE3<6; SE3++) {SE3_incr[SE3] = SE3_results[5][SE3][channel] / ( SE3_results[5][SE3][3]  *  runcl.img_stats[IMG_VAR+channel]  );}																// For initial example take layer , channel[0] for each SE3 DoF.
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 1" << flush;
 																																				cout << "\n\nSE3_incr[SE3] = "; 	for (int SE3=0; SE3< 6; SE3++) cout << ", " << SE3_incr[SE3];
 																																				cout << "\n\nold pose2pose = "; 	for (int SE3=0; SE3<16; SE3++) cout << ", " << pose2pose.operator()(SE3/4,SE3%4);
@@ -923,7 +922,7 @@ void Dynamic_slam::estimateSE3(){
 																																			}
 		if (layer==1) factor *= 0.65;
 		Matx61f update;
-		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_reults[layer][SE3][channel] / ( SE3_reults[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] ); }
+		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] ); }
 		cv::Matx44f SE3Incr_matx = SE3_Matx44f(update);
 		
 		pose2pose = pose2pose *  SE3Incr_matx;
@@ -1025,6 +1024,9 @@ void Dynamic_slam::initialize_from_GT(){
 	keyframe_pose 	=	pose_GT;
 	keyframe_K		=	K_GT;
 	runcl.initializeDepthCostVol( runcl.depth_mem_GT );
+	runcl.initialize_fp32_params();
+	runcl.cacheG_num = 0;
+	cacheGValues();
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
@@ -1032,11 +1034,13 @@ void Dynamic_slam::initialize_new_keyframe(){
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
 	keyframe_pose 	=	pose;
 	keyframe_K		=	K;
-	
 	runcl.initializeDepthCostVol( runcl.depth_mem );
+	runcl.initialize_fp32_params();
+	runcl.cacheG_num = 0;
+	cacheGValues();
 }
 
-void Dynamic_slam::updateDepthCostVol(){																									// Built forwards. Updates keframe only when needed.
+void Dynamic_slam::updateDepthCostVol(int count){																							// Built forwards. Updates keframe only when needed.
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::buildDepthCostVol()_chk 0" << flush;}
 // # Build depth cost vol on current image, using image array[6] in MipMap buffer, plus RelVelMap, 
@@ -1055,58 +1059,62 @@ void Dynamic_slam::updateDepthCostVol(){																									// Built forwar
 	
 // Select naive depth map
 // See CostVol::updateCost(..), RunCL::calcCostVol(..) &  __kernel void BuildCostVolume2
-	uint start=0, stop=8;																													// Image pyramid layers used by mipmap_call_kernel(..)
-	int count;																																// Iteration of for loop in this function. Here used to count num imgages use in costvol.
+																																			// int count: Iteration of for loop in this function. Here used to count num imgages use in costvol.
 	cv::Matx44f K2K_ =  K2K; 		// needs K2K from keyframe. 																			// camera-to-camera transform for this image to the keyframe of this cost vol.
 	bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
-	runcl.updateDepthCostVol( K2K_, image_,  count, start, stop  ); 																		// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+	runcl.updateDepthCostVol( K2K_, image_,  count, runcl.mm_start, runcl.mm_stop  ); 																		// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
 																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);
 																																			// -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
-
 	
 	
 	
 }
 
 void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// Higher levels only, built on current frame. 
-
-
-
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::buildDepthCostVol_fast_peripheral_chk0, 	
+	
+	
+	
 }
 
-void Dynamic_slam::computeSigmas(float epsilon, float theta, float L){
+void Dynamic_slam::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
-		runcl.fp32_params[SIGMA_D]	= mu / (2.0/ theta);
-		runcl.fp32_params[SIGMA_Q]	= mu / (2.0*epsilon);
+		sigma_d		= mu / (2.0/ theta);
+		sigma_q		= mu / (2.0*epsilon);
 }
 
-void Dynamic_slam::updateQD()
-{														if(verbosity>1) cout<<"\nupdateQD_chk0, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]<<flush;
-	computeSigmas(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], obj["L"].asFloat() );												if(verbosity>1) cout<<"\nupdateQD_chk1, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
+void Dynamic_slam::updateQD(int count){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk0, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]<<flush;
+	computeSigmas(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], obj["L"].asFloat(), runcl.fp32_params[SIGMA_D], runcl.fp32_params[SIGMA_Q] );
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk1, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
-	uint start=0, stop=8;	// TODO fix this																								// Image pyramid layers used by mipmap_call_kernel(..)
-	int count;				// TODO fix this
-	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q]/*sigma_q*/, runcl.fp32_params[SIGMA_D]/*sigma_d*/,  count, start, stop);	
-																																			if(verbosity>1) cout<<"\nupdateQD_chk3, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
+	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q], runcl.fp32_params[SIGMA_D],  count, runcl.mm_start, runcl.mm_stop);	
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk3, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
 }
 
-bool Dynamic_slam::updateA()
+void Dynamic_slam::cacheGValues()
 {
-	if(verbosity>1) cout<<"\nCostVol::updateA "<<flush;
-	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\nDynamic_slam::cacheGValues()" <<flush;}
+	runcl.updateG(runcl.key_frame_cacheG_num++, runcl.mm_start, runcl.mm_stop);
+}
+
+bool Dynamic_slam::updateA( int count ){
+	int local_verbosity_threshold = 1;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateA "<<flush;
+	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(count); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
 	// bool doneOptimizing = (theta <= thetaMin);
 	
-	
-	uint start=0, stop=8;	// TODO fix this																								// Image pyramid layers used by mipmap_call_kernel(..)
-	int count;				// TODO fix this
-	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], count, start, stop );
+	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], count, runcl.mm_start, runcl.mm_stop );
 	
 	runcl.fp32_params[THETA] *= obj["thetaStep"].asFloat();
 	
 	//return doneOptimizing;
-	if(verbosity>1) cout<<"\nCostVol::updateA finished"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateA finished"<<flush;
 	return false;
 }
 

@@ -1076,6 +1076,55 @@ __kernel void UpdateQD(
 	
 }
 
+
+__kernel void  UpdateG(
+	__private	uint		layer,			//0
+	__constant	uint8*		mipmap_params,	//1
+	__constant 	uint*		uint_params,	//2
+	__constant 	float*		fp32_params,	//3
+	__global 	float4*		img,			//4 
+	__global 	float4*		g1p				//5
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	
+	uint8 mipmap_params_ = mipmap_params[layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint read_row    	= global_id_u / read_cols_;
+	uint read_column 	= fmod(global_id_flt, read_cols_);
+	
+	int upoff			= -(read_row  >1 )*mm_cols;													//-(read_row  != 0)*mm_cols;				// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;									// (read_row  < read_rows_-1) * mm_cols;
+    int lfoff			= -(read_column >1);														//-(read_column != 0);
+	int rtoff			=  (read_column < read_cols_-2);											// (read_column < mm_cols-1);
+	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
+
+	float alphaG		= fp32_params[ALPHA_G];
+	float betaG 		= fp32_params[BETA_G];
+	
+	float4 pu, pd, pl, pr;
+	pr =  img[offset + rtoff];
+	pl =  img[offset + lfoff];
+	pu =  img[offset + upoff];
+	pd =  img[offset + dnoff];
+
+	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
+	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
+	 
+	float4 g1  = { \
+		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
+		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
+		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
+		 1.0f };
+	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;	 
+	g1p[offset]= g1;
+}
+
+
 int set_start_layer(float di, float r, float far, float depthStep, int layers, int x, int y){ //( inverse_depth, r , min_inv_depth, inv_depth_step, num_layers )
     const float d_start = di - r;
     const int start_layer =  floor( (d_start - far)/depthStep );

@@ -100,11 +100,12 @@ class Dynamic_slam
     void initialize_from_GT();
     void initialize_new_keyframe();
     
-    void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
+    void updateDepthCostVol(int count);                 // Built forwards. Updates keframe only when needed.
     void buildDepthCostVol_fast_peripheral(); // Higher levels only, built on current frame.
-    void computeSigmas(float epsilon, float theta, float L);
+    void computeSigmas(float epsilon, float theta, float L, float& sigma_d, float& sigma_q);
     void updateQD();
-    bool updateA();
+    void cacheGValues(int count);
+    bool updateA(int count);
     
     void SpatialCostFns();
     void ParsimonyCostFns();
@@ -137,6 +138,8 @@ class Dynamic_slam
     }
     //void get_all(fs::path& root, const string& ext, vector<fs::path>& ret);
     
+
   private:
+    float old_theta, theta, thetaStart, thetaStep, thetaMin, epsilon, lambda, sigma_d, sigma_q;
 
 };

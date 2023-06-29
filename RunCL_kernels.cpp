@@ -1079,10 +1079,10 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint
 	
 }
 
-
 void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop){
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::buildDepthCostVol(..)_chk0 ."<<flush;}
+	key_frame_QD_num++;
 	fp32_params[EPSILON]		=  epsilon;
 	fp32_params[SIGMA_Q]		=  sigma_q;
 	fp32_params[SIGMA_D]		=  sigma_d;
@@ -1119,6 +1119,31 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 											}
 }
 
+void RunCL::updateG(int count, uint start, uint stop){
+	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk0"<<flush;}
+	key_frame_cacheG_num++;
+	cl_int res;
+	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
+	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                      __private	 uint	    layer,		//0
+    res = clSetKernelArg(img_grad_kernel, 1, sizeof(cl_mem), &mipmap_buf);				              if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	mipmap_params,	//1
+	res = clSetKernelArg(img_grad_kernel, 2, sizeof(cl_mem), &uint_param_buf);						  if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	uint_params		//2
+	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &fp32_param_buf);						  if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*	fp32_params		//3
+	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &keyframe_basemem);				      if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,		//4
+	res = clSetKernelArg(img_grad_kernel, 7, sizeof(cl_mem), &keyframe_g1mem);				          if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//5
+	
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk2"<<flush;}
+	mipmap_call_kernel( updateG_kernel, m_queue, start, stop );
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk3 Finished all loops. Saving gxmem, gymem, g1mem."<<flush;
+																																				stringstream ss;	ss << frame_num << "_img_grad";
+																																				stringstream ss_path;	
+																																				ss_path << "keyframe_g1mem"; 
+																																				cout << "\n" << ss_path.str() <<flush;
+																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
+																																				DownloadAndSave_3Channel(	g1mem[frame_bool_idx], ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																			}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk4 Finished."<<flush;}
+}
 
 void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop){
 	int local_verbosity_threshold = 0;

@@ -176,6 +176,7 @@ RunCL::RunCL(Json::Value obj_){
 	invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				NULL);
 	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					NULL);
+	updateG_kernel  				= clCreateKernel(m_program, "UpdateG", 						NULL);
 	updateA_kernel  				= clCreateKernel(m_program, "UpdateA", 						NULL);
 	
 	basemem=imgmem[0]=imgmem[1]=cdatabuf=hdatabuf=k2kbuf=dmem=amem=basegraymem=gxmem[0]=gymem[0]=g1mem[0]=gxmem[1]=gymem[1]=g1mem[1]=lomem=himem=0;			// set device pointers to zero
@@ -655,11 +656,28 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		if(show) cv::imshow( ss.str(), outMat );
 	}
 }
-
+/*
 void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
 		sigma_d		=  mu / (2.0/ theta)  ;
 		sigma_q 	=  mu / (2.0*epsilon) ;
+}
+*/
+
+void RunCL::initialize_fp32_params(){
+	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json . 
+	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
+				//INV_DEPTH_STEP	;
+	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
+	fp32_params[BETA_G]			=    obj["beta_g"].asFloat()		;
+	fp32_params[EPSILON]		=    obj["epsilon"].asFloat()		;
+				//SIGMA_Q ;
+				//SIGMA_D ;
+	fp32_params[THETA]			=    obj["thetaStart"].asFloat()	;
+	fp32_params[LAMBDA]			=    obj["lambda"].asFloat()		;
+	fp32_params[SCALE_EAUX]		=    obj["scale_E_aux"].asFloat()	;
+	fp32_params[SE3_LM_A]		=    obj["SE3_LM_A"].asFloat()		;
+	fp32_params[SE3_LM_B]		=    obj["SE3_LM_B"].asFloat()		;
 }
 
 
@@ -677,6 +695,8 @@ void RunCL::initialize(){
 	layerstep 			= baseImage_width * baseImage_height;
 	
 	mm_num_reductions	= obj["num_reductions"].asUInt();																					// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
+	mm_start			= 0;
+	mm_stop				= mm_num_reductions;
 	mm_gaussian_size	= obj["gaussian_size"].asUInt();
 	mm_margin			= obj["MipMap_margin"].asUInt() * mm_num_reductions;
 	mm_width 			= baseImage_width  + 2 * mm_margin;
@@ -721,19 +741,7 @@ void RunCL::initialize(){
 																																				cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
 																																				cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
 																																			}
-	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json . 
-	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
-				//INV_DEPTH_STEP	;
-	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
-	fp32_params[BETA_G]			=    obj["beta_g"].asFloat()		;
-	fp32_params[EPSILON]		=    obj["epsilon"].asFloat()		;
-				//SIGMA_Q ;
-				//SIGMA_D ;
-	fp32_params[THETA]			=    obj["thetaStart"].asFloat()	;
-	fp32_params[LAMBDA]			=    obj["lambda"].asFloat()		;
-	fp32_params[SCALE_EAUX]		=    obj["scale_E_aux"].asFloat()	;
-	fp32_params[SE3_LM_A]		=    obj["SE3_LM_A"].asFloat()		;
-	fp32_params[SE3_LM_B]		=    obj["SE3_LM_B"].asFloat()		;
+	initialize_fp32_params();
 																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.8\n\n" << flush;
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;

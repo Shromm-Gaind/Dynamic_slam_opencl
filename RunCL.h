@@ -68,7 +68,7 @@ public:
 	cl_device_id		m_device_id;
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
-	cl_kernel			invert_depth_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateA_kernel;
+	cl_kernel			invert_depth_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
@@ -95,8 +95,9 @@ public:
 	float				fp32_k2k[16]		= {0};
 	float 				fp32_k2keyframe[16]	= {0};
 	
-	int 				frame_num, costvol_frame_num;
-	uint 				mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size; 
+	int 				frame_num, costvol_frame_num, key_frame_num, key_frame_cacheG_num, key_frame_QD_num ;
+	uint	 			mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size;
+	uint 				mm_start, mm_stop;
 	int 				baseImage_width, baseImage_height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0;
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
@@ -120,6 +121,7 @@ public:
 	void SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
+	void initialize_fp32_params();
 	void initialize();																													// Setting up buffers & mipmap parameters
 	void allocatemem();
 	void precom_param_maps(float SO3_k2k[6*16]);
@@ -142,6 +144,7 @@ public:
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
 	void updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
+	void updateG(int count, uint start, uint stop);
 	void updateA(float lambda, float theta, int count, uint start, uint stop);
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
 
