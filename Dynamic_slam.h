@@ -76,8 +76,8 @@ class Dynamic_slam
     void report_GT_error();
     void display_frame_resluts();
     
-    void getPose(); // cv::Mat R, cv::Mat T, cv::Matx44f& pose
-    void getInvPose(); // cv::Matx44f pose, cv::Matx44f& inv_pose
+    void getPose();     // cv::Mat R, cv::Mat T, cv::Matx44f& pose
+    void getInvPose();  // cv::Matx44f pose, cv::Matx44f& inv_pose
     cv::Matx44f getPose(cv::Mat R, cv::Mat T);
     cv::Matx44f getInvPose(cv::Matx44f pose);
     
@@ -96,16 +96,16 @@ class Dynamic_slam
     void estimateSE3();
     void estimateCalibration();
     
-    
-    void initialize_from_GT();
+    void initialize_keyframe_from_GT();
+    void initialize_keyframe_from_tracking();
     void initialize_new_keyframe();
     
-    void updateDepthCostVol(int count);                 // Built forwards. Updates keframe only when needed.
-    void buildDepthCostVol_fast_peripheral(); // Higher levels only, built on current frame.
-    void computeSigmas(float epsilon, float theta, float L, float& sigma_d, float& sigma_q);
+    void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
+    void buildDepthCostVol_fast_peripheral();  // Higher levels only, built on current frame.
+    //void computeSigmas(float epsilon, float theta, float L, float& sigma_d, float& sigma_q); // use RunCL.cpp version.
     void updateQD();
-    void cacheGValues(int count);
-    bool updateA(int count);
+    void cacheGValues();
+    bool updateA();
     
     void SpatialCostFns();
     void ParsimonyCostFns();
