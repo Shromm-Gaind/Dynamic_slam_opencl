@@ -69,7 +69,7 @@ public:
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
 	cl_kernel			invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel;
-	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_linear_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
 	cl_mem 				basemem, imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2], SE3_incr_map_mem;
@@ -131,8 +131,10 @@ public:
 	void load_GT_depth(cv::Mat GT_depth, bool invert);
 	void cvt_color_space();
 	void img_variance();
+	
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// start,stop allow running specific layers.
 	void mipmap_linear();
+	void mipmap_depthmap(cl_mem depthmap_);
 	void img_gradients();
 	
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   						// Tracking

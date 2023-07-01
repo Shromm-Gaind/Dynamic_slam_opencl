@@ -39,13 +39,14 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	runcl.allocatemem();
 																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-	initialize_camera();
-	generate_SE3_k2k( SE3_k2k );
-	runcl.precom_param_maps( SE3_k2k );
+	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
+	generate_SE3_k2k( SE3_k2k );																											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 6\n" << flush;
+	runcl.precom_param_maps( SE3_k2k );																										if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
 };
 
 void Dynamic_slam::initialize_camera(){
 	int local_verbosity_threshold = 1;
+																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 0:" <<flush;}
 	K = K.zeros();																															// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
 	K.operator()(3,3) = 1;
 	for (int i=0; i<9; i++){K.operator()(i/3,i%3) = obj["cameraMatrix"][i].asFloat(); }
@@ -97,11 +98,13 @@ void Dynamic_slam::initialize_camera(){
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 1:" <<flush;
 																																				for (int i=0; i<9; i++){cout << "\n R.at<float>("<<i<<")="<< R.at<float>(i)<< flush ;  }
 																																			}
-																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::initialize_camera_chk 2:" <<flush;
+																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 2:" <<flush;}
 	// TODO Also initialize any lens distorsion, vinetting. etc
 	
 	getFrame();																																// Causes the first frame to be loaded into first imgmem, and prepared. 
+																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 3:" <<flush;}
 	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
+																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 4:" <<flush;}
 	K_start 		= K_GT; 																												// NB The same frame will be loaded to the opposite imgmem, on the first iteration of Dynamic_slam::nextFrame()
 	inv_K_start 	= inv_K_GT; 
 	pose_start 		= pose_GT;
@@ -112,7 +115,7 @@ void Dynamic_slam::initialize_camera(){
 	pose2pose_start = Matx44f_eye;
 	pose2pose_accumulated = Matx44f_eye;
 	pose2pose_accumulated_GT = Matx44f_eye; //  = cv::Matx44f::eye(); equivalent to
-																																			if (verbosity>local_verbosity_threshold){ cout << "\nDynamic_slam::initialize_camera_chk 3:" <<flush;
+																																			if (verbosity>local_verbosity_threshold){ cout << "\nDynamic_slam::initialize_camera_chk 5:" <<flush;
 																																				cout << "\nDynamic_slam::initialize_camera: pose2pose_accumulated = "; for (int i=0; i<16; i++) {cout << ", " << pose2pose_accumulated.operator()(i/4,i%4); }
 																																			}cout << flush;
 }

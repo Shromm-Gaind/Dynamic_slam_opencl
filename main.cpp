@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	// Also need a test for when to start a new keyframe.
 	
 	dynamic_slam.initialize_keyframe_from_GT();
-	
+																			if(verbosity_>0) cout << "\n main_chk 2\n" << flush;
 	int max_frame_count = obj["max_frame_count"].asUInt();	
 	int frame_count 	= 0;
 	
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 		dynamic_slam.initialize_keyframe_from_tracking();
 		
 	}while(!ds_error && ((frame_count<max_frame_count) || (max_frame_count==-1)) );
-																			if(verbosity_>0) cout << "\n main_chk 2\n" << flush;
+																			if(verbosity_>0) cout << "\n main_chk 3\n" << flush;
 	dynamic_slam.getResult();												// also calls RunCL::CleanUp()
 	exit(0);																// guarantees class destructors are called.
 }
