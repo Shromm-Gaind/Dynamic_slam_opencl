@@ -73,7 +73,7 @@ class Dynamic_slam
     
     // functions
     void initialize_camera();
-    void report_GT_error();
+    void report_GT_pose_error();
     void display_frame_resluts();
     
     void getPose();     // cv::Mat R, cv::Mat T, cv::Matx44f& pose

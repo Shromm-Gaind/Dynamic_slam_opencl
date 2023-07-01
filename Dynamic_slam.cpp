@@ -131,7 +131,7 @@ int Dynamic_slam::nextFrame() {
 	
 	//estimateCalibration(); 		// own thread, one iter.
 	
-	report_GT_error();
+	report_GT_pose_error();
 	display_frame_resluts();
 	
 	predictFrame();					// updates pose2pose for next frame in cost volume.
@@ -173,7 +173,7 @@ int Dynamic_slam::nextFrame() {
 	return(0);					// NB option to return an error that stops the main loop.
 };
 
-void Dynamic_slam::report_GT_error(){
+void Dynamic_slam::report_GT_pose_error(){
 	int local_verbosity_threshold = 0;
 	pose2pose_accumulated_GT_algebra 	= SE3_Algebra(pose2pose_accumulated_GT);
 	pose2pose_accumulated_algebra 		= SE3_Algebra(pose2pose_accumulated);
@@ -543,7 +543,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	cv::imwrite(folder_tiff.string(), depth_GT );
 	
 	//runcl.loadFrameData(depth_GT, K2K, pose2pose);
-	runcl.load_GT_depth(depth_GT, invert_GT_depth);
+	runcl.load_GT_depth(depth_GT, invert_GT_depth);																							// loads to depth_mem_GT buffer.
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
 }
 
@@ -1021,7 +1021,7 @@ void Dynamic_slam::estimateCalibration(){
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-void Dynamic_slam::initialize_keyframe_from_GT(){
+void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
 	keyframe_pose 	=	pose_GT;
@@ -1030,11 +1030,16 @@ void Dynamic_slam::initialize_keyframe_from_GT(){
 	initialize_new_keyframe();
 }
 
-void Dynamic_slam::initialize_keyframe_from_tracking(){
+void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_tracking()_chk 0" << flush;}
 	keyframe_pose 	=	pose;
 	keyframe_K		=	K;
+	
+	cv::Matx44f inv_pose2pose = getInvPose(pose2pose);																						//cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) 
+	cv::Matx44f forward_keyframe2K  = K * inv_pose2pose * inv_old_K;
+	
+	runcl.transform_depthmap(forward_keyframe2K, runcl.keyframe_depth_mem );																// NB runcl.transform_depthmap(..) must be used _before_ initializing the new cost_volume, because it uses keyframe_basemem.
 	runcl.initializeDepthCostVol( runcl.depth_mem );
 	initialize_new_keyframe();
 }

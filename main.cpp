@@ -26,12 +26,13 @@ int main(int argc, char *argv[])
 																			cout <<"verbosity_ = "<<verbosity_<<", imagesPerCV = "<<imagesPerCV <<endl;
 																			cout <<"outpath  " <<  obj["out_path"].asString() << std::flush;
 	
-	Dynamic_slam dynamic_slam(obj);											// Instantiate Dynamic_slam object before while loop.
+	Dynamic_slam   dynamic_slam(obj);										// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
 																			// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
 	
 	// NB need to initialize the cost volume with a key frame, and tracking with a depth map.
 	// Also need a test for when to start a new keyframe.
+	
 	dynamic_slam.initialize_keyframe_from_GT();
 	
 	int max_frame_count = obj["max_frame_count"].asUInt();	

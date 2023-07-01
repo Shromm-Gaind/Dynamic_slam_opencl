@@ -172,6 +172,7 @@ RunCL::RunCL(Json::Value obj_){
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
 	
 	invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
+	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			NULL);
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				NULL);
 	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					NULL);
 	updateG_kernel  				= clCreateKernel(m_program, "UpdateG", 						NULL);
