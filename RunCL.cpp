@@ -173,7 +173,8 @@ RunCL::RunCL(Json::Value obj_){
 	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					NULL);
 	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
 	
-	invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
+	//invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
+	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				NULL);
 	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			NULL);
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				NULL);
 	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					NULL);
@@ -235,7 +236,7 @@ void RunCL::createFolders(){
 }
 
 void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
 																																			if(verbosity>0) cout<<"\n\nDownloadAndSave filename = ["<<folder_tiff.filename().string()<<"] "<<flush;
 																																			/*
@@ -246,42 +247,53 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 																																			*/
 		cv::Mat temp_mat = cv::Mat::zeros (size_mat, type_mat);																				// (int rows, int cols, int type)
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes); 																				// NB contains elements of type_mat, (CV_32FC1 for most buffers)
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave finished ReadOutput\n\n"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1 finished ReadOutput\n\n"<<flush;
 		if (temp_mat.type() == CV_16FC1)	temp_mat.convertTo(temp_mat, CV_32FC1);															// NB conversion to FP32 req for cv::sum(..).	
 		cv::Scalar sum = cv::sum(temp_mat);																									// NB always returns a 4 element vector.
-
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.1 finished ReadOutput\n\n"<<flush;
 		double minVal=1, maxVal=1;
 		cv::Point minLoc={0,0}, maxLoc{0,0};
 		if (temp_mat.channels()==1) { cv::minMaxLoc(temp_mat, &minVal, &maxVal, &minLoc, &maxLoc); }
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.2 finished ReadOutput\n\n"<<flush;
 		string type_string = checkCVtype(type_mat);
 		stringstream ss;
 		stringstream png_ss;
 		ss << "/" << folder_tiff.filename().string() << "_" << count <<"_sum"<<sum<<"type_"<<type_string<<"min"<<minVal<<"max"<<maxVal<<"maxRange"<<max_range;
 		png_ss << "/" << folder_tiff.filename().string() << "_" << count;
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.3 finished ReadOutput\n\n"<<flush;
 		boost::filesystem::path folder_png = folder_tiff;
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.4 finished ReadOutput\n\n"<<flush;
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 		folder_png  += "/png/";
-
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.5 finished ReadOutput\n\n"<<flush;
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave filename = ["<<ss.str()<<"]";
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk2 filename = ["<<ss.str()<<"]"<<flush;
 		cv::Mat outMat;
 		if (type_mat != CV_32FC1 && type_mat != CV_16FC1 ) {
 			cout << "\n\n## Error  (type_mat != CV_32FC1 or CV_16FC1) ##\n\n" << flush;
 			return;
-		}
+		}																																//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk3 filename = ["<<ss.str()<<"]"<<flush;
 		if (max_range == 0){ temp_mat /= maxVal;}																							// Squash/stretch & shift to 0.0-1.0 range
 		else if (max_range <0.0){
 			temp_mat /=(-2*max_range);
 			temp_mat +=0.5;
 		}else{ temp_mat /=max_range;}
-
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk4 filename = ["<<ss.str()<<"]"<<flush;
 		cv::imwrite(folder_tiff.string(), temp_mat );
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk5 filename = ["<<ss.str()<<"]"<<flush;
+	
 		temp_mat *= 256*256;
 		temp_mat.convertTo(outMat, CV_16UC1);
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk6 filename = ["<<ss.str()<<"]"<<flush;
+	
 		cv::imwrite(folder_png.string(), outMat );
-		if(show) cv::imshow( ss.str(), outMat );
+																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk7 filename = ["<<ss.str()<<"],  show="<<show<<flush;
+	
+		if(show==true) {cv::imshow( ss.str(), outMat );}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk finished filename = ["<<ss.str()<<"]"<<flush;
+		return;
 }
 
 void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
@@ -895,15 +907,15 @@ void RunCL::allocatemem(){
 	SE3_incr_map_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // For debugging before summation.
 	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.
 	basemem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, image_size_bytes,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Original image CV_8UC3
-	depth_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, image_size_bytes_C1,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Copy used by tracing & auto-calib
-	depth_mem_GT		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, image_size_bytes_C1,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	depth_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Used to be : Copy used by tracing & auto-calib. Now spare buffer for upload & computations
+	depth_mem_GT		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Where depthmap GT mimpap is constructed.
 	
-	keyframe_depth_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, image_size_bytes_C1,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	keyframe_depth_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // The depth map for tracking, i.e. used when adding frames to the cost volume.
 	keyframe_basemem	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// Depth mapping buffers
 	keyframe_g1mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	
-	dmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	dmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // depth in the mapping calculation.
+	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);} // 'auxiliary variable to depth" in the mapping calculation.
 	lomem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	himem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	qmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -968,6 +980,10 @@ void RunCL::allocatemem(){
 		status = clEnqueueFillBuffer(uload_queue, gxmem[i], &zero, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 		status = clEnqueueFillBuffer(uload_queue, gymem[i], &zero, sizeof(float), 0, mm_size_bytes_C4, 0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.4\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	}																																	if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.1\n\n" << flush;
+	
+	status = clEnqueueFillBuffer(uload_queue, depth_mem, 			&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, depth_mem_GT, 		&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, keyframe_depth_mem, 	&zero, sizeof(float),   0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	
 	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 	&zero, sizeof(float),   0, mm_vol_size_bytes, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);

@@ -725,9 +725,6 @@ __kernel void so3_grad(
 	}
 }
 
-
-
-
 __kernel void se3_grad(
 	__private	uint	layer,					//0
 	__constant 	uint8*	mipmap_params,			//1
@@ -934,15 +931,40 @@ __kernel void reduce (																				// TODO use this for the second stage 
 	}
 }
 
-__kernel void invert_depth(
-	__constant 	uint*	mipmap_params,			//0
-	__global	float* 	depth_map				//1
+__kernel void convert_depth(
+	__private	uint 	invert,					//0
+	__private	float 	factor,					//1
+	__constant 	uint*	mipmap_params,			//2
+	__constant	uint*	uint_params,			//3
+	__global	float* 	depth_mem,				//4
+	__global	float* 	depth_mem_GT			//5
 		)
 {
+	int global_id 		= (int)get_global_id(0);
+	uint pixels 		= uint_params[PIXELS];
+	
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint cols 			= uint_params[COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	
+	uint base_row		= global_id/cols ;
+	uint base_col		= global_id%cols ;
+	uint img_row		= base_row + margin;
+	uint img_col		= base_col + margin;
+	
+	uint read_index 	= read_offset_  +  base_row  * mm_cols  + base_col  ;
 	uint global_id_u 	= get_global_id(0);
+	
 	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
-	float depth = depth_map[global_id_u];
-	if (!(depth==0)) depth_map[global_id_u] = 1/depth;
+	float depth 		= depth_mem[global_id_u]/factor;
+	
+	//if (global_id_u == 0)printf("\n__kernel void convert_depth(..) invert=%u, factor=%f ", invert, factor );
+	
+	if (!(depth==0)){
+		if ( invert==true ) depth_mem_GT[read_index] =  1/depth;
+		else depth_mem_GT[read_index] = depth;
+	}
 }
 
 __kernel void transform_depthmap(
@@ -975,9 +997,6 @@ __kernel void transform_depthmap(
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint mm_pixels		= uint_params[MM_PIXELS];
-	
-	//float SE3_LM_a		= fp32_params[SE3_LM_A];													// Optimisation parameters
-	//float SE3_LM_b		= fp32_params[SE3_LM_B];
 	
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;													// read_row
@@ -1125,17 +1144,6 @@ __kernel void DepthCostVol(
 	hi[global_id] 	= maxv; 															// max photometric cost
 }
 
-/*
- __kernel void UpdateQD(
-	 __global float* g1pt,
-	 __global float* qpt,
-	 __global float* dpt,                      // dmem,     depth D
-	 __global float* apt,                      // amem,     auxilliary A
-	 //__global float* hdata,
-	 __constant float* params
-	 )
-*/
-
 __kernel void UpdateQD(
 	__private	uint	layer,				//0
 	__constant 	uint*	mipmap_params,		//1
@@ -1143,8 +1151,8 @@ __kernel void UpdateQD(
 	__global 	float*  fp32_params,		//3
 	__global 	float* 	g1pt,				//4
 	__global 	float* 	qpt,				//5
-	__global 	float*  apt,				//6
-	__global 	float*  dpt					//7
+	__global 	float*  apt,				//6		// amem,     auxilliary A
+	__global 	float*  dpt					//7		// dmem,     depth D
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -1217,9 +1225,8 @@ __kernel void UpdateQD(
 	
 	//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
 		 dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
-	
+		 
 }
-
 
 __kernel void  UpdateG(
 	__private	uint		layer,			//0
@@ -1250,16 +1257,15 @@ __kernel void  UpdateG(
 	float alphaG		= fp32_params[ALPHA_G];
 	float betaG 		= fp32_params[BETA_G];
 	
-	float4 pu, pd, pl, pr;
-	pr =  img[offset + rtoff];
-	pl =  img[offset + lfoff];
-	pu =  img[offset + upoff];
-	pd =  img[offset + dnoff];
+	float4 pr 	= img[offset + rtoff];
+	float4 pl 	= img[offset + lfoff];
+	float4 pu 	= img[offset + upoff];
+	float4 pd 	= img[offset + dnoff];
 
 	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
 	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
 	 
-	float4 g1  = { \
+	float4 g1	= { \
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
@@ -1267,7 +1273,6 @@ __kernel void  UpdateG(
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
 }
-
 
 int set_start_layer(float di, float r, float far, float depthStep, int layers, int x, int y){ //( inverse_depth, r , min_inv_depth, inv_depth_step, num_layers )
     const float d_start = di - r;
@@ -1294,28 +1299,16 @@ float get_Eaux(float theta, float di, float aIdx, float far, float depthStep, fl
 	*/
 }
 
-/*
- __kernel void UpdateA2(  // pointwise exhaustive search
-	__global float* cdata,                         //           cost volume
-	__global float* apt,                           // dmem,     depth D
-	__global float* dpt,                           // amem,     auxilliary A
-	__global float* lo,
-	__global float* hi,
-	//__global float* hdata,
-	__constant float* params
-)
-*/
-
-__kernel void UpdateA2(
+__kernel void UpdateA(						// pointwise exhaustive search
 	__private	uint	layer,				//0
 	__constant 	uint*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
-	__global 	float*  cdata,				//4
+	__global 	float*  cdata,				//4		//           cost volume
 	__global 	float*  lo,					//5
 	__global 	float*  hi,					//6
-	__global 	float*  apt,				//7
-	__global 	float*  dpt					//8
+	__global 	float*  apt,				//7		// amem,     auxilliary A
+	__global 	float*  dpt					//8		// dmem,     depth D
 		 )
 {
 	uint global_id_u 	= get_global_id(0);

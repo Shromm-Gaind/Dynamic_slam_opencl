@@ -68,7 +68,7 @@ public:
 	cl_device_id		m_device_id;
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
-	cl_kernel			invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel;
+	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	bool 				frame_bool_idx=0;
@@ -126,16 +126,18 @@ public:
 	void allocatemem();
 	void precom_param_maps(float SO3_k2k[6*16]);
 	
-	void predictFrame();																												// image loading & preparation
+	void predictFrame();																												// Image loading & preparation
 	void loadFrame(cv::Mat image);
-	void load_GT_depth(cv::Mat GT_depth, bool invert);
 	void cvt_color_space();
 	void img_variance();
-	
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// start,stop allow running specific layers.
 	void mipmap_linear();
-	void mipmap_depthmap(cl_mem depthmap_);
 	void img_gradients();
+	
+	void load_GT_depth(cv::Mat GT_depth, bool invert);																					// Depthmap loading & preparation
+	void convert_depth(uint invert, float factor);
+	void mipmap_depthmap(cl_mem depthmap_);
+	
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// Call kernels on mipmap: start,stop allow running specific layers.
 	
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   						// Tracking
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
@@ -143,7 +145,7 @@ public:
 	
 	void estimateCalibration();																											// Camera calibration
 	
-	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);
+	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
 	void updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
