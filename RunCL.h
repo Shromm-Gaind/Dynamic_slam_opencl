@@ -71,12 +71,12 @@ public:
 	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
-	bool 				frame_bool_idx=0;
-	cl_mem 				basemem, imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], dist_map_mem[2], SE3_grad_map_mem[2], SE3_incr_map_mem;
+	//bool 				frame_bool_idx=0;
+	cl_mem 				basemem, imgmem,  gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
 	cl_mem				cdatabuf, hdatabuf, dmem, amem, qmem, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
-	cl_mem 				keyframe_basemem, keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem;	// keyframe_gxmem, keyframe_gymem,
+	cl_mem 				keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem;	// keyframe_gxmem, keyframe_gymem, keyframe_basemem, 
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
@@ -137,7 +137,10 @@ public:
 	void convert_depth(uint invert, float factor);
 	void mipmap_depthmap(cl_mem depthmap_);
 	
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start=0, uint stop=8);						// Call kernels on mipmap: start,stop allow running specific layers.
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop);						// Call kernels on mipmap: start,stop allow running specific layers.
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){
+		mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_stop, mm_start);
+	}
 	
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   						// Tracking
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
@@ -147,7 +150,7 @@ public:
 	
 	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
-	void updateDepthCostVol(cv::Matx44f K2K_, bool image_idx, int count, uint start, uint stop);
+	   void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
 	void updateG(int count, uint start, uint stop);
 	void updateA(float lambda, float theta, int count, uint start, uint stop);
@@ -333,7 +336,8 @@ public:
 	void ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0) {
 		cl_event readEvt;
 		cl_int status;
-														//cout<<"\nReadOutput: &outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
+														//cout<<"\nReadOutput: "<<flush;
+														//cout<<"&outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
 		status = clEnqueueReadBuffer(dload_queue,			// command_queue
 											buf_mem,		// buffer
 											CL_FALSE,		// blocking_read
@@ -345,10 +349,13 @@ public:
 											&readEvt);		// event
 														if (status != CL_SUCCESS) { cout << "\nclEnqueueReadBuffer(..) status=" << checkerror(status) <<"\n"<<flush; exit_(status);} 
 															//else if(verbosity>0) cout <<"\nclEnqueueReadBuffer(..)"<<flush;
+															
 		status = clFlush(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFlush(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
-															//(else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
+															//else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
+															
 		status = clWaitForEvents(1, &readEvt); 			if (status != CL_SUCCESS) { cout << "\nclWaitForEvents status="			<< checkerror(status) <<"\n"<<flush; exit_(status);} 
 															//else if(verbosity>0) cout <<"\nclWaitForEvents(..)"<<flush;
+														
 		//status = clFinish(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFinish(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);} 
 															//else if(verbosity>0) cout <<"\nclFlush(..)"<<flush;
 	}

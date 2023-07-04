@@ -87,12 +87,12 @@ void Dynamic_slam::initialize_camera(){
 	T 		= cv::Mat::zeros(3,1 , CV_32FC1);
 	//R_dif 	= cv::Mat::zeros(3,3 , CV_32FC1);
 	//T_dif 	= cv::Mat::zeros(3,1 , CV_32FC1);
-	for (int i=0; i<9; i++){SO3_pose2pose.operator()(i/3,i%3)=0;} 
-	for (int i=0; i<3; i++){SO3_pose2pose.operator()(i,i)=1;} 
+	for (int i=0; i< 9; i++){SO3_pose2pose.operator()(i/3,i%3)	=0;} 
+	for (int i=0; i< 3; i++){SO3_pose2pose.operator()(i,i)		=1;} 
 	
-	for (int i=0; i<16; i++){pose2pose.operator()(i/4,i%4)=0;} 
-	for (int i=0; i<4; i++){pose2pose.operator()(i,i)=1;}
-	for (int i=0; i<16; i++){K2K.operator()(i/4,i%4) = pose2pose.operator()(i/4,i%4);}
+	for (int i=0; i<16; i++){pose2pose.operator()(i/4,i%4)		=0;} 
+	for (int i=0; i< 4; i++){pose2pose.operator()(i,i)			=1;}
+	for (int i=0; i<16; i++){K2K.operator()(i/4,i%4) 			= pose2pose.operator()(i/4,i%4);}
 	old_K		= K;
 	generate_invK();
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 1:" <<flush;
@@ -109,12 +109,12 @@ void Dynamic_slam::initialize_camera(){
 	inv_K_start 	= inv_K_GT; 
 	pose_start 		= pose_GT;
 	inv_pose_start 	= inv_pose_GT;
-	K2K_GT = Matx44f_eye;
-	K2K_start = Matx44f_eye;
-	pose2pose_GT = Matx44f_eye;
-	pose2pose_start = Matx44f_eye;
-	pose2pose_accumulated = Matx44f_eye;
-	pose2pose_accumulated_GT = Matx44f_eye; //  = cv::Matx44f::eye(); equivalent to
+	K2K_GT 						= Matx44f_eye;
+	K2K_start 					= Matx44f_eye;
+	pose2pose_GT 				= Matx44f_eye;
+	pose2pose_start 			= Matx44f_eye;
+	pose2pose_accumulated 		= Matx44f_eye;
+	pose2pose_accumulated_GT 	= Matx44f_eye; //  = cv::Matx44f::eye(); equivalent to
 																																			if (verbosity>local_verbosity_threshold){ cout << "\nDynamic_slam::initialize_camera_chk 5:" <<flush;
 																																				cout << "\nDynamic_slam::initialize_camera: pose2pose_accumulated = "; for (int i=0; i<16; i++) {cout << ", " << pose2pose_accumulated.operator()(i/4,i%4); }
 																																			}cout << flush;
@@ -122,8 +122,8 @@ void Dynamic_slam::initialize_camera(){
 
 int Dynamic_slam::nextFrame() {
 	int local_verbosity_threshold = 0;
-	runcl.frame_bool_idx = !runcl.frame_bool_idx;																							// Global array index swap for: cl_mem imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"\n" << flush;
+	//runcl.frame_bool_idx = !runcl.frame_bool_idx;																							// Global array index swap for: cl_mem imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0, \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
 	getFrame();
 	
 	//artificial_SO3_pose_error();
@@ -143,7 +143,7 @@ int Dynamic_slam::nextFrame() {
 	//use_GT_pose();
 	
 	////////////////////////////////// Parallax depth mapping
-	
+	return(0); // TODO remove for mapping
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
@@ -154,7 +154,7 @@ int Dynamic_slam::nextFrame() {
 	runcl.A_count=0;
 	runcl.G_count=0;
 	do{ 
-		for (int i = 0; i < 10; i++) updateQD();							// Optimize Q, D   (primal-dual)
+		for (int i = 0; i < 5/*10*/; i++) updateQD();							// Optimize Q, D   (primal-dual)
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
@@ -782,7 +782,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 }
 
 void Dynamic_slam::estimateSO3(){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 	const uint DoF = 3;
 	const uint matxDoF = 9;
 	const uint channels = 4;
@@ -866,7 +866,7 @@ void Dynamic_slam::estimateSO3(){
 }
 
 void Dynamic_slam::estimateSE3(){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0" << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX,   next_layer_Rho_sq_result=FLT_MAX;
@@ -1077,13 +1077,11 @@ void Dynamic_slam::updateDepthCostVol(){																							// Built forwards
 // See CostVol::updateCost(..), RunCL::calcCostVol(..) &  __kernel void BuildCostVolume2
 																																			// int count: Iteration of for loop in this function. Here used to count num imgages use in costvol.
 	cv::Matx44f K2K_ =  K2K; 		// needs K2K from keyframe. 																			// camera-to-camera transform for this image to the keyframe of this cost vol.
-	bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
+	//bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
-	runcl.updateDepthCostVol( K2K_, image_, runcl.costVolCount++, runcl.mm_start, runcl.mm_stop  ); 										// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+	runcl.updateDepthCostVol( K2K_, runcl.costVolCount++, runcl.mm_start, runcl.mm_stop  ); 										// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
 																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);
 																																			// -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
-	
-	
 	
 }
 

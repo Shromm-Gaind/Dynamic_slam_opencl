@@ -1049,12 +1049,14 @@ __kernel void DepthCostVol(
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint read_rows_		= mipmap_params[MiM_READ_ROWS];
+	
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];						// choose correct layer of the mipmap
+	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
@@ -1065,7 +1067,7 @@ __kernel void DepthCostVol(
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	/////////////////////////////////////////////////////////////
 	
-	int global_id = get_global_id(0);
+	//int global_id = get_global_id(0);
 	/*
 	int pixels 			= floor(params[pixels_]);
 	int rows 			= floor(params[rows_]);
@@ -1086,7 +1088,7 @@ __kernel void DepthCostVol(
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
 	
 	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;			// variables for the cost vol
-	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=global_id,	layer = 0;
+	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=read_index,	layer = 0;
 	float4 	c, c_00, c_01, c_10, c_11;
 	float 	c0 = cdata[cv_idx];																	// cost for this elem of cost vol
 	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
@@ -1106,7 +1108,7 @@ __kernel void DepthCostVol(
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
 	for( layer=0;  layer<costvol_layers; layer++ ){
-		cv_idx = global_id + layer*pixels;
+		cv_idx = read_index + layer*pixels;
 		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
 		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
@@ -1138,15 +1140,15 @@ __kernel void DepthCostVol(
 		}
 		maxv = fmax(cost[layer], maxv);
 	}
-	lo[global_id] 	= minv; 															// min photometric cost  // rho;//
-	a[global_id] 	= mini*inv_d_step + min_inv_depth;									// inverse distance
-	d[global_id] 	= mini*inv_d_step + min_inv_depth;
-	hi[global_id] 	= maxv; 															// max photometric cost
+	lo[read_index] 	= minv; 															// min photometric cost  // rho;//
+	a[read_index] 	= mini*inv_d_step + min_inv_depth;									// inverse distance
+	d[read_index] 	= mini*inv_d_step + min_inv_depth;
+	hi[read_index] 	= maxv; 															// max photometric cost
 }
 
 __kernel void UpdateQD(
-	__private	uint	layer,				//0
-	__constant 	uint*	mipmap_params,		//1
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
 	__global 	float* 	g1pt,				//4
@@ -1157,12 +1159,14 @@ __kernel void UpdateQD(
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
-	uint read_rows_		= mipmap_params[MiM_READ_ROWS];
+	
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];						// choose correct layer of the mipmap
+	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
@@ -1184,7 +1188,7 @@ __kernel void UpdateQD(
 	
 	int y = global_id_u / read_cols_;
 	int x = global_id_u % read_cols_;
-	unsigned int pt = x + y * mm_cols;									// index of this pixel
+	unsigned int pt = read_index ; //x + y * mm_cols;									// index of this pixel
 	if (pt >= (mm_cols*read_rows_ + read_offset_))return;
 	//if (hdata[pt+ (costvol_layers-1)*rows*cols] <=0.0) return;		// if no input image overlaps, on layer 0 of hitbuffer, skip this pixel. // makes no difference
 	barrier(CLK_GLOBAL_MEM_FENCE);
@@ -1229,7 +1233,7 @@ __kernel void UpdateQD(
 }
 
 __kernel void  UpdateG(
-	__private	uint		layer,			//0
+	__private	uint		mipmap_layer,	//0
 	__constant	uint8*		mipmap_params,	//1
 	__constant 	uint*		uint_params,	//2
 	__constant 	float*		fp32_params,	//3
@@ -1240,7 +1244,7 @@ __kernel void  UpdateG(
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	
-	uint8 mipmap_params_ = mipmap_params[layer];
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];

@@ -1,6 +1,6 @@
 {
     "verbosity":1,                                                      // -1= none, 0=errors only, 1=basic, 2=lots.
-    "imagesPerCV":7,
+    "imagesPerCV":4,//7
     "max_frame_count":4,//140,//30,                                    // how many frames to run for. NB -1 -> run indefinitely.
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
     "":"",
@@ -22,7 +22,7 @@
     "occlusionThreshold":0.05,
     "startAt":0,
     "":"",                      //
-    "max_opt_count":60,
+    "max_opt_count":5,//60,
     "":"",
     "initialCost":1.0,          //3.0,
     "initialWeight":0.0000001,  // 0.00006103515625 smallest positive normal number in FP16
@@ -43,7 +43,7 @@
     "opencl_device":0,
     "":"",
     "MipMap_margin":1,          // 4
-    "num_reductions":4,                                                 // Layers-1 of image pyramid in MipMap
+    "num_reductions":6,//4                                                 // Layers-1 of image pyramid in MipMap
     "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
     "":"",
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
