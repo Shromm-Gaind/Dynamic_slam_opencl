@@ -337,7 +337,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 }
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
 	R.copyTo(old_R);																														// get ground truth frame to frame pose transform
 	T.copyTo(old_T);

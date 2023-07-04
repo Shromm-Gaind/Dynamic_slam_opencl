@@ -139,7 +139,7 @@ public:
 	
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop);						// Call kernels on mipmap: start,stop allow running specific layers.
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){
-		mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_stop, mm_start);
+		mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop );
 	}
 	
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);   						// Tracking

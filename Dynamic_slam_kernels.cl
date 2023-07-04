@@ -249,9 +249,9 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
-	/*
+	
 																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
-	*/
+	
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -313,13 +313,13 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	
 	if (write_row>=write_rows_) return;
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
-	/*
+	// /*
 	if (global_id_u == 1) printf("\n\npatch_length=%u,  group_size=%u, mm_cols=%u, mipmap_params_[MiM_PIXELS]=%u", patch_length, group_size, mm_cols, mipmap_params_[MiM_PIXELS] );
 	if (global_id_u < 5) printf("\n\nread_index=%u, write_index=%u, lid=%u, write_cols_=%u,    read_index+0*mm_cols=%u, read_index+1*mm_cols=%u, read_index+2*mm_cols=%u, read_index+3*mm_cols=%u, read_index+4*mm_cols=%u,       "\
 		, read_index, write_index, lid, write_cols_ \
 		, read_index+0*mm_cols, read_index+1*mm_cols, read_index+2*mm_cols, read_index+3*mm_cols, read_index+4*mm_cols \
 	);
-	*/
+	// */
 	//reduced_pixel[2] = global_id_flt/(float)(mipmap_params[MiM_PIXELS]); // debugging 
 	reduced_pixel[3] = 1.0f;
 	img[ write_index] = reduced_pixel;

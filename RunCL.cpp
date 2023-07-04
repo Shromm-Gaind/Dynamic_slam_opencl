@@ -702,7 +702,7 @@ void RunCL::initialize_fp32_params(){
 }
 
 void RunCL::initialize(){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
@@ -716,7 +716,7 @@ void RunCL::initialize(){
 	
 	mm_num_reductions	= obj["num_reductions"].asUInt();																					// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
 	mm_start			= 0;
-	mm_stop				= mm_num_reductions;
+	mm_stop				= mm_num_reductions;																								if(verbosity>local_verbosity_threshold) cout << "\nRunCL::initialize_chk0.5,  mm_start="<<mm_start<<",  mm_stop="<<mm_stop<<" \n" << flush;
 	mm_gaussian_size	= obj["gaussian_size"].asUInt();
 	mm_margin			= obj["MipMap_margin"].asUInt() * mm_num_reductions;
 	mm_width 			= baseImage_width  + 2 * mm_margin;
@@ -869,15 +869,15 @@ void RunCL::initialize(){
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop){
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\n\nRunCL::mipmap_call_kernel(cl_kernel "<<kernel_to_call<<", cl_command_queue "<<queue_to_call<<", "<<start<<", "<<stop<<" )_chk0"<<flush;
-																																				cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<<flush;
+																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<" )_chk0"<<flush;
+																																				//cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<< ",  start="<<start<<",  stop="<<stop <<flush;
 																																			}
 	cl_event						ev;
 	cl_int							res, status;
 	for(int reduction = start; reduction <= stop; reduction++) { 
-																																			if(verbosity>local_verbosity_threshold) { cout<<"\n\nRunCL::mipmap_call_kernel(..) reduction="<<reduction<<"                chk1"<<flush; }
+																																			if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk1,  reduction="<<reduction<<",  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
 		//if (reduction>=start && reduction<stop){																							// compute num threads to launch & num_pixels in reduction
-																																			if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..) if (reduction>=start && reduction<stop)  chk2"<<flush; }
+																																			//if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk2 :  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
 			res 	= clSetKernelArg(kernel_to_call, 0, sizeof(int), &reduction);							if(res!=CL_SUCCESS)			{cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;
 			res 	= clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &num_threads[reduction], &local_work_size, 0, NULL, &ev); // run mipmap_float4_kernel, NB wait for own previous iteration.
 																											if (res != CL_SUCCESS)		{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
