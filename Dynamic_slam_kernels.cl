@@ -249,9 +249,7 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
-	
 																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
-	
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -313,13 +311,13 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	
 	if (write_row>=write_rows_) return;
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
-	// /*
+	/*
 	if (global_id_u == 1) printf("\n\npatch_length=%u,  group_size=%u, mm_cols=%u, mipmap_params_[MiM_PIXELS]=%u", patch_length, group_size, mm_cols, mipmap_params_[MiM_PIXELS] );
 	if (global_id_u < 5) printf("\n\nread_index=%u, write_index=%u, lid=%u, write_cols_=%u,    read_index+0*mm_cols=%u, read_index+1*mm_cols=%u, read_index+2*mm_cols=%u, read_index+3*mm_cols=%u, read_index+4*mm_cols=%u,       "\
 		, read_index, write_index, lid, write_cols_ \
 		, read_index+0*mm_cols, read_index+1*mm_cols, read_index+2*mm_cols, read_index+3*mm_cols, read_index+4*mm_cols \
 	);
-	// */
+	*/
 	//reduced_pixel[2] = global_id_flt/(float)(mipmap_params[MiM_PIXELS]); // debugging 
 	reduced_pixel[3] = 1.0f;
 	img[ write_index] = reduced_pixel;
@@ -881,7 +879,7 @@ __kernel void se3_grad(
 }
 
 __kernel void reduce (																				// TODO use this for the second stage image summation tasks.
-	__constant 	uint*		mipmap_params,		//0
+	__constant 	uint*		mipmap_params,		//0		// kernel not currently in use, needs to integrate with mipmap.
 	__constant 	uint*		uint_params,		//1
 	__global	float8*		se3_sum,			//2
 	__local		float8*		local_sum_grads,	//3
@@ -934,7 +932,7 @@ __kernel void reduce (																				// TODO use this for the second stage 
 __kernel void convert_depth(
 	__private	uint 	invert,					//0
 	__private	float 	factor,					//1
-	__constant 	uint*	mipmap_params,			//2
+	__constant 	uint*	mipmap_params,			//2		// NB uses ony mipmap_params[layer=0]
 	__constant	uint*	uint_params,			//3
 	__global	float* 	depth_mem,				//4
 	__global	float* 	depth_mem_GT			//5
@@ -969,9 +967,9 @@ __kernel void convert_depth(
 
 __kernel void transform_depthmap(
 	__private	uint	mipmap_layer,			//0
-	__constant 	uint*	mipmap_params,			//1
+	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
-	__global 	float*  k2k,					//3
+	__global 	float16*k2k,					//3
 	__global 	float4*	old_keyframe,			//4
 	__global	float* 	depth_map_in,			//5
 	__global	float* 	depth_map_out			//6
@@ -992,6 +990,7 @@ __kernel void transform_depthmap(
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
+	if (global_id_u    >= layer_pixels) return;
 	
 	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];
@@ -1006,25 +1005,31 @@ __kernel void transform_depthmap(
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	float alpha			= old_keyframe[read_index].w;
 	
-	uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
-	float inv_depth 	= depth_map_in[depth_index]; 													//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept
+	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
+	float inv_depth 	= depth_map_in[read_index]; 	// depth_index								//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept
+	
+	if (global_id_u ==0) printf("\n__kernel void transform_depthmap(): k2k_pvt= %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f, ",\
+		k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11]
+	);
+	
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
 	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1+ k2k_pvt[11]*inv_depth;
 	//float h/z  = k2k_pvt[12]*u_flt + k2k_pvt[13]*v + k2k_pvt[14]*1; // +k2k_pvt[15]/z
 	
-	float u2_flt	= uh2/wh2;
-	float v2_flt	= vh2/wh2;
-	int  u2			= floor((u2_flt/reduction)+0.5f) ;												// nearest neighbour interpolation
-	int  v2			= floor((v2_flt/reduction)+0.5f) ;												// NB this corrects the sparse sampling to the redued scales.
+	float u2_flt		= uh2/wh2;
+	float v2_flt		= vh2/wh2;
+	int   u2			= floor((u2_flt/reduction)+0.5f) ;											// nearest neighbour interpolation
+	int   v2			= floor((v2_flt/reduction)+0.5f) ;											// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
-	
+	if (global_id_u >= layer_pixels  || u2<0 || u2>read_cols_ || v2<0 || v2>read_rows_ ) return;
 	////////////////////////////////////////////////////////
 																									// TODO should I use more sophisticated interpolation ?
 																									
-	float newdepth =  alpha * depth_map_in[read_index_new];											// old_keyframe.alpha indicates if this pixel of new depth map has valid source in the old depth map.
+	float newdepth = alpha * depth_map_in[read_index_new];	// alpha *								// old_keyframe.alpha indicates if this pixel of new depth map has valid source in the old depth map.
 																									// could set a default value here.
-	depth_map_out[read_index] = newdepth;
+	depth_map_out[read_index] = newdepth;// vh2/(read_rows_*256); 
+	// uh2/(read_cols_*256); //v2_flt;// u2_flt;// vh2/read_cols_; // uh2/read_cols_; // ((float)read_index_new)/((float)mm_pixels); // newdepth; //depth_map_in[read_index]; //  
 }
 
 
@@ -1032,7 +1037,7 @@ __kernel void transform_depthmap(
 
 __kernel void DepthCostVol(
 	__private	uint	mipmap_layer,		//0		? Not required ?
-	__constant 	uint*	mipmap_params,		//1
+	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
 	__global 	float*  k2k,				//4
@@ -1304,11 +1309,11 @@ float get_Eaux(float theta, float di, float aIdx, float far, float depthStep, fl
 }
 
 __kernel void UpdateA(						// pointwise exhaustive search
-	__private	uint	layer,				//0
-	__constant 	uint*	mipmap_params,		//1
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
-	__global 	float*  cdata,				//4		//           cost volume
+	__global 	float*  cdata,				//4		// cdatabuf, cost volume
 	__global 	float*  lo,					//5
 	__global 	float*  hi,					//6
 	__global 	float*  apt,				//7		// amem,     auxilliary A
@@ -1317,11 +1322,13 @@ __kernel void UpdateA(						// pointwise exhaustive search
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
-	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;

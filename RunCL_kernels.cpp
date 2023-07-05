@@ -457,8 +457,8 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 																																				//cout<<"\n\nRunCL::estimateSO3(..)_chk3.7 ."<<flush;
 																																				//DownloadAndSave_3Channel_volume(  keyframe_imgmem,  ss.str(), paths.at("keyframe_imgmem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1, 1 );
 																																				
-																																				cout<<"\n\nRunCL::estimateSO3(..)_chk3.8 ."<<flush;
-																																				DownloadAndSave_3Channel_volume(  imgmem,  ss.str(), paths.at("imgmem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1, 1 );
+																																				//cout<<"\n\nRunCL::estimateSO3(..)_chk3.8 ."<<flush;
+																																				//DownloadAndSave_3Channel_volume(  imgmem,  ss.str(), paths.at("imgmem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1, 1 );
 																																			}
 																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSO3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
@@ -777,20 +777,36 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
 	
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk1\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout<<"\n\nRunCL::transform_depthmap(..)_  K2K_arry[16] = "<<flush;
+																																				for (int i=0; i<16;i++){
+																																					if (i%4==0) cout << "\n";
+																																					cout << ",  " << K2K_arry[i] ;
+																																				}cout << "\n";
+																																			}
 	
-	cl_int 				res;
-	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                        	//__private	    uint	    layer,		                    //0
+	stringstream ss;
+	ss << "_transform_depthmap_";
+	ss << (keyFrameCount*1000 + costVolCount);
+	DownloadAndSave(		 	keyframe_depth_mem,   		ss.str(), paths.at("keyframe_depth_mem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]); cout<<"\n\nRunCL::transform_depthmap(..)_chk0.1 ."<<flush;
+	
+	
+	const float zero  = 0;
+	status = clEnqueueFillBuffer (uload_queue, 	depth_mem, &zero,    sizeof(float),  0,     mm_size_bytes_C1, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk0.2\n" << endl;exit_(status);}	
+	status = clEnqueueWriteBuffer(uload_queue, 	k2kbuf,	   CL_FALSE, 0, 16 * sizeof(float), K2K_arry,         0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk0.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	
+	cl_int res;
+	//     __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                        	//__private	    uint	    layer,		                    //0
 	res = clSetKernelArg(transform_depthmap_kernel,  1, sizeof(cl_mem), &mipmap_buf);			if(res!=CL_SUCCESS){cout<<"\nmipmap_buf = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
 	res = clSetKernelArg(transform_depthmap_kernel,  2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nuint_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
 	res = clSetKernelArg(transform_depthmap_kernel,  3, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//3
-	res = clSetKernelArg(transform_depthmap_kernel,  3, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		keyframe_imgmem,				//4
+	res = clSetKernelArg(transform_depthmap_kernel,  4, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		keyframe_imgmem,				//4		// uses alpha channel to check bounds
 	res = clSetKernelArg(transform_depthmap_kernel,  5, sizeof(cl_mem), &keyframe_depth_mem);	if(res!=CL_SUCCESS){cout<<"\nkeyframe_depth_mem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		keyframe_depth_mem,				//5
 	res = clSetKernelArg(transform_depthmap_kernel,  6, sizeof(cl_mem), &depth_mem);			if(res!=CL_SUCCESS){cout<<"\ndepth_mem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		depth_mem,						//6
 	
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_depthmap(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( transform_depthmap_kernel, m_queue );
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_depthmap(..)_chk3 ."<<flush;}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::transform_depthmap(..)_transform_depthmap_kernel\n" << flush;exit_(status);}
 	
 	status = clEnqueueCopyBuffer( m_queue,  depth_mem,	 keyframe_depth_mem, 		0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);			if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::transform_depthmap(..)_clEnqueueCopyBuffer\n" << flush;exit_(status);}
