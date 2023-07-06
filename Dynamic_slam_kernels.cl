@@ -990,7 +990,7 @@ __kernel void transform_depthmap(
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
-	if (global_id_u    >= layer_pixels) return;
+	//if (global_id_u    >= layer_pixels) return;
 	
 	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];

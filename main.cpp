@@ -43,7 +43,8 @@ int main(int argc, char *argv[])
 			ds_error = dynamic_slam.nextFrame();
 			frame_count ++;
 		}
-		dynamic_slam.initialize_keyframe_from_tracking();
+		//dynamic_slam.initialize_keyframe_from_tracking();
+		break; // TODO write new depthmap transformation based on bin sort from fluids_v3 & Morphogenesis.
 		
 	}while(!ds_error && ((frame_count<max_frame_count) || (max_frame_count==-1)) );
 																			if(verbosity_>0) cout << "\n main_chk 3\n" << flush;

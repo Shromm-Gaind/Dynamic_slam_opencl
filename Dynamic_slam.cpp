@@ -143,7 +143,7 @@ int Dynamic_slam::nextFrame() {
 	//use_GT_pose();
 	
 	////////////////////////////////// Parallax depth mapping
-	return(0); // TODO remove for mapping
+	
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
