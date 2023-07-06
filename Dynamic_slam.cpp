@@ -40,8 +40,8 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
-	generate_SE3_k2k( SE3_k2k );																											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 6\n" << flush;
-	runcl.precom_param_maps( SE3_k2k );																										if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
+	//generate_SE3_k2k( SE3_k2k );																											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 6\n" << flush;
+	//runcl.precom_param_maps( SE3_k2k );																										if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
 };
 
 void Dynamic_slam::initialize_camera(){
@@ -101,7 +101,7 @@ void Dynamic_slam::initialize_camera(){
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 2:" <<flush;}
 	// TODO Also initialize any lens distorsion, vinetting. etc
 	
-	getFrame();																																// Causes the first frame to be loaded into first imgmem, and prepared. 
+	//getFrame();																																// Causes the first frame to be loaded into first imgmem, and prepared. 
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 3:" <<flush;}
 	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 4:" <<flush;}
@@ -118,6 +118,9 @@ void Dynamic_slam::initialize_camera(){
 																																			if (verbosity>local_verbosity_threshold){ cout << "\nDynamic_slam::initialize_camera_chk 5:" <<flush;
 																																				cout << "\nDynamic_slam::initialize_camera: pose2pose_accumulated = "; for (int i=0; i<16; i++) {cout << ", " << pose2pose_accumulated.operator()(i/4,i%4); }
 																																			}cout << flush;
+	generate_SE3_k2k( SE3_k2k );
+	runcl.precom_param_maps( SE3_k2k );
+	getFrame();
 }
 
 int Dynamic_slam::nextFrame() {
@@ -487,8 +490,8 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 																																			}
 																																			// get ground truth depth map
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 2,"<<flush;}
-	int r = image.rows;
-    int c = image.cols;
+	int r = runcl.baseImage.rows;  //image.rows;
+    int c = runcl.baseImage.cols;  //image.cols;
 	depth_GT = loadDepthAhanda(depth[runcl.frame_num].string(), r,c,cameraMatrix);
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;}
 	stringstream ss;
@@ -505,6 +508,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	folder_png  += png_ss.str();
 	folder_png  += ".png";
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 4,"<<flush;
+																																				cout << "\n runcl.frame_num = " << runcl.frame_num << ",  depth[runcl.frame_num].string() = " << depth[runcl.frame_num].string() << flush;
 																																				cout << "\n depth_GT.size() = " << depth_GT.size() << ",  depth_GT.type() = "<< type_string << ",  depth_GT.empty() = " <<  depth_GT.empty()   << flush;
 																																				cout << "\n " << folder_png.string() << flush; 
 																																			}
@@ -1062,7 +1066,7 @@ void Dynamic_slam::initialize_new_keyframe(){
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
 	runcl.initialize_fp32_params();
 	runcl.G_count = 0;
-	cacheGValues();
+	//cacheGValues();			// TODO may nt be needed here.
 	runcl.keyFrameCount++;
 }
 

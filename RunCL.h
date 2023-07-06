@@ -95,7 +95,7 @@ public:
 	float				fp32_k2k[16]		= {0};
 	float 				fp32_k2keyframe[16]	= {0};
 	
-	int 				frame_num, costvol_frame_num, key_frame_num, key_frame_cacheG_num, key_frame_QD_num ;
+	int 				frame_num, costvol_frame_num, key_frame_num, key_frame_cacheG_num, key_frame_QD_num ; // TODO fix duplication of counters
 	uint	 			mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size;
 	uint 				mm_start, mm_stop;
 	int 				baseImage_width, baseImage_height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0, G_count=0;

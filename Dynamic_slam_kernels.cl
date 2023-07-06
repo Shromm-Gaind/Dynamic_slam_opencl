@@ -1109,6 +1109,13 @@ __kernel void DepthCostVol(
 	//float h/z  = k2k[12]*u + k2k[13]*v + k2k[14]*1; // +k2k[15]/z
 	float uh3, vh3, wh3;
 
+	if (global_id_u==0){ 
+		printf("\n\n__kernel void DepthCostVol(): k2k= ( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )",\
+		k2k[0], k2k[1], k2k[2], k2k[3], k2k[4], k2k[5], k2k[6], k2k[7], k2k[8], k2k[9], k2k[10], k2k[11], k2k[12], k2k[13], k2k[14], k2k[15] \
+		);
+		printf("\n\n__kernel void DepthCostVol(): uh2=%f, vh2=%f  , wh2=%f ", uh2, vh2, wh2 );
+	}
+	
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
@@ -1122,14 +1129,22 @@ __kernel void DepthCostVol(
 		wh3  = wh2 + k2k[11]*inv_depth;
 		u2   = uh3/wh3;
 		v2   = vh3/wh3;
+		
+		//u2/=70;// TODO  why  70 ?  fix cause.
+		//v2/=70;
 		//if(u==70 && v==470)printf("\n(inv_depth=%f,   ",inv_depth);
 		int_u2 = ceil(u2-0.5);		// nearest neighbour interpolation
 		int_v2 = ceil(v2-0.5);
+		
+		int_u2/=70;
+		int_v2/=70;
+		
+		if (global_id_u==0) printf("\n\n__kernel void DepthCostVol(): layer=%i,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", layer, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
 
 		// should cols be "read_cols" or "mm_cols" ? TODO
 		
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
-			c=img[(int_v2*read_cols_ + int_u2)*3];											// nearest neighbour interpolation
+			c=img[(int_v2*read_cols_ + int_u2)]; // *3];											// nearest neighbour interpolation
 			float rx=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);					// Compute photometric cost // L2 norm between keyframe & new frame pixels.
 			rho = sqrt( rx*rx + ry*ry + rz*rz )*50;										//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
 			cost[layer] = (cost[layer]*w + rho) / (w + 1);
@@ -1146,8 +1161,8 @@ __kernel void DepthCostVol(
 		maxv = fmax(cost[layer], maxv);
 	}
 	lo[read_index] 	= minv; 															// min photometric cost  // rho;//
-	a[read_index] 	= mini*inv_d_step + min_inv_depth;									// inverse distance
-	d[read_index] 	= mini*inv_d_step + min_inv_depth;
+	a[read_index] 	= int_u2; //c.x; // u2/read_cols_; //mini*inv_d_step + min_inv_depth; //  mini*inv_d_step + min_inv_depth;									// inverse distance
+	d[read_index] 	= int_v2; //c.y; // v2/read_rows_; //mini*inv_d_step + min_inv_depth; // mini*inv_d_step + min_inv_depth;
 	hi[read_index] 	= maxv; 															// max photometric cost
 }
 
@@ -1156,7 +1171,7 @@ __kernel void UpdateQD(
 	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
-	__global 	float* 	g1pt,				//4
+	__global 	float4* g1pt,				//4
 	__global 	float* 	qpt,				//5
 	__global 	float*  apt,				//6		// amem,     auxilliary A
 	__global 	float*  dpt					//7		// dmem,     depth D
@@ -1199,7 +1214,8 @@ __kernel void UpdateQD(
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	const int wh = (mm_cols*read_rows_ + read_offset_);
 	
-	float g1 = g1pt[pt];
+	float4 g1_4 = g1pt[pt];
+	float g1 = g1_4.x + g1_4.y + g1_4.z ;								// reduce channel count of g1. Here Manhatan norm.
 	float qx = qpt[pt];
 	float qy = qpt[pt+wh];
 	float d  = dpt[pt];
