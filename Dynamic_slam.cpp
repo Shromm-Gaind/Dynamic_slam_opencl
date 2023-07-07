@@ -1035,7 +1035,7 @@ void Dynamic_slam::initialize_new_keyframe(){
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
 	runcl.initialize_fp32_params();
 	runcl.G_count = 0;
-	//cacheGValues();			// TODO may nt be needed here.
+	//cacheGValues();			// TODO may not be needed here.
 	runcl.keyFrameCount++;
 }
 
