@@ -51,7 +51,7 @@
 #define PIXELS				0	// uint_params indices, 		when launching one kernel per layer. 	Constant throughout program run.
 #define ROWS				1	// baseimage
 #define COLS				2
-#define LAYERS				3
+#define COSTVOL_LAYERS		3
 #define MARGIN				4
 #define MM_PIXELS			5	// whole mipmap
 #define MM_ROWS				6	
@@ -774,8 +774,6 @@ __kernel void se3_grad(
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	float alpha			= img_cur[read_index].w;
 	
-	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
-	
 	float inv_depth 	= depth_map[read_index /*depth_index*/]; 									//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
@@ -788,12 +786,12 @@ __kernel void se3_grad(
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;												// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	uint num_DoFs 	= 6;
-	/*
+	
 	if (global_id_u==1){
-		printf("\nkernel se3_grad(..)  k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
-		,k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
+		printf("\nkernel se3_grad(..): inv_depth=%f, u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
+		,inv_depth, u_flt, v_flt, u2, v2,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
 	}
-	*/
+	
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 															// TODO apply robustifying norm to Rho, eg Huber norm.
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	
@@ -1087,7 +1085,7 @@ __kernel void DepthCostVol(
 	//int offset_3 		= global_id *3;															// Get keyframe pixel values
 	float4 B = base[read_index];	//B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
 	
-	int costvol_layers	= uint_params[LAYERS];
+	int costvol_layers	= uint_params[COSTVOL_LAYERS];
 	int pixels 			= uint_params[PIXELS];
 	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
@@ -1110,10 +1108,10 @@ __kernel void DepthCostVol(
 	float uh3, vh3, wh3;
 
 	if (global_id_u==0){ 
-		printf("\n\n__kernel void DepthCostVol(): k2k= ( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )",\
-		k2k[0], k2k[1], k2k[2], k2k[3], k2k[4], k2k[5], k2k[6], k2k[7], k2k[8], k2k[9], k2k[10], k2k[11], k2k[12], k2k[13], k2k[14], k2k[15] \
+		printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, k2k= ( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )",\
+		mipmap_layer, k2k[0], k2k[1], k2k[2], k2k[3], k2k[4], k2k[5], k2k[6], k2k[7], k2k[8], k2k[9], k2k[10], k2k[11], k2k[12], k2k[13], k2k[14], k2k[15] \
 		);
-		printf("\n\n__kernel void DepthCostVol(): uh2=%f, vh2=%f  , wh2=%f ", uh2, vh2, wh2 );
+		printf("\n__kernel void DepthCostVol(): uh2=%f, vh2=%f  , wh2=%f ", uh2, vh2, wh2 );
 	}
 	
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1130,26 +1128,19 @@ __kernel void DepthCostVol(
 		u2   = uh3/wh3;
 		v2   = vh3/wh3;
 		
-		//u2/=70;// TODO  why  70 ?  fix cause.
-		//v2/=70;
-		//if(u==70 && v==470)printf("\n(inv_depth=%f,   ",inv_depth);
-		int_u2 = ceil(u2-0.5);		// nearest neighbour interpolation
-		int_v2 = ceil(v2-0.5);
+		int_u2 = ceil(u2/reduction-0.5);												// nearest neighbour interpolation
+		int_v2 = ceil(v2/reduction-0.5);												// NB this corrects the sparse sampling to the redued scales.
 		
-		int_u2/=70;
-		int_v2/=70;
-		
-		if (global_id_u==0) printf("\n\n__kernel void DepthCostVol(): layer=%i,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", layer, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
-
-		// should cols be "read_cols" or "mm_cols" ? TODO
+		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
+			layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
 		
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
-			c=img[(int_v2*read_cols_ + int_u2)]; // *3];											// nearest neighbour interpolation
-			float rx=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);					// Compute photometric cost // L2 norm between keyframe & new frame pixels.
-			rho = sqrt( rx*rx + ry*ry + rz*rz )*50;										//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
-			cost[layer] = (cost[layer]*w + rho) / (w + 1);
-			cdata[cv_idx] = cost[layer];  												// CostVol set here ###########
-			hdata[cv_idx] = w + 1;														// Weightdata, counts updates of this costvol element.
+			c				=img[(int_v2*mm_cols + int_u2)];
+			float rx		=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);			// Compute photometric cost // L2 norm between keyframe & new frame pixels.
+			rho 			= sqrt( rx*rx + ry*ry + rz*rz )*50;							//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
+			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);
+			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########
+			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
 		}
 	}
@@ -1161,8 +1152,8 @@ __kernel void DepthCostVol(
 		maxv = fmax(cost[layer], maxv);
 	}
 	lo[read_index] 	= minv; 															// min photometric cost  // rho;//
-	a[read_index] 	= int_u2; //c.x; // u2/read_cols_; //mini*inv_d_step + min_inv_depth; //  mini*inv_d_step + min_inv_depth;									// inverse distance
-	d[read_index] 	= int_v2; //c.y; // v2/read_rows_; //mini*inv_d_step + min_inv_depth; // mini*inv_d_step + min_inv_depth;
+	a[read_index] 	= c.x; //mini*inv_d_step + min_inv_depth; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
+	d[read_index] 	= mini*inv_d_step + min_inv_depth; //B.x; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
 	hi[read_index] 	= maxv; 															// max photometric cost
 }
 
@@ -1200,7 +1191,7 @@ __kernel void UpdateQD(
 	//int g_id 			= get_global_id(0);
 	//int rows 			= floor(params[rows_]);
 	//int cols 			= floor(params[cols_]);
-	int costvol_layers	= uint_params[LAYERS];
+	int costvol_layers	= uint_params[COSTVOL_LAYERS];
 	float epsilon 		= fp32_params[EPSILON];
 	float sigma_q 		= fp32_params[SIGMA_Q];
 	float sigma_d 		= fp32_params[SIGMA_D];
@@ -1355,10 +1346,10 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	//////////////////////////////////////
 	
-	//int x 				= get_global_id(0);						// int costvol_layers	= uint_params[LAYERS];
+	//int x 				= get_global_id(0);						// int costvol_layers	= uint_params[COSTVOL_LAYERS];
 	//int rows 				= floor(params[rows_]);
 	//int cols 				= floor(params[cols_]);
-	int costvol_layers		= uint_params[LAYERS];					//floor(params[layers_]);
+	int costvol_layers		= uint_params[COSTVOL_LAYERS];					//floor(params[layers_]);
 	unsigned int layer_step = uint_params[MM_PIXELS];				//floor(params[pixels_]);
 	float lambda			= fp32_params[LAMBDA];					//params[lambda_];
 	float theta				= fp32_params[THETA];					//params[theta_];

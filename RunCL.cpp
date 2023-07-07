@@ -688,7 +688,9 @@ void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, f
 void RunCL::initialize_fp32_params(){
 	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json . 
 	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
-				//INV_DEPTH_STEP	;
+	
+	fp32_params[INV_DEPTH_STEP]	=	 ( fp32_params[MAX_INV_DEPTH] - fp32_params[MIN_INV_DEPTH] ) /  uint_params[LAYERS]	;
+	
 	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
 	fp32_params[BETA_G]			=    obj["beta_g"].asFloat()		;
 	fp32_params[EPSILON]		=    obj["epsilon"].asFloat()		;
@@ -761,7 +763,6 @@ void RunCL::initialize(){
 																																				cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
 																																				cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
 																																			}
-	initialize_fp32_params();
 																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.8\n\n" << flush;
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;
@@ -771,6 +772,8 @@ void RunCL::initialize(){
 	uint_params[MM_PIXELS]		= 	mm_height * mm_width ;
 	uint_params[MM_ROWS]		= 	mm_height ;
 	uint_params[MM_COLS]		= 	mm_width ;
+	
+	initialize_fp32_params();																												// Requires uint_params[LAYERS]	;
 																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.9\n\n" << flush;
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																			//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );

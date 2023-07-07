@@ -33,6 +33,8 @@ class Dynamic_slam
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
     const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
+    const cv::Matx33f Matx33f_zero = {0,0,0,  0,0,0,  0,0,0 };                //  = cv::Matx33f::zeros();//
+    const cv::Matx33f Matx33f_eye  = {1,0,0,  0,1,0,  0,0,1 };
     
     cv::Matx33f SO3_pose2pose;
     cv::Matx31f SO3_pose2pose_algebra;
