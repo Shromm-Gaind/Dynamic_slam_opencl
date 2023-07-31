@@ -788,8 +788,8 @@ __kernel void se3_grad(
 	uint num_DoFs 	= 6;
 	
 	if (global_id_u==1){
-		printf("\nkernel se3_grad(..): inv_depth=%f, u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
-		,inv_depth, u_flt, v_flt, u2, v2,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
+		printf("\nkernel se3_grad(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
+		u, v, inv_depth, u_flt, v_flt, u2, v2,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   );
 	}
 	
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 															// TODO apply robustifying norm to Rho, eg Huber norm.
@@ -1034,11 +1034,11 @@ __kernel void transform_depthmap(
 ////////////////////////////////////////////////////////////////////////////////////////////////// Depth mapping //////////////////////////////////////////
 
 __kernel void DepthCostVol(
-	__private	uint	mipmap_layer,		//0		? Not required ?
+	__private	uint	mipmap_layer,		//0
 	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
-	__global 	float*  k2k,				//4
+	__global 	float16*k2k,				//4
 	__global 	float4* base,				//5		keyframe_basemem
 	__global 	float4* img,				//6
 	__global 	float*  cdata,				//7
@@ -1055,7 +1055,7 @@ __kernel void DepthCostVol(
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	
-	uint8 mipmap_params_ = mipmap_params[mipmap_layer];						// choose correct layer of the mipmap
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];									// choose correct layer of the mipmap
 	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
@@ -1063,8 +1063,8 @@ __kernel void DepthCostVol(
 	uint margin 		= uint_params[MARGIN];
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
-	uint v    			= global_id_u / read_cols_;					// read_row
-	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	uint v    			= global_id_u / read_cols_;										// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);								// read_column
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
@@ -1082,34 +1082,36 @@ __kernel void DepthCostVol(
 	float u 			= global_id % cols;														// keyframe pixel coords
 	float v 			= (int)(global_id / cols);
 	*/
-	//int offset_3 		= global_id *3;															// Get keyframe pixel values
+	//int offset_3 		= global_id *3;													// Get keyframe pixel values
 	float4 B = base[read_index];	//B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
 	
 	int costvol_layers	= uint_params[COSTVOL_LAYERS];
-	int pixels 			= uint_params[PIXELS];
+	//int pixels 			= uint_params[PIXELS];
+	uint mm_pixels		= uint_params[MM_PIXELS];
 	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
 	
-	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;			// variables for the cost vol
+	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;	// variables for the cost vol
 	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=read_index,	layer = 0;
 	float4 	c, c_00, c_01, c_10, c_11;
-	float 	c0 = cdata[cv_idx];																	// cost for this elem of cost vol
-	float 	w  = hdata[cv_idx];																	// count of updates of this costvol element. w = 001 initially
+	float 	c0 = cdata[cv_idx];															// cost for this elem of cost vol
+	float 	w  = hdata[cv_idx];															// count of updates of this costvol element. w = 001 initially
 
 	// layer zero, ////////////////////////////////////////////////////////////////////////////////////////
 	// inf depth, rotation without paralax, i.e. reproj without translation.
 	// Use depth=1 unit sphere, with rotational-preprojection matrix
 
 	// precalculate depth-independent part of reprojection, h=homogeneous coords.
-	float uh2 = k2k[0]*u_flt + k2k[1]*v_flt + k2k[2]*1;  // +k2k[3]/z
-	float vh2 = k2k[4]*u_flt + k2k[5]*v_flt + k2k[6]*1;  // +k2k[7]/z
-	float wh2 = k2k[8]*u_flt + k2k[9]*v_flt + k2k[10]*1; // +k2k[11]/z
-	//float h/z  = k2k[12]*u_flt + k2k[13]*v_flt + k2k[14]*1; // +k2k[15]/z
+	float16 k2k_pvt		= k2k[0];
+	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1;  // +k2k[3]/z
+	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1;  // +k2k[7]/z
+	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1; // +k2k[11]/z
+	//float h/z  = k2k[12]*u_flt + k2k_pvt[13]*v_flt + k2k_pvt[14]*1; // +k2k[15]/z
 	float uh3, vh3, wh3;
 
 	if (global_id_u==0){ 
 		printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, k2k= ( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )",\
-		mipmap_layer, k2k[0], k2k[1], k2k[2], k2k[3], k2k[4], k2k[5], k2k[6], k2k[7], k2k[8], k2k[9], k2k[10], k2k[11], k2k[12], k2k[13], k2k[14], k2k[15] \
+		mipmap_layer, k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11], k2k_pvt[12], k2k_pvt[13], k2k_pvt[14], k2k_pvt[15] \
 		);
 		printf("\n__kernel void DepthCostVol(): uh2=%f, vh2=%f  , wh2=%f ", uh2, vh2, wh2 );
 	}
@@ -1118,13 +1120,13 @@ __kernel void DepthCostVol(
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
 	for( layer=0;  layer<costvol_layers; layer++ ){
-		cv_idx = read_index + layer*pixels;												// Step through costvol layers
+		cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
 		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
 		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
-		uh3  = uh2 + k2k[3]*inv_depth;
-		vh3  = vh2 + k2k[7]*inv_depth;
-		wh3  = wh2 + k2k[11]*inv_depth;
+		uh3  = uh2 + k2k_pvt[3]*inv_depth;
+		vh3  = vh2 + k2k_pvt[7]*inv_depth;
+		wh3  = wh2 + k2k_pvt[11]*inv_depth;
 		u2   = uh3/wh3;
 		v2   = vh3/wh3;
 		
@@ -1133,12 +1135,12 @@ __kernel void DepthCostVol(
 		
 		uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;
 		
-		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
-			layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
+		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i, read_index_new=%i, cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
+			mipmap_layer, read_offset_, mm_pixels, read_index_new, cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
 		
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
-			c				=img[read_index_new];
-			float rx		=(c.x-B.x); float ry=(c.y-B.y); float rz=(c.z-B.z);			// Compute photometric cost // L2 norm between keyframe & new frame pixels.
+			c				= img[read_index_new];
+			float rx		= (c.x-B.x);   float ry= (c.y-B.y);   float rz= (c.z-B.z);	// Compute photometric cost // L2 norm between keyframe & new frame pixels.
 			rho 			= sqrt( rx*rx + ry*ry + rz*rz )*50;							//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
 			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);
 			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########

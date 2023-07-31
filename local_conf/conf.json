@@ -15,7 +15,8 @@
     "regularizer_outer_iter":30,
     "regularizer_inner_iter":10,
     "":"",
-    "layers":7,               // NB //32;//64;//128;//256;              // Layers of CostVol
+    "layers":64,                //7;//32;//64;//128;//256;              // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range. 
+    "":"",                                                              // Also keep layers for for depths across edge boundaries.
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.  
     "max_depth":450.0,                                                  // See values in DTAM_mapping/input/*.json file for each dataset.
     "min_depth":70.0,           //70.0;//3289.0;
@@ -43,7 +44,7 @@
     "opencl_device":0,
     "":"",
     "MipMap_margin":1,          // 4
-    "num_reductions":6,//4                                                 // Layers-1 of image pyramid in MipMap
+    "num_reductions":6,         //4                                     // Layers-1 of image pyramid in MipMap
     "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
     "":"",
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking

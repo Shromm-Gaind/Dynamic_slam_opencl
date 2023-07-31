@@ -136,6 +136,7 @@ int Dynamic_slam::nextFrame() {
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
+	/*
 	bool doneOptimizing;
 	int  opt_count 		= 0;
 	int  max_opt_count 	= obj["max_opt_count"].asInt();
@@ -143,7 +144,7 @@ int Dynamic_slam::nextFrame() {
 	runcl.A_count=0;
 	runcl.G_count=0;
 	do{ 
-		for (int i = 0; i < 5/*10*/; i++) updateQD();						// Optimize Q, D   (primal-dual)
+		for (int i = 0; i < 5; i++) updateQD();								// Optimize Q, D   (primal-dual)		/ *10* /
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
@@ -157,6 +158,7 @@ int Dynamic_slam::nextFrame() {
 		}
 		ExhaustiveSearch();
 	}
+	*/
 	runcl.costvol_frame_num++;
 	runcl.frame_num++;
 	return(0);					// NB option to return an error that stops the main loop.
