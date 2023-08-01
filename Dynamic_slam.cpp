@@ -133,6 +133,7 @@ int Dynamic_slam::nextFrame() {
 	report_GT_pose_error();
 	display_frame_resluts();
 	////////////////////////////////// Parallax depth mapping
+	
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
@@ -1061,7 +1062,7 @@ void Dynamic_slam::updateDepthCostVol(){																							// Built forwards
 // Select naive depth map
 // See CostVol::updateCost(..), RunCL::calcCostVol(..) &  __kernel void BuildCostVolume2
 																																			// int count: Iteration of for loop in this function. Here used to count num imgages use in costvol.
-	cv::Matx44f K2K_ =  K2K; 		// needs K2K from keyframe. 																			// camera-to-camera transform for this image to the keyframe of this cost vol.
+	cv::Matx44f K2K_ =  K2K 		= K2K_GT; //TODO K2K; 		// needs K2K from keyframe. 																			// camera-to-camera transform for this image to the keyframe of this cost vol.
 	//bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
 	runcl.updateDepthCostVol( K2K_, runcl.costVolCount++, runcl.mm_start, runcl.mm_stop  ); 										// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)

@@ -63,6 +63,7 @@ class RunCL
 public:
 	Json::Value 		obj;
 	int					verbosity;
+	bool				tiff, png;
 	std::vector<cl_platform_id> 	m_platform_ids;
 	cl_context			m_context;
 	cl_device_id		m_device_id;

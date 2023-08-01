@@ -91,7 +91,9 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 
 RunCL::RunCL(Json::Value obj_){
 	obj = obj_;
-	verbosity = obj["verbosity"].asInt();
+	verbosity 	= obj["verbosity"].asInt();
+	tiff 		= obj["tiff"].asBool();
+	png 		= obj["png"].asBool();
 																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
 	testOpencl();																															// Displays available OpenCL Platforms and Devices. 
 																																			if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
@@ -238,6 +240,17 @@ void RunCL::createFolders(){
 																																			}
 }
 
+void RunCL::saveCostVols(float max_range)
+{																				if(verbosity>0) cout<<"\nsaveCostVols: Calling DownloadAndSaveVolume";
+	stringstream ss;
+	ss << "saveCostVols";
+	ss << (keyFrameCount*1000 + costVolCount);
+	DownloadAndSaveVolume(cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,  mm_Image_size, CV_32FC1,  false  , max_range);
+	//DownloadAndSaveVolume(hdatabuf, 	ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,  baseImage_size, CV_32FC1,  false  , max_range);
+	//DownloadAndSaveVolume(img_sum_buf, 	ss.str(), paths.at("img_sum_buf"), 	mm_size_bytes_C1,  baseImage_size, CV_32FC1,  false  , max_range);
+																				if(verbosity>0) cout <<"\ncostVolCount="<<costVolCount << "\ncalcCostVol chk13_finished\n" << flush;
+}
+
 void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>0) cout<<"\n\nDownloadAndSave chk0"<<flush;
@@ -284,14 +297,14 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 			temp_mat +=0.5;
 		}else{ temp_mat /=max_range;}
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk4 filename = ["<<ss.str()<<"]"<<flush;
-		cv::imwrite(folder_tiff.string(), temp_mat );
+		if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk5 filename = ["<<ss.str()<<"]"<<flush;
 	
 		temp_mat *= 256*256;
 		temp_mat.convertTo(outMat, CV_16UC1);
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk6 filename = ["<<ss.str()<<"]"<<flush;
 	
-		cv::imwrite(folder_png.string(), outMat );
+		if(png==true) cv::imwrite(folder_png.string(), outMat );
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk7 filename = ["<<ss.str()<<"],  show="<<show<<flush;
 	
 		if(show==true) {cv::imshow( ss.str(), outMat );}
@@ -371,15 +384,18 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 			temp_mat_u /=max_range;
 			temp_mat_v /=max_range;
 		}
-		cv::imwrite(folder_tiff_u.string(), temp_mat_u );
-		cv::imwrite(folder_tiff_v.string(), temp_mat_v );
+		if(tiff==true){ 
+			cv::imwrite(folder_tiff_u.string(), temp_mat_u );
+			cv::imwrite(folder_tiff_v.string(), temp_mat_v );
+		}
 		temp_mat_u *= 256*256 *5;																											// NB This is mosty for SE3_map_mem, which is dark due to small increment of each DoF.
 		temp_mat_v *= 256*256 *5;
 		temp_mat_u.convertTo(outMat_u, CV_16UC4);
 		temp_mat_v.convertTo(outMat_v, CV_16UC4);
-		cv::imwrite(folder_png_u.string(), outMat_u );
-		cv::imwrite(folder_png_v.string(), outMat_v );
-		
+		if(png==true){ 
+			cv::imwrite(folder_png_u.string(), outMat_u );
+			cv::imwrite(folder_png_v.string(), outMat_v );
+		}
 		if(show){ 
 			cv::imshow( ss_u.str(), outMat_u );
 			cv::imshow( ss_v.str(), outMat_v );
@@ -448,7 +464,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		cv::Mat outMat;
 		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_4, "<<flush;
-			cv::imwrite(folder_tiff.string(), temp_mat );
+			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 			temp_mat *=256;
 			temp_mat.convertTo(outMat, CV_8U);
 			if (type_mat == CV_32FC4){
@@ -459,11 +475,11 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 				cv::merge(matChannels, outMat);
 			}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
+			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
 		}else if (type_mat == CV_8UC3){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
-			cv::imwrite(folder_tiff.string(), temp_mat );
-			cv::imwrite(folder_png.string(),  temp_mat );
+			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
+			if(png==true)  cv::imwrite(folder_png.string(),  temp_mat );
 		}else if (type_mat == CV_16FC3) {																									// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
 			/*
 			//cout << "\n Writing CV_16FC3 to .tiff & .png .\n"<< flush;
@@ -473,10 +489,10 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			*/
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_8, "<<flush;
 			temp_mat2 *=256;
-			cv::imwrite(folder_tiff.string(), temp_mat2 );
+			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat2 );
 			
 			temp_mat2.convertTo(outMat, CV_8UC3);
-			cv::imwrite(folder_png.string(), (outMat) );
+			if(png==true) cv::imwrite(folder_png.string(), (outMat) );
 		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
 }
@@ -585,7 +601,7 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 		cv::Mat outMat;
 		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
-			cv::imwrite(folder_tiff.string(), temp_mat );
+			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 			temp_mat *=256;
 			temp_mat.convertTo(outMat, CV_8U);
 			if (type_mat == CV_32FC4){
@@ -596,11 +612,11 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 				cv::merge(matChannels, outMat);
 			}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
+			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
 		}else if (type_mat == CV_8UC3){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_7, "<<flush;
-			cv::imwrite(folder_tiff.string(), temp_mat );
-			cv::imwrite(folder_png.string(),  temp_mat );
+			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
+			if(png==true)  cv::imwrite(folder_png.string(),  temp_mat );
 		}																																	else {cout << "\n\nError RunCL::SaveMat(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_9, finished "<<flush;
 }
@@ -619,13 +635,12 @@ void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>0) {
 																																				cout<<"\n\nDownloadAndSaveVolume, costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
 																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
 																																			}
 	
-
 	for(int i=0; i<costVolLayers; i++){
 																																			if(verbosity>local_verbosity_threshold) cout << "\ncostVolLayers="<<costVolLayers<<", i="<<i<<"\t";
 		size_t offset = i * image_size_bytes;
@@ -671,10 +686,10 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 			temp_mat +=0.5;
 		}else{ temp_mat /=max_range;}
 
-		cv::imwrite(new_filepath.string(), temp_mat );
+		if(tiff==true) cv::imwrite(new_filepath.string(), temp_mat );
 		temp_mat *= 256*256;
 		temp_mat.convertTo(outMat, CV_16UC1);
-		cv::imwrite(folder_png.string(), outMat );
+		if(png==true)  cv::imwrite(folder_png.string(), outMat );
 		if(show) cv::imshow( ss.str(), outMat );
 	}
 }
@@ -709,7 +724,7 @@ void RunCL::initialize(){
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
 	image_size_bytes_C1	= baseImage.total() * sizeof(float);
-	costVolLayers 		= 2*( 1 + obj["layers"].asUInt() );
+	costVolLayers 		=( 1 + obj["layers"].asUInt() ); // TODO  2*
 	baseImage_size 		= baseImage.size();
 	baseImage_type 		= baseImage.type();
 	baseImage_width		= baseImage.cols;
@@ -892,7 +907,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 }
 
 void RunCL::allocatemem(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = 2;
 																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem()_chk0\n"<<flush;
 	stringstream 	ss;
 	ss 				<< "allocatemem";
