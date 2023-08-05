@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 																			// Also need a test for when to start a new keyframe.
 	dynamic_slam.initialize_keyframe_from_GT();
 	frame_count++;
-	dynamic_slam.runcl.frame_num++;
+	
 																			if(verbosity_>0) cout << "\n main_chk 2\n" << flush;
 	do{																		// Long do while not yet crashed loop.
 		for (int i=0; i<imagesPerCV ; i++){									// Inner loop per keyframe.
@@ -53,9 +53,6 @@ int main(int argc, char *argv[])
 	dynamic_slam.getResult();												// also calls RunCL::CleanUp()
 	exit(0);																// guarantees class destructors are called.
 }
-	
-	
-	
 	
 /*	
 {	

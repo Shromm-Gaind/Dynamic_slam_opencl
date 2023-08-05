@@ -341,7 +341,6 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 	cout << "\n\ninv_local_translation =";	for (int i=0; i< 3; i++) cout << ", " << inv_local_translation.operator()(i,0);
 	cout << "\n\nlocal_inv_pose ="; 		for (int i=0; i<16; i++) cout << ", " <<        local_inv_pose.operator()(i/4,i%4);
 	return local_inv_pose;
-	
 																																			/*
 																																			*  Inverse of a transformation matrix:
 																																			*  http://www.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche0053
@@ -352,7 +351,6 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 																																			*   {0 0 0| 1 }         {0  0  0|    1   }
 																																			*
 																																			*/
-	
 }
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
@@ -415,12 +413,15 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	
 	pose2pose_GT = old_pose_GT * inv_pose_GT;
 	
-	if (runcl.frame_num > 0 ) {
-		keyframe_pose_GT = pose_GT; 
-		keyframe_inv_old_K_GT = inv_old_K_GT;
+	if (runcl.costVolCount <= 0 ) {
+		keyframe_pose_GT 		= pose_GT; 
+		keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
+		keyframe_inv_K_GT		= generate_invK_(K_GT);				//  inv_old_K_GT;
 	}
-	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_old_K_GT;
+	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
+																																				cout << "\truncl.costVolCount = " << runcl.costVolCount << flush;
+																																				
 																																				cout << "\nK_GT = (";
 																																				for (int i=0; i<4; i++){
 																																					for (int j=0; j<4; j++){
@@ -449,10 +450,10 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 																																					}cout << "\n     ";
 																																				}cout << ")\n"<<flush;
 																																				
-																																				cout << "\nkeyframe_inv_old_K_GT = (";
+																																				cout << "\nkeyframe_inv_K_GT = (";
 																																				for (int i=0; i<4; i++){
 																																					for (int j=0; j<4; j++){
-																																						cout << ", " << keyframe_inv_old_K_GT.operator()(i,j);
+																																						cout << ", " << keyframe_inv_K_GT.operator()(i,j);
 																																					}cout << "\n     ";
 																																				}cout << ")\n"<<flush;
 																																				
@@ -570,7 +571,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 }
 
 void Dynamic_slam::use_GT_pose(){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose_chk_0,"<<flush;	
 	old_K		= old_K_GT;
 	inv_K		= inv_K_GT;
@@ -581,7 +582,7 @@ void Dynamic_slam::use_GT_pose(){
 	inv_pose	= inv_pose_GT;
 	K2K 		= K2K_GT;
 	pose2pose 	= pose2pose_GT;
-																														
+	
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}  
 																																			if(verbosity>local_verbosity_threshold){ 
 																																			
@@ -618,6 +619,72 @@ void Dynamic_slam::use_GT_pose(){
 																																				}cout<<flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose finished,"<<flush;	
+}
+
+cv::Matx44f Dynamic_slam::generate_invK_(cv::Matx44f K_){
+	int local_verbosity_threshold = 0;
+	cv::Matx44f inv_K_;
+	
+	float fx   =  K_.operator()(0,0);
+	float fy   =  K_.operator()(1,1);
+	float skew =  K_.operator()(0,1);
+	float cx   =  K_.operator()(0,2);
+	float cy   =  K_.operator()(1,2);
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\nDynamic_slam::generate_invK_chk 1\n";
+																																				cout<<"\nfx="<<fx <<"\nfy="<<fy <<"\nskew="<<skew <<"\ncx="<<cx <<"\ncy= "<<cy;
+																																				cout << flush;
+																																			}
+	///////////////////////////////////////////////////////////////////// Inverse camera intrinsic matrix, see:
+	// https://www.imatest.com/support/docs/pre-5-2/geometric-calibration-deprecated/projective-camera/#:~:text=Inverse,lines%20from%20the%20camera%20center.
+	inv_K_ = inv_K_.zeros();
+	inv_K_.operator()(0,0)  = 1.0/fx;  																										if(verbosity>local_verbosity_threshold) cout<<"\n1.0/fx="<<1.0/fx;
+	inv_K_.operator()(1,1)  = 1.0/fy;  																										if(verbosity>local_verbosity_threshold) cout<<"\n1.0/fy="<<1.0/fy;
+	inv_K_.operator()(2,2)  = 1.0;
+	inv_K_.operator()(3,3)  = 1.0;
+
+	inv_K_.operator()(0,1)  = -skew/(fx*fy);
+	inv_K_.operator()(0,2)  = (cy*skew - cx*fy)/(fx*fy);
+	inv_K_.operator()(1,2)  = -cy/fy;
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cv::Matx44f test_K_ = inv_K_ * K_;
+																																				cout<<"\n\ntest_camera_intrinsic_matrix inversion\n";	// Verify inv_K:
+																																				for(int i=0; i<4; i++){
+																																					for(int j=0; j<4; j++){
+																																						cout<<"\t"<< std::setw(5)<<test_K_.operator()(i,j);
+																																					}cout<<"\n";
+																																				}cout<<"\n";
+
+																																				std::cout << std::fixed << std::setprecision(-1);		// Inspect values in matricies ///////
+																																				cout<<"\n\npose\n";
+																																				for(int i=0; i<4; i++){
+																																					for(int j=0; j<4; j++){
+																																						cout<<"\t"<< std::setw(5)<<pose.operator()(i,j);
+																																					}cout<<"\n";
+																																				}cout<<"\n";
+
+																																				cout<<"\n\ninv_old_pose\n";
+																																				for(int i=0; i<4; i++){
+																																					for(int j=0; j<4; j++){
+																																						cout<<"\t"<< std::setw(5)<<inv_old_pose.operator()(i,j);
+																																					}cout<<"\n";
+																																				}cout<<"\n";
+
+																																				cout<<"\n\nK_\n";
+																																				for(int i=0; i<4; i++){
+																																					for(int j=0; j<4; j++){
+																																						cout<<"\t"<< std::setw(5)<<K_.operator()(i,j);
+																																					}cout<<"\n";
+																																				}cout<<"\n";
+
+																																				cout<<"\n\ninv_K_\n";
+																																				for(int i=0; i<4; i++){
+																																					for(int j=0; j<4; j++){
+																																						cout<<"\t"<< std::setw(5)<<inv_K_.operator()(i,j);
+																																					}cout<<"\n";
+																																				}cout<<"\n";
+																																			}
+	return inv_K_;
 }
 
 void Dynamic_slam::generate_invK(){ 																										// TODO hack this to work here 

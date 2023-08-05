@@ -96,10 +96,36 @@ public:
 	float				fp32_k2k[16]		= {0};
 	float 				fp32_k2keyframe[16]	= {0};
 	
-	int 				frame_num, costvol_frame_num, key_frame_num, key_frame_cacheG_num, key_frame_QD_num ; // TODO fix duplication of counters
-	uint	 			mm_num_reductions, mm_gaussian_size, mm_margin, mm_height, mm_width, mm_layerstep, fp16_size;
-	uint 				mm_start, mm_stop;
-	int 				baseImage_width, baseImage_height, layerstep, costVolLayers, baseImage_type, mm_Image_type, count=0, keyFrameCount=0, costVolCount=0, QDcount=0, A_count=0, G_count=0;
+	uint	 			mm_num_reductions;				//	
+	int 				mm_gaussian_size;				//	
+	int 				mm_margin;						//	
+	int 				mm_height;						//	
+	int 				mm_width;						//	
+	int 				mm_layerstep;					//	
+	int 				fp16_size;
+	uint 				mm_start;						//	
+	int 				mm_stop;
+	int 				baseImage_width;				//	
+	int 				baseImage_height;				//	
+	int 				layerstep;						//	
+	int 				costVolLayers;					//	
+	int 				baseImage_type;					//	
+	int 				mm_Image_type;					//	
+	
+														//	TODO fix duplication of counters
+	int 				frame_num;						//	Frame number in dataset
+	int 				costvol_frame_num;				//	Frame number in the cost volume
+	int 				key_frame_num;					//	Not used
+	int 				key_frame_cacheG_num;			//	Incremented in RunCL::updateG(..) and in Dynamic_slam::cacheGValues(..)
+	int 				key_frame_QD_num ; 				//	Incremented in RunCL::updateQD(..) 
+	
+	int 				count					= 0;	//	used in RunCL::tracking_result
+	int 				keyFrameCount			= 0;	//	used in saving data to file. Incremented in Dynamic_slam::initialize_new_keyframe(..)
+	int 				costVolCount			= 0;	//	used in saving data to file. Incremented in Dynamic_slam::updateDepthCostVol(..)
+	int 				QDcount					= 0;	//	Incremented in RunCL::updateQD(..)  and in Dynamic_slam::updateQD(..)
+	int 				A_count					= 0;	//	Incremented in RunCL::updateA(..)  and in Dynamic_slam::updateA(..)
+	int 				G_count					= 0;	//	Set = 0 in Dynmaic_slam::initialize_new_keyfrme(..)
+	
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
 

@@ -60,7 +60,7 @@ class Dynamic_slam
     cv::Matx44f keyframe_K_GT, keyframe_inv_K_GT, keyframe_pose_GT, keyframe_inv_pose_GT, keyframe_K2K_GT, keyframe_pose2pose_GT, keyframe_old_K_GT, keyframe_inv_old_K_GT, keyframe_old_pose_GT, keyframe_inv_old_pose_GT;
    
     cv::Matx61f keyframe_pose2pose_algebra, keyframe_pose_algebra;    // NB 'pose' = absolute pose in world coords. 'pose2pose' = from previous keyframe.
-    uint keyframe_num;
+    //uint keyframe_num;
     
     
     // image parameters
@@ -94,6 +94,7 @@ class Dynamic_slam
     void artificial_pose_error();
     
     void generate_invK();
+    cv::Matx44f generate_invK_(cv::Matx44f K_);
     void generate_invPose();
     void generate_SE3_k2k( float _SE3_k2k[96] );
     void estimateSO3();
