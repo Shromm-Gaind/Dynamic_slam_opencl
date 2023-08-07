@@ -13,9 +13,9 @@ Dynamic_slam::~Dynamic_slam(){
 Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	int local_verbosity_threshold = 1;
 	obj = obj_;
-	verbosity 			= obj["verbosity"].asInt();
-	runcl.frame_num 	= obj["data_file_offset"].asUInt();
-	invert_GT_depth  	= obj["invert_GT_depth"].asBool();
+	verbosity 					= obj["verbosity"].asInt();
+	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();
+	invert_GT_depth  			= obj["invert_GT_depth"].asBool();
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 0\n" << flush;
 	stringstream ss0;
 	ss0 << obj["data_path"].asString() << obj["data_file"].asString();
@@ -31,7 +31,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	get_all(root, ".depth", depth);
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<flush;
-	runcl.baseImage 	= imread(png[runcl.frame_num].string());																			// Set image params, ref for dimensions and data type.
+	runcl.baseImage 	= imread(png[runcl.dataset_frame_num].string());																	// Set image params, ref for dimensions and data type.
 																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 3: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 																																			if(verbosity>1) { imshow("runcl.baseImage",runcl.baseImage); cv::waitKey(-1); }
@@ -161,7 +161,7 @@ int Dynamic_slam::nextFrame() {
 	}
 	*/
 	runcl.costvol_frame_num++;
-	runcl.frame_num++;
+	runcl.dataset_frame_num++;
 	return(0);					// NB option to return an error that stops the main loop.
 };
 
@@ -175,7 +175,7 @@ void Dynamic_slam::report_GT_pose_error(){
 	pose2pose_algebra 		= SE3_Algebra(pose2pose);
 	pose2pose_error_algebra = pose2pose_algebra - pose2pose_GT_algebra;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::report_GT_error_chk 0\n" << flush;
-																																				cout << "\npose2pose_accumulated, runcl.frame_num = " << runcl.frame_num ;
+																																				cout << "\npose2pose_accumulated, runcl.frame_num = " << runcl.dataset_frame_num ;
 																																				cout << "\npose2pose_accumulated_GT = "; for (int i=0; i<16; i++) cout << ", " << pose2pose_accumulated_GT.operator()(i/4,i%4);
 																																				cout << "\npose2pose_accumulated    = "; for (int i=0; i<16; i++) cout << ", " << pose2pose_accumulated.operator()(i/4,i%4);
 																																				cout << "\npose2pose_accumulated_error_algebra = "; for (int i=0; i<6; i++) cout << ", " << pose2pose_accumulated_error_algebra.operator()(i);
@@ -239,7 +239,7 @@ void Dynamic_slam::artificial_pose_error(){
 void Dynamic_slam::predictFrame(){
 	int local_verbosity_threshold = 0;
 	//for (int i=0; i<16; i++)  pose2pose.operator()(i/4,i%4) =     ;   
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0\n" << flush;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				cout << "\nOld K2K        		= ";  for (int i=0; i<16; i++) cout << ", " << K2K.operator()(i/4,i%4);
 																																				cout << "\nOld pose2pose        = ";  for (int i=0; i<16; i++) cout << ", " << pose2pose.operator()(i/4,i%4); cout << endl << flush;
 																																			}
@@ -252,8 +252,8 @@ void Dynamic_slam::predictFrame(){
 	pose2pose_algebra_2		= pose2pose_algebra_1;
 	pose2pose_algebra_1		= SE3_Algebra(pose2pose);
 	
-	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
-	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
+	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
+	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
 	
 	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
 	K2K = old_K * pose2pose * inv_K;
@@ -262,7 +262,7 @@ void Dynamic_slam::predictFrame(){
 	
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4); }
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 1\n" << flush;
-																																				cout << "\nruncl.frame_num          = " << runcl.frame_num;
+																																				cout << "\nruncl.dataset_frame_num  = " << runcl.dataset_frame_num;
 																																				cout << "\nruncl.costvol_frame_num  = " << runcl.costvol_frame_num;
 																																				cout << "\npose2pose_algebra_2      = ";  for (int i=0; i< 6; i++) cout << ", " << pose2pose_algebra_2.operator()(i,0);
 																																				cout << "\npose2pose_algebra_1      = ";  for (int i=0; i< 6; i++) cout << ", " << pose2pose_algebra_1.operator()(i,0);
@@ -278,8 +278,8 @@ void Dynamic_slam::predictFrame(){
 };
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
-	int local_verbosity_threshold = 1;
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0\n" << flush;
+	int local_verbosity_threshold = 0;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				// # load next image to buffer NB load at position [log_2 index]
 																																				// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
 																																				cout << "\n\nDynamic_slam::getFrame()";
@@ -295,9 +295,9 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 																																				cout << "\nruncl.mm_Image_size =" << runcl.mm_Image_size ;
 																																				cout << "\n" << flush ;
 																																			}
-	image = imread(png[runcl.frame_num].string());
+	image = imread(png[runcl.dataset_frame_num].string());
 																																			if (image.type()!= runcl.baseImage.type() || image.size()!=runcl.baseImage.size() ) {
-																																				cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.frame_num = " << runcl.frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<\
+																																				cout<< "\n\nError: Dynamic_slam::getFrame(), runcl.dataset_frame_num = " << runcl.dataset_frame_num << " : missmatched. runcl.baseImage.size()="<<runcl.baseImage.size()<<\
 																																				", image.size()="<<image.size()<<", runcl.baseImage.type()="<<runcl.baseImage.type()<<", image.type()="<<image.type()<<"\n\n"<<flush;
 																																				exit(0);
 																																			}
@@ -355,7 +355,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	int local_verbosity_threshold = 0;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num <<flush;
 	R.copyTo(old_R);																														// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
 	old_pose_GT 		= pose_GT;
@@ -363,7 +363,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	old_K_GT			= K_GT;
 	inv_old_K_GT		= inv_K_GT;
 	
-	std::string str = txt[runcl.frame_num].c_str();																							// grab .txt file from array of files (e.g. "scene_00_0000.txt")
+	std::string str = txt[runcl.dataset_frame_num].c_str();																					// grab .txt file from array of files (e.g. "scene_00_0000.txt")
     char        *ch = new char [str.length()+1];
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
@@ -413,14 +413,14 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	
 	pose2pose_GT = old_pose_GT * inv_pose_GT;
 	
-	if (runcl.costVolCount <= 0 ) {
+	if (runcl.costvol_frame_num <= 0 ) {
 		keyframe_pose_GT 		= pose_GT; 
 		keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
 		keyframe_inv_K_GT		= generate_invK_(K_GT);				//  inv_old_K_GT;
 	}
 	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
-																																				cout << "\truncl.costVolCount = " << runcl.costVolCount << flush;
+																																				cout << "\truncl.costvol_frame_num = " << runcl.costvol_frame_num << flush;
 																																				
 																																				cout << "\nK_GT = (";
 																																				for (int i=0; i<4; i++){
@@ -465,7 +465,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 																																				}cout << ")\n"<<flush;
 																																			}
 	
-	if (runcl.frame_num > 0 ) {  pose2pose_accumulated_GT = pose2pose_accumulated_GT * pose2pose_GT;	}									// Tracks pose tranform from first frame.
+	if (runcl.dataset_frame_num > 0 ) {  pose2pose_accumulated_GT = pose2pose_accumulated_GT * pose2pose_GT;	}							// Tracks pose tranform from first frame.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 1,"<<flush;
 																																				
 																																				cout << "\n\nold_K_GT = ";
@@ -542,14 +542,14 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 2,"<<flush;}
 	int r = runcl.baseImage.rows;  //image.rows;
     int c = runcl.baseImage.cols;  //image.cols;
-	depth_GT = loadDepthAhanda(depth[runcl.frame_num].string(), r,c,cameraMatrix);
+	depth_GT = loadDepthAhanda(depth[runcl.dataset_frame_num].string(), r,c,cameraMatrix);
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;}
 	stringstream ss;
 	stringstream png_ss;
 	boost::filesystem::path folder_tiff = runcl.paths.at("depth_GT");
 	string type_string = runcl.checkCVtype(depth_GT.type() );
-	ss << "/" << folder_tiff.filename().string() << "_" << runcl.frame_num <<"type_"<<type_string;  
-	png_ss << "/" << folder_tiff.filename().string() << "_" << runcl.frame_num;
+	ss << "/" << folder_tiff.filename().string() << "_" << runcl.dataset_frame_num <<"type_"<<type_string;  
+	png_ss << "/" << folder_tiff.filename().string() << "_" << runcl.dataset_frame_num;
 	boost::filesystem::path folder_png = folder_tiff;
 	folder_tiff += ss.str();
 	folder_tiff += ".tiff";
@@ -558,7 +558,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	folder_png  += png_ss.str();
 	folder_png  += ".png";
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 4,"<<flush;
-																																				cout << "\n runcl.frame_num = " << runcl.frame_num << ",  depth[runcl.frame_num].string() = " << depth[runcl.frame_num].string() << flush;
+																																				cout << "\n runcl.frame_num = " << runcl.dataset_frame_num << ",  depth[runcl.frame_num].string() = " << depth[runcl.dataset_frame_num].string() << flush;
 																																				cout << "\n depth_GT.size() = " << depth_GT.size() << ",  depth_GT.type() = "<< type_string << ",  depth_GT.empty() = " <<  depth_GT.empty()   << flush;
 																																				cout << "\n " << folder_png.string() << flush; 
 																																			}
@@ -1057,7 +1057,7 @@ void Dynamic_slam::estimateSE3(){
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 	}
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 3\n" << flush;
-																																				cout << "\nruncl.frame_num = "<<runcl.frame_num;
+																																				cout << "\nruncl.frame_num = "<<runcl.dataset_frame_num;
 																																				cout << "\npose2pose_accumulated = ";
 																																				for (int i=0; i<4; i++){
 																																					cout << "(";
@@ -1074,7 +1074,7 @@ void Dynamic_slam::estimateSE3(){
 																																					}cout<<")";
 																																				}cout<<flush;
 																																			}
-	if (runcl.frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose;
+	if (runcl.dataset_frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 4  Finished\n" << flush;}	
 }
 
@@ -1157,9 +1157,10 @@ void Dynamic_slam::initialize_new_keyframe(){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
 	runcl.initialize_fp32_params();
-	runcl.G_count = 0;
-	//cacheGValues();			// TODO may not be needed here.
+	runcl.key_frame_A_count = 0;
+	runcl.key_frame_G_count = 0;
 	
+	//cacheGValues();			// TODO may not be needed here.
 								// TODO   keyframe_K2K_GT, keyframe_K2K etc ? 
 	runcl.keyFrameCount++;
 }
@@ -1187,7 +1188,7 @@ void Dynamic_slam::updateDepthCostVol(){																							// Built forwards
 	cv::Matx44f K2K_ =  keyframe_K2K_GT; 					//TODO K2K; 		// needs keyframe_K2K from keyframe. 						// camera-to-camera transform for this image to the keyframe of this cost vol.
 	//bool image_ = runcl.frame_bool_idx; 																									// Index to correct img pyramid buffer on device.
 	
-	runcl.updateDepthCostVol( K2K_, runcl.costVolCount++, runcl.mm_start, runcl.mm_stop  ); 										// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
+	runcl.updateDepthCostVol( K2K_, runcl.costvol_frame_num, runcl.mm_start, runcl.mm_stop  ); 										// NB in DTAM_opencl : void RunCL::calcCostVol(float* k2k,  cv::Mat &image)
 																																			// in  void Dynamic_slam::estimateSE3() above : runcl.estimateSE3(SE3_reults, Rho_sq_results, iter, 0, 8);
 																																			// -> mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 	
@@ -1213,7 +1214,7 @@ void Dynamic_slam::updateQD(){
 	runcl.computeSigmas(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], obj["L"].asFloat(), runcl.fp32_params[SIGMA_D], runcl.fp32_params[SIGMA_Q] );
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk1, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
-	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q], runcl.fp32_params[SIGMA_D],  runcl.QDcount++, runcl.mm_start, runcl.mm_stop);	
+	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q], runcl.fp32_params[SIGMA_D],  runcl.key_frame_QD_count, runcl.mm_start, runcl.mm_stop);	
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk3, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
 }
@@ -1222,7 +1223,7 @@ void Dynamic_slam::cacheGValues()
 {
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\nDynamic_slam::cacheGValues()" <<flush;}
-	runcl.updateG(runcl.key_frame_cacheG_num++, runcl.mm_start, runcl.mm_stop);
+	runcl.updateG(runcl.key_frame_G_count, runcl.mm_start, runcl.mm_stop);
 }
 
 bool Dynamic_slam::updateA(){
@@ -1231,7 +1232,7 @@ bool Dynamic_slam::updateA(){
 	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
 	// bool doneOptimizing = (theta <= thetaMin);
 	
-	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], runcl.A_count++, runcl.mm_start, runcl.mm_stop );
+	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], runcl.key_frame_A_count, runcl.mm_start, runcl.mm_stop );
 	
 	runcl.fp32_params[THETA] *= obj["thetaStep"].asFloat();
 	

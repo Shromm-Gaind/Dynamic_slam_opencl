@@ -244,11 +244,11 @@ void RunCL::saveCostVols(float max_range)
 {																				if(verbosity>0) cout<<"\nsaveCostVols: Calling DownloadAndSaveVolume";
 	stringstream ss;
 	ss << "saveCostVols";
-	ss << (keyFrameCount*1000 + costVolCount);
+	ss << (keyFrameCount*1000 + costvol_frame_num);
 	DownloadAndSaveVolume(cdatabuf, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,  mm_Image_size, CV_32FC1,  false  , max_range);
 	//DownloadAndSaveVolume(hdatabuf, 	ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,  baseImage_size, CV_32FC1,  false  , max_range);
 	//DownloadAndSaveVolume(img_sum_buf, 	ss.str(), paths.at("img_sum_buf"), 	mm_size_bytes_C1,  baseImage_size, CV_32FC1,  false  , max_range);
-																				if(verbosity>0) cout <<"\ncostVolCount="<<costVolCount << "\ncalcCostVol chk13_finished\n" << flush;
+																				if(verbosity>0) cout <<"\ncostvol_frame_num="<<costvol_frame_num << "\ncalcCostVol chk13_finished\n" << flush;
 }
 
 void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){

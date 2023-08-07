@@ -17,7 +17,7 @@ void RunCL::loadFrame(cv::Mat image){ //getFrame();
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
 	status = clEnqueueWriteBuffer(uload_queue, basemem, CL_FALSE, 0, image_size_bytes, image.data, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
                                                                                                                                             if (verbosity>local_verbosity_threshold){
-                                                                                                                                                stringstream ss;	ss << frame_num << "loadFrame";
+                                                                                                                                                stringstream ss;	ss << dataset_frame_num << "loadFrame";
                                                                                                                                                 DownloadAndSave_3Channel(basemem, ss.str(), paths.at("basemem"), image_size_bytes, baseImage_size,  baseImage_type, 	false );
                                                                                                                                             }
 }
@@ -58,7 +58,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 	status = clWaitForEvents (1, &ev);		                                                               if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) = "<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
                                                                                                                                             if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::cvt_color_space()_chk2"<<flush;
                                                                                                                                             if (verbosity>local_verbosity_threshold){
-                                                                                                                                                stringstream ss;		ss << frame_num << "_cvt_color_space";
+                                                                                                                                                stringstream ss;		ss << dataset_frame_num << "_cvt_color_space";
                                                                                                                                                 stringstream ss_path;	ss_path << "imgmem";
                                                                                                                                                 
                                                                                                                                                 cv::Size new_Image_size = cv::Size(mm_width, mm_height);
@@ -225,7 +225,7 @@ void RunCL::mipmap_linear(){
 	
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
-																																				stringstream ss;	ss << frame_num << "_mipmap_linear";
+																																				stringstream ss;	ss << dataset_frame_num << "_mipmap_linear";
 																																				cv::Size new_Image_size = cv::Size(mm_width, mm_height);
 																																				size_t   new_size_bytes = mm_width * mm_height * 4*4;
 																																				ss << "_raw_";
@@ -258,7 +258,7 @@ void RunCL::img_gradients(){ //getFrame();
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk3 Finished all loops. Saving gxmem, gymem, g1mem."<<flush;
-																																				stringstream ss;	ss << frame_num << "_img_grad";
+																																				stringstream ss;	ss << dataset_frame_num << "_img_grad";
 																																				stringstream ss_path;	
 																																				ss_path << "gxmem"; 
 																																				cout << "\n" << ss_path.str() <<flush;
@@ -293,7 +293,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
     cl_event 		writeEvt;
 	cl_int 	 		status;
 	stringstream 	ss;
-	ss << "__load_GT_depth" << (keyFrameCount*1000 + costVolCount);
+	ss << "__load_GT_depth" << (keyFrameCount*1000 + costvol_frame_num);
 	
     status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, image_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);	
 																									if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::load_GT_depth(..)_chk_2\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
@@ -364,7 +364,7 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 	
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap_depthmap(..)_chk3 Finished all loops."<<flush;
-																																				stringstream ss;	ss << frame_num << "_mipmap_depthmap";
+																																				stringstream ss;	ss << dataset_frame_num << "_mipmap_depthmap";
 																																				cv::Size new_Image_size = cv::Size(mm_width, mm_height);
 																																				size_t   new_size_bytes = mm_width * mm_height * 4*4;
 																																				ss << "_raw_";
@@ -403,7 +403,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																			if(verbosity>local_verbosity_threshold) {
 																																																cout<<"\n\nRunCL::precom_param_maps(float SO3_k2k[6*16])_output "<<flush;
 																																																for (int i=0; i<1; i++) { // TODO x & y for all 6 SE3 DoF
-																																																	stringstream ss;	ss << frame_num << "_SE3_map";
+																																																	stringstream ss;	ss << dataset_frame_num << "_SE3_map";
 																																																	DownloadAndSave_2Channel_volume(SE3_map_mem, ss.str(), paths.at("SE3_map_mem"), mm_size_bytes_C1*2, mm_Image_size, CV_32FC2, false, 1.0, 6 /*SE3, 6DoF */);
 																																																}
 																																			}
@@ -419,7 +419,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 																																				cout << "\nRunCL::estimateSO3(..)__chk_0.5: fp32_so3= ";
 																																				for (int i=0; i<9; i++){ cout << ",  "<< fp32_so3_k2k[i]; }cout << flush;
 																																			}
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk0.6 ,  frame_num="<<frame_num<<",   count="<<count<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk0.6 ,  dataset_frame_num="<<dataset_frame_num<<",   count="<<count<<flush;}
 																																			// SO3_k2kbuf, fp32_so3_k2k
 	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,	CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 	0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::estimateSO3(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk1 "<<flush;}
@@ -447,7 +447,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 	mipmap_call_kernel( so3_grad_kernel, m_queue, start, stop );
 																																			
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk3 ."<<flush;
-																																				stringstream ss;	ss << frame_num << "_iter_"<< count << "_estimateSO3_";
+																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSO3_";
 																																				
                                                                                                                                                 DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, ss.str(), paths.at("SO3_incr_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																			
@@ -591,7 +591,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 																																					cout << ",  "<< fp32_k2k[i]; // K2K ("<<i%4 <<","<< i/4<<") =
 																																				}cout << flush;
 																																			}
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0.6 ,  frame_num="<<frame_num<<",   count="<<count<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0.6 ,  dataset_frame_num="<<dataset_frame_num<<",   count="<<count<<flush;}
 																																			
 	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::estimateSE3(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0.7 "<<flush;}
@@ -619,7 +619,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk3 ."<<flush;
-																																				stringstream ss;	ss << frame_num << "_iter_"<< count << "_estimateSE3_";
+																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSE3_";
                                                                                                                                                 stringstream ss_path;
                                                                                                                                                 DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, ss.str(), paths.at("SE3_incr_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
                                                                                                                                                 
@@ -686,13 +686,13 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 																																			if(verbosity>local_verbosity_threshold+2) {
 																																				cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
 																																			}
-        for (int j=start_group; j< stop_group  ; j++){
-            for (int k=0; k<num_DoFs; k++){
+		for (int j=start_group; j< stop_group  ; j++){
+			for (int k=0; k<num_DoFs; k++){
 				for (int l=0; l<4; l++){
-					SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); // se3_sum_mat.at<float>(j, k);                         		// sum j groups for this layer of the MipMap.
+					SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); 																// sum j groups for this layer of the MipMap.			// se3_sum_mat.at<float>(j, k);	
 				}
-            }
-        }
+			}
+		}
 																																			if(verbosity>local_verbosity_threshold+2) {
 																																				cout << "\nLayer "<<i<<" SE3_results = (";																// raw results
 																																				for (int k=0; k<num_DoFs; k++){
@@ -758,7 +758,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 void RunCL::tracking_result(string result){
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
-																																				stringstream ss;			ss << frame_num << "_iter_"<< count << "_img_grad_" << result;
+																																				stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
 																																				stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
 																																				cout << " , " << ss_path_rho.str() << " , " <<  paths.at(ss_path_rho.str()) << " , " << ss.str()  <<flush;
 																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
@@ -787,7 +787,7 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 	
 	stringstream ss;
 	ss << "_transform_depthmap_";
-	ss << (keyFrameCount*1000 + costVolCount);
+	ss << save_index;
 	DownloadAndSave(		 	keyframe_depth_mem,   		ss.str(), paths.at("keyframe_depth_mem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]); cout<<"\n\nRunCL::transform_depthmap(..)_chk0.1 ."<<flush;
 	
 	
@@ -829,7 +829,8 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	//keyframe_depth_mem
 	stringstream ss;
 	ss << "__buildDepthCostVol";
-	ss << (keyFrameCount*1000 + costVolCount);
+	save_index = keyFrameCount*1000 + costvol_frame_num;
+	ss << save_index;
 	
 	DownloadAndSave(		 	key_frame_depth_map_src,   	ss.str(),   paths.at("key_frame_depth_map_src"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. key_frame_depth_map_src ..) finished\n"<<flush;
 
@@ -857,7 +858,7 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 																																			if(verbosity>local_verbosity_threshold) {
 																																				stringstream ss;
 																																				ss << "initializeDepthCostVol";
-																																				ss << (keyFrameCount*1000 + costVolCount);													// Save buffers to file ###########
+																																				ss << save_index;													// Save buffers to file ###########
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.5.1 ."<<flush;
 																																				
 																																				DownloadAndSave_3Channel(	keyframe_imgmem, 			ss.str(), paths.at("keyframe_imgmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
@@ -878,8 +879,9 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 }
 
 void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop){ //buildDepthCostVol();
-	int local_verbosity_threshold = 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0 ."<<flush;}
+	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0 ."<<flush;}
+	save_index = keyFrameCount*1000 + costvol_frame_num;
+	
 	cl_event writeEvt;
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
@@ -1002,22 +1004,22 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				cout << "\ncount = " << count << flush;
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol";
-																																				ss << (keyFrameCount*1000 + costVolCount);													// Save buffers to file ###########
+																																				ss << save_index;													// Save buffers to file ###########
 																																				DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
 																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[LAYERS]
 																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
-																																				if(verbosity>1) cout << "\ncostVolCount="<<costVolCount;
+																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}
 }
 
 void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop){
-	int local_verbosity_threshold = 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk0 ."<<flush;}
-	key_frame_QD_num++;
+	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk0 ."<<flush;}
+	key_frame_QD_count++;
+	
 	fp32_params[EPSILON]		=  epsilon;
 	fp32_params[SIGMA_Q]		=  sigma_q;
 	fp32_params[SIGMA_D]		=  sigma_d;
@@ -1046,16 +1048,11 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 	mipmap_call_kernel( updateQD_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk3 ."<<flush;}
 																																			if(verbosity>local_verbosity_threshold){
-																																				//size_t st  = width * height * sizeof(float);
-																																				QDcount++;
-																																				int this_count = count + QDcount;
+																																				int this_count = count + key_frame_QD_count;
 																																				ss << this_count;
-																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height ); // 2x sized for qx and qy.
-																																				//cout<<"\n\nRunCL::updateQD(..)_chk3.1 ."<<flush;
+																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height ); 			// 2x sized for qx and qy.
 																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
-																																				//cout<<"\n\nRunCL::updateQD(..)_chk3.2 ."<<flush;
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1 , mm_Image_size , CV_32FC1, false ,    fp32_params[MAX_INV_DEPTH]  );
-																																				
 																																				cout<<"\nRunCL::updateQD_chk3_finished\n"<<flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_finished ."<<flush;}
@@ -1063,7 +1060,7 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 
 void RunCL::updateG(int count, uint start, uint stop){
 	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk0"<<flush;}
-	key_frame_cacheG_num++;
+	key_frame_G_count++;
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) { cout<<"\n\nRunCL::updateG(..)_chk1"<<flush;
@@ -1078,7 +1075,7 @@ void RunCL::updateG(int count, uint start, uint stop){
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk2"<<flush;}
 	mipmap_call_kernel( updateG_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk3 Saving keyframe_g1mem."<<flush;
-																																				stringstream ss;	ss << frame_num << "_updateG";
+																																				stringstream ss;	ss << dataset_frame_num << "_updateG";
 																																				stringstream ss_path;	
 																																				ss_path << "keyframe_g1mem"; 
 																																				cout << "\n" << ss_path.str() <<flush;
@@ -1124,9 +1121,9 @@ void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop)
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk2 ."<<flush;}
 	mipmap_call_kernel( updateA_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk3 ."<<flush;}
-	count = keyFrameCount*1000000 + A_count*1000 + 999;
-	A_count++;
-											if(A_count%1==0 && verbosity>local_verbosity_threshold){
+	count = keyFrameCount*1000000 + key_frame_A_count*1000 + 999;
+	key_frame_A_count++;
+											if(key_frame_A_count%1==0 && verbosity>local_verbosity_threshold){
 												ss << count << "_theta"<<theta<<"_";
 												cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height );
 												DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);

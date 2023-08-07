@@ -112,19 +112,14 @@ public:
 	int 				baseImage_type;					//	
 	int 				mm_Image_type;					//	
 	
-														//	TODO fix duplication of counters
-	int 				frame_num;						//	Frame number in dataset
-	int 				costvol_frame_num;				//	Frame number in the cost volume
-	int 				key_frame_num;					//	Not used
-	int 				key_frame_cacheG_num;			//	Incremented in RunCL::updateG(..) and in Dynamic_slam::cacheGValues(..)
-	int 				key_frame_QD_num ; 				//	Incremented in RunCL::updateQD(..) 
-	
-	int 				count					= 0;	//	used in RunCL::tracking_result
+	int 				dataset_frame_num;				//	Frame number in dataset, set in constructor from json file. Incremented in Dynamic_slam::nextFrame.
+	int 				costvol_frame_num;				//	Frame number in the cost volume. Set = 0 in RunCL::initializeDepthCostVol(..) . Incremented in Dynamic_slam::nextFrame(..)
 	int 				keyFrameCount			= 0;	//	used in saving data to file. Incremented in Dynamic_slam::initialize_new_keyframe(..)
-	int 				costVolCount			= 0;	//	used in saving data to file. Incremented in Dynamic_slam::updateDepthCostVol(..)
-	int 				QDcount					= 0;	//	Incremented in RunCL::updateQD(..)  and in Dynamic_slam::updateQD(..)
-	int 				A_count					= 0;	//	Incremented in RunCL::updateA(..)  and in Dynamic_slam::updateA(..)
-	int 				G_count					= 0;	//	Set = 0 in Dynmaic_slam::initialize_new_keyfrme(..)
+	int 				save_index				= 0;	//	Set in RunCL::initializeDepthCostVol(), and RunCL::updateDepthCostVol(), to save_index = keyFrameCount*1000 + costvol_frame_num;
+	
+	int 				key_frame_QD_count 		= 0; 	//	Incremented in RunCL::updateQD(..) 
+	int 				key_frame_A_count		= 0;	//	Incremented in RunCL::updateA(..), 
+	int 				key_frame_G_count		= 0;	//	Incremented in RunCL::updateG(..), Set = 0 in Dynmaic_slam::initialize_new_keyfrme(..) .
 	
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;
