@@ -117,9 +117,9 @@ public:
 	int 				keyFrameCount			= 0;	//	used in saving data to file. Incremented in Dynamic_slam::initialize_new_keyframe(..)
 	int 				save_index				= 0;	//	Set in RunCL::initializeDepthCostVol(), and RunCL::updateDepthCostVol(), to save_index = keyFrameCount*1000 + costvol_frame_num;
 	
-	int 				key_frame_QD_count 		= 0; 	//	Incremented in RunCL::updateQD(..) 
-	int 				key_frame_A_count		= 0;	//	Incremented in RunCL::updateA(..), 
-	int 				key_frame_G_count		= 0;	//	Incremented in RunCL::updateG(..), Set = 0 in Dynmaic_slam::initialize_new_keyfrme(..) .
+	int 				QD_count 				= 0; 	//	Incremented in RunCL::updateQD(..) Set = 0 in Dynmaic_slam::initialize_new_keyfrme(..)  & in Dynamic_slam::nextFrame()
+	int 				A_count					= 0;	//	Incremented in RunCL::updateA(..), ditto
+	int 				G_count					= 0;	//	Incremented in RunCL::updateG(..), ditto
 	
 	cv::Size 			baseImage_size, mm_Image_size;
 	std::map< std::string, boost::filesystem::path > paths;

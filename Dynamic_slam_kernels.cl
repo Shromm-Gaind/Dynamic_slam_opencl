@@ -1167,7 +1167,7 @@ __kernel void UpdateQD(
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
 	__global 	float4* g1pt,				//4
-	__global 	float* 	qpt,				//5
+	__global 	float* 	qpt,				//5		// qmem,						//	2 * mm_size_bytes_C1
 	__global 	float*  apt,				//6		// amem,     auxilliary A
 	__global 	float*  dpt					//7		// dmem,     depth D
 		 )
@@ -1177,12 +1177,13 @@ __kernel void UpdateQD(
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	
-	uint8 mipmap_params_ = mipmap_params[mipmap_layer];						// choose correct layer of the mipmap
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];					// choose correct layer of the mipmap
 	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
+	
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;						// read_row
@@ -1190,6 +1191,8 @@ __kernel void UpdateQD(
 	float u_flt			= u * reduction;
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	
+	uint mm_pixels		= uint_params[MM_PIXELS];
 	///////////////////////////////////
 	
 	//int g_id 			= get_global_id(0);
@@ -1206,8 +1209,9 @@ __kernel void UpdateQD(
 	unsigned int pt = read_index ; //x + y * mm_cols;									// index of this pixel
 	if (pt >= (mm_cols*read_rows_ + read_offset_))return;
 	//if (hdata[pt+ (costvol_layers-1)*rows*cols] <=0.0) return;		// if no input image overlaps, on layer 0 of hitbuffer, skip this pixel. // makes no difference
+	
 	barrier(CLK_GLOBAL_MEM_FENCE);
-	const int wh = (mm_cols*read_rows_ + read_offset_);
+	const int wh = (mm_pixels + read_offset_);					//  /*mm_cols*read_rows_*/
 	
 	float4 g1_4 = g1pt[pt];
 	float g1 = g1_4.x + g1_4.y + g1_4.z ;								// reduce channel count of g1. Here Manhatan norm.
@@ -1245,7 +1249,6 @@ __kernel void UpdateQD(
 	
 	//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
 		 dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
-		 
 }
 
 __kernel void  UpdateG(

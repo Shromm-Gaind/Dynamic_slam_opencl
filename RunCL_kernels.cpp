@@ -1018,7 +1018,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 
 void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop){
 	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk0 ."<<flush;}
-	key_frame_QD_count++;
+	QD_count++;
 	
 	fp32_params[EPSILON]		=  epsilon;
 	fp32_params[SIGMA_Q]		=  sigma_q;
@@ -1040,15 +1040,15 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 	res = clSetKernelArg(updateQD_kernel, 2, sizeof(cl_mem), &uint_param_buf);	if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__constant 	uint*	uint_params,	//2
 	res = clSetKernelArg(updateQD_kernel, 3, sizeof(cl_mem), &fp32_param_buf);	if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__global 	float*  fp32_params,		//3
 	res = clSetKernelArg(updateQD_kernel, 4, sizeof(cl_mem), &keyframe_g1mem);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float4* g1pt,				//4
-	res = clSetKernelArg(updateQD_kernel, 5, sizeof(cl_mem), &qmem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float* 	qpt,				//5
-	res = clSetKernelArg(updateQD_kernel, 6, sizeof(cl_mem), &amem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float*  apt,				//6		// amem,     auxilliary A
-	res = clSetKernelArg(updateQD_kernel, 7, sizeof(cl_mem), &dmem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float*  dpt					//7		// dmem,     depth D
+	res = clSetKernelArg(updateQD_kernel, 5, sizeof(cl_mem), &qmem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float* 	qpt,				//5		// qmem,						//	2 * mm_size_bytes_C1
+	res = clSetKernelArg(updateQD_kernel, 6, sizeof(cl_mem), &amem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float*  apt,				//6		// amem,     auxilliary A		//	mm_size_bytes_C1
+	res = clSetKernelArg(updateQD_kernel, 7, sizeof(cl_mem), &dmem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float*  dpt					//7		// dmem,     depth D			//	mm_size_bytes_C1
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk1 ."<<flush;}
-	mipmap_call_kernel( updateQD_kernel, m_queue, start, stop );
+	mipmap_call_kernel( updateQD_kernel, m_queue, start, 1 /*stop*/ );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk3 ."<<flush;}
 																																			if(verbosity>local_verbosity_threshold){
-																																				int this_count = count + key_frame_QD_count;
+																																				int this_count = count + QD_count;
 																																				ss << this_count;
 																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height ); 			// 2x sized for qx and qy.
 																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
@@ -1060,7 +1060,7 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 
 void RunCL::updateG(int count, uint start, uint stop){
 	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk0"<<flush;}
-	key_frame_G_count++;
+	G_count++;
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) { cout<<"\n\nRunCL::updateG(..)_chk1"<<flush;
@@ -1121,9 +1121,9 @@ void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop)
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk2 ."<<flush;}
 	mipmap_call_kernel( updateA_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk3 ."<<flush;}
-	count = keyFrameCount*1000000 + key_frame_A_count*1000 + 999;
-	key_frame_A_count++;
-											if(key_frame_A_count%1==0 && verbosity>local_verbosity_threshold){
+	count = keyFrameCount*1000000 + A_count*1000 + 999;
+	A_count++;
+											if(A_count%1==0 && verbosity>local_verbosity_threshold){
 												ss << count << "_theta"<<theta<<"_";
 												cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height );
 												DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
