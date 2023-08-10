@@ -1061,6 +1061,7 @@ __kernel void DepthCostVol(
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
 	uint margin 		= uint_params[MARGIN];
+	
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;										// read_row
@@ -1178,7 +1179,7 @@ __kernel void UpdateQD(
 	uint group_size 	= get_local_size(0);
 	
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];					// choose correct layer of the mipmap
-	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
+	uint mim_pixels		= mipmap_params_[MiM_PIXELS];					// cannot return before the last memory barrier !
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
@@ -1192,7 +1193,7 @@ __kernel void UpdateQD(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
-	uint mm_pixels		= uint_params[MM_PIXELS];
+	//uint mm_pixels		= uint_params[MM_PIXELS];
 	///////////////////////////////////
 	
 	//int g_id 			= get_global_id(0);
@@ -1206,49 +1207,69 @@ __kernel void UpdateQD(
 	
 	int y = global_id_u / read_cols_;
 	int x = global_id_u % read_cols_;
-	unsigned int pt = read_index ; //x + y * mm_cols;									// index of this pixel
-	if (pt >= (mm_cols*read_rows_ + read_offset_))return;
+	unsigned int pt = read_index ;										//x + y * mm_cols;					// index of this pixel
+	
+	const int wh = uint_params[MM_PIXELS]; 								//(mm_pixels + read_offset_);		//  / *mm_cols*read_rows_* /
+	
+/*	
+ * //	barrier(CLK_GLOBAL_MEM_FENCE);
+	if (global_id_u==0){
+		printf("\n Kernel UpdateQD  mipmap_params_[MiM_PIXELS]=%i, reduction=%i, pt=%i, wh=%i,  pt+wh=%i,  x=%i,  y=%i, read_offset_=%i, (mm_cols*read_rows_ + read_offset)=%i,     v=%i,   mm_cols=%i,   u=%i,   read_cols_=%i    ",\
+													mipmap_params_[MiM_PIXELS], reduction,	 pt, 	wh,		 pt+wh, 	x, 		y, 	read_offset_, 	(mm_cols*read_rows_ + read_offset_),        v,      mm_cols,      u,      read_cols_       );  
+		//printf("\n sigma_q*epsilon = %f,   sigma_q=%f,  epsilon=%f", sigma_q*epsilon, sigma_q, epsilon);
+	}	
+	// if (pt >= (mm_cols*read_rows_ + read_offset_)) printf("\n Kenel UpdateQD   pt=%i, wh=%i,  pt+wh=%i,  x=%i,  y=%i",pt, wh, pt+wh, x, y ); return;
+	
 	//if (hdata[pt+ (costvol_layers-1)*rows*cols] <=0.0) return;		// if no input image overlaps, on layer 0 of hitbuffer, skip this pixel. // makes no difference
 	
+	//if (pt == (mm_cols*read_rows_ + read_offset_) -1 ) printf("\n Kenel UpdateQD   pt=%i, wh=%i,  pt+wh=%i,  x=%i,  y=%i",pt, wh, pt+wh, x, y );
+*/
+	float4 g1_4;
+	float g1, qx, qy, d, a;
+	float dd_x, dd_y, maxq;
+	
 	barrier(CLK_GLOBAL_MEM_FENCE);
-	const int wh = (mm_pixels + read_offset_);					//  /*mm_cols*read_rows_*/
 	
-	float4 g1_4 = g1pt[pt];
-	float g1 = g1_4.x + g1_4.y + g1_4.z ;								// reduce channel count of g1. Here Manhatan norm.
-	float qx = qpt[pt];
-	float qy = qpt[pt+wh];
-	float d  = dpt[pt];
-	float a  = apt[pt];
+	if (global_id_u < mim_pixels) {
+		g1_4 = g1pt[pt];
+		g1 = g1_4.x + g1_4.y + g1_4.z ;										// reduce channel count of g1. Here Manhatan norm.
+		qx = qpt[pt];
+		qy = qpt[pt+wh];
+		d  = dpt[pt];
+		a  = apt[pt];
+		
+		dd_x = (x==read_cols_-1)? 0.0f : dpt[pt+1]       - d;				// Sample depth gradient in x&y
+		dd_y = (y==read_rows_-1)? 0.0f : dpt[pt+mm_cols] - d;
+		
+		qx = (qx + sigma_q*g1*dd_x) / (1.0f + sigma_q*epsilon);				// DTAM paper, primal-dual update step
+		qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1
+		maxq = fmax(1.0f, sqrt(qx*qx + qy*qy));
+		qx 			= qx/maxq;
+		qy 			= qy/maxq;
+		
+		qpt[pt]		= qx;  													//dd_x;//pt2;//wh;//pt;//dd_x;//qx / maxq;
+		qpt[pt+wh]	= qy;  													//dd_y;//pt;//;//y;//dd_y;//dpt[pt+1] - d; //dd_y;//qy / maxq;
+	}
 	
-	const float dd_x = (x==read_cols_-1)? 0.0f : dpt[pt+1]       - d;	// Sample depth gradient in x&y
-	const float dd_y = (y==read_rows_-1)? 0.0f : dpt[pt+mm_cols] - d;
-	
-	qx = (qx + sigma_q*g1*dd_x) / (1.0f + sigma_q*epsilon);				// DTAM paper, primal-dual update step
-	qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1
-	const float maxq = fmax(1.0f, sqrt(qx*qx + qy*qy));
-	qx 			= qx/maxq;
-	qy 			= qy/maxq;
-	qpt[pt]		= qx;  													//dd_x;//pt2;//wh;//pt;//dd_x;//qx / maxq;
-	qpt[pt+wh]	= qy;  													//dd_y;//pt;//;//y;//dd_y;//dpt[pt+1] - d; //dd_y;//qy / maxq;
-	
-	barrier(CLK_GLOBAL_MEM_FENCE);										// needs to be after all Q updates.
-	
-	float dqx_x;														// = div_q_x(q, w, x, i);				// div_q_x(..)
-	if (x == 0) dqx_x = qx;
-	else if (x == read_cols_-1) dqx_x =  -qpt[pt-1];
-	else dqx_x =  qx- qpt[pt-1];
-	
-	float dqy_y;														// = div_q_y(q, w, h, wh, y, i);		// div_q_y(..)
-	if (y == 0) dqy_y =  qy;											// return q[i];
-	else if (y == read_rows_-1) dqy_y = -qpt[pt+wh-mm_cols];			// return -q[i-1];
-	else dqy_y =  qy - qpt[pt+wh-read_cols_];							// return q[i]- q[i-w];
-	
-	const float div_q = dqx_x + dqy_y;
-	
-	dpt[pt] = (d + sigma_d * (g1*div_q + a/theta)) / (1.0f + sigma_d/theta);
-	
-	//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
-		 dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
+	barrier(CLK_GLOBAL_MEM_FENCE);											// needs to be after all Q updates.
+	if (global_id_u < mim_pixels){
+		float dqx_x;														// = div_q_x(q, w, x, i);				// div_q_x(..)
+		if (x == 0) dqx_x = qx;
+		else if (x == read_cols_-1) dqx_x =  -qpt[pt-1];
+		else dqx_x =  qx- qpt[pt-1];
+		
+		float dqy_y;														// = div_q_y(q, w, h, wh, y, i);		// div_q_y(..)
+		if (y == 0) dqy_y =  qy;											// return q[i];
+		else if (y == read_rows_-1) dqy_y = -qpt[pt+wh-mm_cols];			// return -q[i-1];
+		else dqy_y =  qy - qpt[pt+wh-read_cols_];							// return q[i]- q[i-w];
+		
+		const float div_q = dqx_x + dqy_y;
+		
+		dpt[pt] = (d + sigma_d * (g1*div_q + a/theta)) / (1.0f + sigma_d/theta);
+		
+		//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
+			dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
+	}
 }
 
 __kernel void  UpdateG(
@@ -1340,7 +1361,7 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	uint group_size 	= get_local_size(0);
 	
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
-	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
+	//if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint margin 		= uint_params[MARGIN];
@@ -1373,6 +1394,7 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	unsigned int cpt = read_index;
 	
 	barrier(CLK_GLOBAL_MEM_FENCE);
+	if (global_id_u    >= mipmap_params_[MiM_PIXELS]) return;
 	
 	float d  		= dpt[read_index];
 	float E_a  		= FLT_MAX;

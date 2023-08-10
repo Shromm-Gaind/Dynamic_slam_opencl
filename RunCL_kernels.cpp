@@ -1045,7 +1045,7 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 	res = clSetKernelArg(updateQD_kernel, 7, sizeof(cl_mem), &dmem);	 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res) <<"\n"<<flush;exit_(res);}			//__global 	float*  dpt					//7		// dmem,     depth D			//	mm_size_bytes_C1
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk1 ."<<flush;}
-	mipmap_call_kernel( updateQD_kernel, m_queue, start, 1 /*stop*/ );
+	mipmap_call_kernel( updateQD_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk3 ."<<flush;}
 																																			if(verbosity>local_verbosity_threshold){
 																																				int this_count = count + QD_count;
