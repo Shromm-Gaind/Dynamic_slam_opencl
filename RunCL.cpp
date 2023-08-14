@@ -511,7 +511,7 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
@@ -524,7 +524,6 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 			temp_mat = cv::Mat::zeros (size_mat.height, 2*size_mat.width, type_mat);
 			ReadOutput(temp_mat.data, buffer,  2*image_size_bytes,   2*offset);
 		}
-		// 
 		
 		cv::Mat mat_u, mat_v;
 		mat_u = cv::Mat::zeros (size_mat, type_mat);
@@ -533,11 +532,13 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 		for (int i=0; i<mat_u.total(); i++){
 			float data[8];
 			for (int j=0; j<8; j++){ data[j] = temp_mat.at<float>(i*8  + j) ;}
+			
 			for (int j=0; j<4; j++){
-				mat_u.at<float>(i*4  + j) = data[j] ;
-				mat_v.at<float>(i*4  + j) = data[j+4] ;																						// NB in buffer, alphachan carries 
-				mat_u.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;																		// sets alpha=0 when , else alpha=1.
-				mat_v.at<float>(i*4  + 3) = (data[j] != 0); // 1.0f;
+				float alpha = ( (data[j] != 0) || (data[j+4] != 0) );
+				mat_u.at<float>(i*4  + j) = data[j] ;																						// NB in buffer, alphachan carries 
+				mat_u.at<float>(i*4  + 3) = alpha;																							// sets alpha=0 when , else alpha=1.
+				mat_v.at<float>(i*4  + j) = data[j+4] ;
+				mat_v.at<float>(i*4  + 3) = alpha;
 			}
 		}
 		//cv::imshow("mat_u", mat_u);
@@ -554,7 +555,7 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 }
 
 void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
 		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
@@ -622,7 +623,7 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 }
 
 void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity> local_verbosity_threshold) {
 																																				cout<<"\n\nDownloadAndSave_6Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
 																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;

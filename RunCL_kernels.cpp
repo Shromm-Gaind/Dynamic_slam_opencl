@@ -237,7 +237,7 @@ void RunCL::mipmap_linear(){
 }
 
 void RunCL::img_gradients(){ //getFrame();
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
@@ -817,7 +817,7 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 
 void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 															// Uses the current frame as the keyframe for a new depth cost volume.
 																																			// Dynamic_slam::initialize_from_GT(), Dynamic_slam::initialize_new_keyframe();
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
 	costvol_frame_num = 0;
 	cl_event writeEvt, ev;																													// Load keyframe
@@ -834,9 +834,9 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	
 	DownloadAndSave(		 	key_frame_depth_map_src,   	ss.str(),   paths.at("key_frame_depth_map_src"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. key_frame_depth_map_src ..) finished\n"<<flush;
 
-	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src, keyframe_depth_mem,			0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}	
-	status = clEnqueueCopyBuffer( m_queue, g1mem, 					keyframe_g1mem, 			0, 0, mm_size_bytes_C4, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_g1mem\n" 						<< flush;exit_(status);}
-	status = clEnqueueCopyBuffer( m_queue, SE3_grad_map_mem, 		keyframe_SE3_grad_map_mem, 	0, 0, mm_size_bytes_C1, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_SE3_grad_map_mem\n" 			<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src, keyframe_depth_mem,			0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}	
+	status = clEnqueueCopyBuffer( m_queue, g1mem, 					keyframe_g1mem, 			0, 0, mm_size_bytes_C4, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_g1mem\n" 						<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, SE3_grad_map_mem, 		keyframe_SE3_grad_map_mem, 	0, 0, mm_size_bytes_C1*6*8, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_SE3_grad_map_mem\n" 			<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																												if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)\n" 	<< flush;exit_(status);}
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1 ."<<flush;}
@@ -879,15 +879,15 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 }
 
 void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop){ //buildDepthCostVol();
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0 ."<<flush;}
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0 ."<<flush;}
 	save_index = keyFrameCount*1000 + costvol_frame_num;
 	
 	cl_event writeEvt;
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
 	
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::updateDepthCostVol(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-                                                                                                                                            if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0.7 "<<flush;}
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::updateDepthCostVol(..)_chk0.5\t" << "save_index_" <<save_index << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+                                                                                                                                            if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0.7 \t" << "save_index_" <<save_index<<flush;}
 	cl_int 				res;
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                        //__private	    uint	    layer,		                    //0
 	res = clSetKernelArg(depth_cost_vol_kernel,  1, sizeof(cl_mem), &mipmap_buf);			if(res!=CL_SUCCESS){cout<<"\nmipmap_buf = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
@@ -1003,21 +1003,21 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																			if(verbosity>local_verbosity_threshold ) { // && count == costVolLayers - 1
 																																				cout << "\ncount = " << count << flush;
 																																				stringstream ss;
-																																				ss << "buildDepthCostVol";
-																																				ss << save_index;													// Save buffers to file ###########
+																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
 																																				DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
 																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[LAYERS]
 																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
-																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
+																																				//DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
+																																				//DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}
 }
 
-void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk0 ."<<flush;}
+void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, uint start, uint stop){
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk0 ."<<flush;}
 	QD_count++;
 	
 	fp32_params[EPSILON]		=  epsilon;
@@ -1031,9 +1031,6 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 																				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: updateQD_chk0\n"	<< endl; exit_(status);}
 	status = clFlush(uload_queue); 												if (status != CL_SUCCESS)	{ cout << "\nclFlush status = " 				<< checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = waitForEventAndRelease(&writeEvt); 								if (status != CL_SUCCESS)	{ cout << "\nwaitForEventAndRelease status = " 	<< checkerror(status) <<"\n"<<flush; exit_(status);}
-
-	stringstream ss;
-	ss << "updateQD";
 	
 	// __private	uint	layer	, set in mipmap_call_kernel(..) below																									//__private	uint	layer,				//0
 	res = clSetKernelArg(updateQD_kernel, 1, sizeof(cl_mem), &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nparam_buf res = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	//__constant 	uint*	mipmap_params,	//1
@@ -1048,8 +1045,11 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 	mipmap_call_kernel( updateQD_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateQD(..)_chk3 ."<<flush;}
 																																			if(verbosity>local_verbosity_threshold){
-																																				int this_count = count + QD_count;
-																																				ss << this_count;
+																																				stringstream ss;
+																																				ss << "updateQD"<< save_index << "_QD_count_" << QD_count;
+																																				//int this_count = save_index * 1000 + QD_count;
+																																				//ss << save_index << "_QD_count_" << QD_count;
+																																				
 																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height ); 			// 2x sized for qx and qy.
 																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1 , mm_Image_size , CV_32FC1, false ,    fp32_params[MAX_INV_DEPTH]  );
@@ -1059,7 +1059,7 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, i
 }
 
 void RunCL::updateG(int count, uint start, uint stop){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk0"<<flush;}
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk0"<<flush;}
 	G_count++;
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ; 
@@ -1085,9 +1085,10 @@ void RunCL::updateG(int count, uint start, uint stop){
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk4 Finished."<<flush;}
 }
 
-void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop){
-	int local_verbosity_threshold = 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk0 ."<<flush;}
+void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk0 ."<<flush;}
+	A_count++;
+	
 	fp32_params[THETA]			=  theta;
 	fp32_params[LAMBDA]			=  lambda;
 	cl_int status;
@@ -1099,8 +1100,7 @@ void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop)
 	status = clFlush(uload_queue); 				if (status != CL_SUCCESS)	{ cout << "\nclFlush status = " << status << checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = waitForEventAndRelease(&writeEvt); if (status != CL_SUCCESS)	{ cout << "\nwaitForEventAndRelease status = "<<status<<checkerror(status)<<"\n"<<flush; exit_(status);}
 
-	stringstream ss;
-	ss << "updateA";
+	
 	cl_int res;
 	cl_event ev;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk1 ."<<flush;}
@@ -1121,15 +1121,17 @@ void RunCL::updateA(float lambda, float theta, int count, uint start, uint stop)
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk2 ."<<flush;}
 	mipmap_call_kernel( updateA_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk3 ."<<flush;}
-	count = keyFrameCount*1000000 + A_count*1000 + 999;
-	A_count++;
-											if(A_count%1==0 && verbosity>local_verbosity_threshold){
-												ss << count << "_theta"<<theta<<"_";
-												cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height );
-												DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
-												DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
-												DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , 0.1 );
-											}
+																																			if(A_count%1==0 && verbosity>local_verbosity_threshold){
+																																				stringstream ss;
+																																				ss << "updateA"<< save_index << "_A_count_" << A_count << "_theta_" << theta ;
+																																				//count = keyFrameCount*1000000 + A_count*1000 + 999;
+																																				//ss << count << "_theta"<<theta<<"_";
+																																				
+																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height );
+																																				DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
+																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
+																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , 0.1 );
+																																			}
 																																			if(verbosity>0) cout<<"\nRunCL::updateA_chk2_finished,   fp32_params[MAX_INV_DEPTH]="<<fp32_params[MAX_INV_DEPTH]<<flush;
 }
 

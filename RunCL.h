@@ -173,9 +173,9 @@ public:
 	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
 	   void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
-	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, int count, uint start, uint stop);
+	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, uint start, uint stop);
 	void updateG(int count, uint start, uint stop);
-	void updateA(float lambda, float theta, int count, uint start, uint stop);
+	void updateA(float lambda, float theta, uint start, uint stop);
 	void computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q);
 
 	void SpatialCostFns();																												// SIRFS cost functions

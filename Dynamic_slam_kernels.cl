@@ -34,6 +34,55 @@
 #define margin_			15
 */
 
+/*  Test code for fluid.h for Morphogenesis opencl
+
+struct demoStruct {
+	float data_float;
+};
+
+inline float get_data(struct demoStruct obj  ){return obj.data_float;}
+
+__constant struct demoStruct demoStructObj = {12.6};
+
+//__constant float demo_float = get_data(demoStructObj);
+
+////
+
+struct FBufs {
+	char*				mcpu[ MAX_BUF ];
+	#ifdef OpenCL_KERNEL
+		char*			mgpu[ MAX_BUF ];		// on device, pointer is local.
+	#else			
+		CUdeviceptr		mgpu[ MAX_BUF ];		// on host, gpu is a device pointer // an array of pointers, filled by cuMemAlloc
+		CUdeviceptr		gpu    (int n )	{ return mgpu[n];  }
+		CUdeviceptr*	gpuptr (int n )	{ return &mgpu[n]; }		
+	#endif		
+};
+#ifdef OpenCL__KERNEL
+			// on device, access data via gpu pointers 
+			//inline CALLFUNC Vector3DF*           bufV3(int n)		 { return (Vector3DF*) mgpu[n]; }
+			inline  float3*              bufF3(struct FBufs obj,  int n)		 { return (float3*) obj.mgpu[n]; }
+			inline CALLFUNC float*               bufF (int n)		 { return (float*)  mgpu[n]; }
+			inline CALLFUNC uint*                bufI (int n)		 { return (uint*)   mgpu[n]; }
+			inline CALLFUNC char*                bufC (int n)		 { return (char*)   mgpu[n]; }
+			inline CALLFUNC uint**               bufII (int n)       { return (uint**)  mgpu[n]; }               // for elastIdx[][]
+			inline CALLFUNC curandState_t*       bufCuRNDST (int n)  { return (curandState_t*)  mgpu[n]; }
+			inline CALLFUNC unsigned long long*  bufULL (int n)      { return (unsigned long long*)  mgpu[n]; }
+#else
+			// on host, access data via cpu pointers
+			//inline CALLFUNC Vector3DF*           bufV3(int n)		 { return (Vector3DF*) mcpu[n]; }
+			inline  float3*              bufF3(struct FBufs obj,  int n)		 { return (float3*) obj.mcpu[n]; }
+			inline  float*               bufF (int n)		 { return (float*)  mcpu[n]; }
+			inline  uint*                bufI (int n)		 { return (uint*)   mcpu[n]; }
+			inline  char*                bufC (int n)		 { return (char*)   mcpu[n]; }
+			inline  uint**               bufII (int n)       { return (uint**)  mcpu[n]; }               // for elastIdx[][]
+			inline  curandState_t*       bufCuRNDST (int n)  { return (curandState_t*)  mcpu[n]; }
+			inline  unsigned long long*  bufULL (int n)      { return (unsigned long long*)  mcpu[n]; }
+#endif
+*/
+
+///////////////////
+
 #define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
@@ -447,8 +496,9 @@ __kernel void  img_grad(
 	if (read_column<read_cols_ && read_column>=read_cols_-8 && read_row == 15)	printf("\nread_column=%u, (read_column < read_cols_-2)=%i, rtoff=%i ",read_column, (read_column < read_cols_-2), rtoff );
 	*/
 	
-	float alphaG		= fp32_params[ALPHA_G];
-	float betaG 		= fp32_params[BETA_G];
+	float alphaG		= fp32_params[ALPHA_G];														// "alpha_g":0.015,//15,	// can vary 15 to 0.15  // 0.015     
+																									// DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001 
+	float betaG 		= fp32_params[BETA_G];														// "beta_g": 1.5,			//my dtam_opencl 1.5 
 	
 	float4 pu, pd, pl, pr;
 	pr =  img[offset + rtoff];
@@ -463,7 +513,7 @@ __kernel void  img_grad(
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
-		 1.0f };
+		 1.0f };																					// exp(-0.015  * pow(sqrt(gx.x*gx.x + gy.x*gy.x),  1.5)  )
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;	 
 	g1p[offset]= g1;
 	gxp[offset]= fabs(gx);																			// NB taking the absolute loses the sign of the gradient. 
@@ -495,7 +545,15 @@ __kernel void  img_grad(
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
 		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ; 
+		/*
+		if (global_id_u ==1) printf("\nSE3_grad_map[%u + (%u * %u)] = ((%f, %f, %f, %f),  (%f, %f, %f, %f)),  SE3_px=(%f,%f),  gx=(%f, %f, %f, %f),  gy=(%f, %f, %f, %f)" \
+		, read_index, i, mm_pixels,   SE3_grad_px[0], SE3_grad_px[1], SE3_grad_px[2], SE3_grad_px[3],   SE3_grad_px[4], SE3_grad_px[5], SE3_grad_px[6], SE3_grad_px[7]\
+		,    SE3_px[0], SE3_px[1]  \
+		, gx[0], gx[1], gx[2], gx[3],   gy[0], gy[1], gy[2], gy[3] \
+				  );
+		*/
 	}
+	
 }
 
 __kernel void compute_param_maps(
@@ -1157,8 +1215,8 @@ __kernel void DepthCostVol(
 		maxv = fmax(cost[layer], maxv);
 	}
 	lo[read_index] 	= minv; 															// min photometric cost  // rho;//
-	a[read_index] 	= c.x; //mini*inv_d_step + min_inv_depth; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
-	d[read_index] 	= B.x; //mini*inv_d_step + min_inv_depth; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
+	a[read_index] 	= mini*inv_d_step + min_inv_depth; //c.x; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
+	d[read_index] 	= mini*inv_d_step + min_inv_depth; //B.x; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
 	hi[read_index] 	= maxv; 															// max photometric cost
 }
 

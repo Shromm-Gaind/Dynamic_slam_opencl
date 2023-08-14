@@ -137,15 +137,16 @@ int Dynamic_slam::nextFrame() {
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
-	
 	bool doneOptimizing;
-	int  opt_count 		= 0;
-	int  max_opt_count 	= obj["max_opt_count"].asInt();
+	int  opt_count				= 0;
+	int  max_opt_count			= obj["max_opt_count"].asInt();
+	int  max_inner_opt_count 	= obj["max_inner_opt_count"].asInt();
+	
 	runcl.QD_count=0;
 	runcl.A_count=0;
 	runcl.G_count=0;
 	do{ 
-		for (int i = 0; i < 5; i++) updateQD();								// Optimize Q, D   (primal-dual)		/ *10* /
+		for (int i = 0; i < 10; i++) updateQD();							// Optimize Q, D   (primal-dual)		/ *5* /
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
@@ -1202,19 +1203,21 @@ void Dynamic_slam::buildDepthCostVol_fast_peripheral(){																						// 
 	
 	
 }
+
 /*void Dynamic_slam::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
 		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
 		sigma_d		= mu / (2.0/ theta);
 		sigma_q		= mu / (2.0*epsilon);
 }
 */
+
 void Dynamic_slam::updateQD(){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk0, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]<<flush;
 	runcl.computeSigmas(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], obj["L"].asFloat(), runcl.fp32_params[SIGMA_D], runcl.fp32_params[SIGMA_Q] );
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk1, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
-	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q], runcl.fp32_params[SIGMA_D],  runcl.QD_count, runcl.mm_start, runcl.mm_stop);	
+	runcl.updateQD(runcl.fp32_params[EPSILON], runcl.fp32_params[THETA], runcl.fp32_params[SIGMA_Q], runcl.fp32_params[SIGMA_D], runcl.mm_start, runcl.mm_stop);	
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nDynamic_slam::updateQD_chk3, epsilon="<<runcl.fp32_params[EPSILON]<<" theta="<<runcl.fp32_params[THETA]\
 																																								<<" sigma_q="<<runcl.fp32_params[SIGMA_Q]<<" sigma_d="<<runcl.fp32_params[SIGMA_D]<<flush;
 }
@@ -1232,7 +1235,7 @@ bool Dynamic_slam::updateA(){
 	if (theta < 0.001 && old_theta > 0.001){  cacheGValues(); old_theta=theta; }		// If theta falls below 0.001, then G must be recomputed.
 	// bool doneOptimizing = (theta <= thetaMin);
 	
-	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA], runcl.A_count, runcl.mm_start, runcl.mm_stop );
+	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA],  runcl.mm_start, runcl.mm_stop );
 	
 	runcl.fp32_params[THETA] *= obj["thetaStep"].asFloat();
 	
