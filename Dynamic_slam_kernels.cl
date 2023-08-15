@@ -1290,8 +1290,8 @@ __kernel void UpdateQD(
 	
 	if (global_id_u < mim_pixels) {
 		g1_4 = g1pt[pt];
-		g1 = g1_4.x + g1_4.y + g1_4.z ;										// reduce channel count of g1. Here Manhatan norm.
-		qx = qpt[pt];
+		g1 = g1_4.x;// + g1_4.y + g1_4.z ;									// reduce channel count of g1. Here Manhatan norm. bad choice. Hue is not good. 
+		qx = qpt[pt];														// TODO Later try   g1 = 1-(1-g_saturation)*(1-g_value) , i.e. where sat and val agree: less fooled by shadows.
 		qy = qpt[pt+wh];
 		d  = dpt[pt];
 		a  = apt[pt];
@@ -1302,6 +1302,10 @@ __kernel void UpdateQD(
 		qx = (qx + sigma_q*g1*dd_x) / (1.0f + sigma_q*epsilon);				// DTAM paper, primal-dual update step
 		qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1
 		maxq = fmax(1.0f, sqrt(qx*qx + qy*qy));
+		
+		if (x==100 && y==100) printf("\nKernel UpdateQD_1 mipmap_layer=%u, mm_cols=%u, wh=%u, pt=%u, d=%f, sigma_q=%f, epsilon=%f, g1=%f, , a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
+			mipmap_layer, mm_cols, wh, pt, d, sigma_q, epsilon, g1,  a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
+		
 		qx 			= qx/maxq;
 		qy 			= qy/maxq;
 		
@@ -1325,8 +1329,8 @@ __kernel void UpdateQD(
 		
 		dpt[pt] = (d + sigma_d * (g1*div_q + a/theta)) / (1.0f + sigma_d/theta);
 		
-		//if (x==100 && y==100) printf("\ndpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
-			dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
+		if (x==100 && y==100) printf("\nKernel UpdateQD_2 mipmap_layer=%u, mm_cols=%u, wh=%u, dpt[pt]=%f, d=%f, sigma_q=%f, epsilon=%f, g1=%f, div_q=%f, a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
+			mipmap_layer, mm_cols, wh, dpt[pt], d, sigma_q, epsilon, g1, div_q , a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
 	}
 }
 

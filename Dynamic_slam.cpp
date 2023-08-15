@@ -120,8 +120,8 @@ void Dynamic_slam::initialize_camera(){
 
 int Dynamic_slam::nextFrame() {
 	int local_verbosity_threshold = 0;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0, \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
-	predictFrame();					// updates pose2pose for next frame in cost volume.
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num<<" \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
+	predictFrame();					// updates pose2pose for next frame in cost volume.			//  Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = 0
 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	//use_GT_pose();
 	getFrame();
@@ -145,8 +145,10 @@ int Dynamic_slam::nextFrame() {
 	runcl.QD_count=0;
 	runcl.A_count=0;
 	runcl.G_count=0;
+	runcl.initialize_fp32_params();											// reset params for update QD & A
+	
 	do{ 
-		for (int i = 0; i < 10; i++) updateQD();							// Optimize Q, D   (primal-dual)		/ *5* /
+		for (int i = 0; i < max_inner_opt_count; i++) updateQD();			// Optimize Q, D   (primal-dual)		/ *5* /
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
@@ -160,10 +162,10 @@ int Dynamic_slam::nextFrame() {
 		}
 		ExhaustiveSearch();
 	}
-	
 	runcl.costvol_frame_num++;
 	runcl.dataset_frame_num++;
-	return(0);					// NB option to return an error that stops the main loop.
+	
+	return(0);						// NB option to return an error that stops the main loop.
 };
 
 void Dynamic_slam::report_GT_pose_error(){
@@ -413,12 +415,13 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	K2K_GT = old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;																				// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 	
 	pose2pose_GT = old_pose_GT * inv_pose_GT;
-	
-	if (runcl.costvol_frame_num <= 0 ) {
+	/*
+	if (runcl.costvol_frame_num <= 0 ) {																									// Transfered initialization to    dynamic_slam.initialize_keyframe_from_GT() or Dynamic_slam::initialize_keyframe_from_tracking()
 		keyframe_pose_GT 		= pose_GT; 
 		keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
 		keyframe_inv_K_GT		= generate_invK_(K_GT);				//  inv_old_K_GT;
 	}
+	*/
 	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
 																																				cout << "\truncl.costvol_frame_num = " << runcl.costvol_frame_num << flush;
@@ -1095,6 +1098,11 @@ void Dynamic_slam::estimateCalibration(){
 void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
 	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
+	keyframe_pose_GT 		= pose_GT;
+	keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
+	keyframe_inv_K_GT		= generate_invK_(K_GT);	
+	
+	
 	keyframe_pose 		= pose_GT;
 	keyframe_K			= K_GT;
 	keyframe_inv_pose 	= inv_pose_GT;
@@ -1155,8 +1163,8 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
-	int local_verbosity_threshold = 1;
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0" << flush;}
+	int local_verbosity_threshold = -1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0,  runcl.dataset_frame_num = "<< runcl.dataset_frame_num << flush;}
 	runcl.initialize_fp32_params();
 	//runcl.QD_count 	= 0; // TODO NB these are reset in Dynamic_slam::nextFrame()
 	//runcl.A_count 	= 0;
@@ -1165,11 +1173,12 @@ void Dynamic_slam::initialize_new_keyframe(){
 	//cacheGValues();			// TODO may not be needed here.
 								// TODO   keyframe_K2K_GT, keyframe_K2K etc ? 
 	runcl.keyFrameCount++;
+	runcl.dataset_frame_num++;
 }
 
 void Dynamic_slam::updateDepthCostVol(){																							// Built forwards. Updates keframe only when needed.
-	int local_verbosity_threshold = 1;
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::buildDepthCostVol()_chk 0" << flush;}
+	int local_verbosity_threshold = -1;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::buildDepthCostVol()_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num << flush;}
 // # Build depth cost vol on current image, using image array[6] in MipMap buffer, plus RelVelMap, 
 // with current camera params & DepthMap if bootstrapping, otherwise with params for each frame.
 // NB 2*(1+7) = 14 layers on MipMap DepthCostVol: for model & pyramid, ID cetntre layer plus 7 samples, i.e. centre +&- 3 layers.
