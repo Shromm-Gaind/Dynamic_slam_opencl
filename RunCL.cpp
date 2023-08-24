@@ -219,7 +219,7 @@ void RunCL::createFolders(){
 										\
 										"basemem", "keyframe_basemem", "depth_mem", "keyframe_depth_mem", \
 										"key_frame_depth_map_src", "depth_GT", \
-										"dmem","amem","lomem","himem","qmem","cdatabuf","hdatabuf","img_sum_buf" \
+										"dmem","amem","lomem","himem","qmem","qmem2","cdatabuf","hdatabuf","img_sum_buf" \
 	};
 	std::pair<std::string, boost::filesystem::path> tempPair;
 
@@ -943,6 +943,9 @@ void RunCL::allocatemem(){
 	lomem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 19= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	himem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 20= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	qmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 21= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	qmem2				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 21= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
+	
 	cdatabuf			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 22= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	hdatabuf 			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 23= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	

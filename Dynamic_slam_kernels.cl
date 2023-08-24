@@ -1178,7 +1178,7 @@ __kernel void DepthCostVol(
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
-	for( layer=0;  layer<costvol_layers; layer++ ){
+	for( layer=0;  layer<=costvol_layers; layer++ ){
 		cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
 		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
 		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
@@ -1229,6 +1229,7 @@ __kernel void UpdateQD(
 	__global 	float* 	qpt,				//5		// qmem,						//	2 * mm_size_bytes_C1
 	__global 	float*  apt,				//6		// amem,     auxilliary A
 	__global 	float*  dpt					//7		// dmem,     depth D
+	//__global 	float* 	qpt2				//8		// qmem,						//	2 * mm_size_bytes_C1
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -1297,14 +1298,17 @@ __kernel void UpdateQD(
 		a  = apt[pt];
 		
 		dd_x = (x==read_cols_-1)? 0.0f : dpt[pt+1]       - d;				// Sample depth gradient in x&y
-		dd_y = (y==read_rows_-1)? 0.0f : dpt[pt+mm_cols] - d;
+		dd_y = (y==read_rows_-1)? 0.0f : dpt[pt+mm_cols] - d;				// dd_x, dd_y = 0, if at edge of image, otherwise depth_grad in x,y. 
+		
+		// qpt2[pt] 		= dd_x;		//dpt[pt+1]			- d;  //x;	//dd_x;		//global_id_u;  //
+		// qpt2[pt + wh] 	= dd_y;		//dpt[pt+mm_cols]	- d;		//dd_y;		//pt;			//
 		
 		qx = (qx + sigma_q*g1*dd_x) / (1.0f + sigma_q*epsilon);				// DTAM paper, primal-dual update step
-		qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1
+		qy = (qy + sigma_q*g1*dd_y) / (1.0f + sigma_q*epsilon);				// sigma_q=0.0559017,  epsilon=0.1,  g1=0.999.. if white, less if visible edge.
 		maxq = fmax(1.0f, sqrt(qx*qx + qy*qy));
 		
-		if (x==100 && y==100) printf("\nKernel UpdateQD_1 mipmap_layer=%u, mm_cols=%u, wh=%u, pt=%u, d=%f, sigma_q=%f, epsilon=%f, g1=%f, , a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f ", \
-			mipmap_layer, mm_cols, wh, pt, d, sigma_q, epsilon, g1,  a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y );
+		if (x==100 && y==100) printf("\nKernel UpdateQD_1 mipmap_layer=%u, mim_pixels=%u, mm_cols=%u, wh=%u, pt=%u, d=%f, sigma_q=%f, epsilon=%f, g1=%f, , a=%f, theta=%f, sigma_d=%f, qx=%f, qy=%f, maxq=%f, dd_x=%f, dd_y=%f m x=%i, y=%i", \
+			mipmap_layer, mim_pixels, mm_cols, wh, pt, d, sigma_q, epsilon, g1,  a, theta, sigma_d, qx, qy, maxq, dd_x, dd_y, x, y );
 		
 		qx 			= qx/maxq;
 		qy 			= qy/maxq;
@@ -1323,7 +1327,7 @@ __kernel void UpdateQD(
 		float dqy_y;														// = div_q_y(q, w, h, wh, y, i);		// div_q_y(..)
 		if (y == 0) dqy_y =  qy;											// return q[i];
 		else if (y == read_rows_-1) dqy_y = -qpt[pt+wh-mm_cols];			// return -q[i-1];
-		else dqy_y =  qy - qpt[pt+wh-read_cols_];							// return q[i]- q[i-w];
+		else dqy_y =  qy - qpt[pt+wh-mm_cols/*read_cols_*/];							// return q[i]- q[i-w];
 		
 		const float div_q = dqx_x + dqy_y;
 		
@@ -1439,7 +1443,7 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	//int x 				= get_global_id(0);						// int costvol_layers	= uint_params[COSTVOL_LAYERS];
 	//int rows 				= floor(params[rows_]);
 	//int cols 				= floor(params[cols_]);
-	int costvol_layers		= uint_params[COSTVOL_LAYERS];					//floor(params[layers_]);
+	int costvol_layers		= uint_params[COSTVOL_LAYERS];			//floor(params[layers_]);
 	unsigned int layer_step = uint_params[MM_PIXELS];				//floor(params[pixels_]);
 	float lambda			= fp32_params[LAMBDA];					//params[lambda_];
 	float theta				= fp32_params[THETA];					//params[theta_];

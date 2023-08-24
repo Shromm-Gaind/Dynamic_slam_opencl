@@ -137,14 +137,21 @@ int Dynamic_slam::nextFrame() {
 	updateDepthCostVol();													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																			// NB Cost vol needs to be initialized on a particular keyframe.
 																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
+	runcl.costvol_frame_num++;
+	runcl.dataset_frame_num++;
+	
+	return(0);						// NB option to return an error that stops the main loop.
+};
+
+void Dynamic_slam::optimize_depth(){
 	bool doneOptimizing;
 	int  opt_count				= 0;
 	int  max_opt_count			= obj["max_opt_count"].asInt();
 	int  max_inner_opt_count 	= obj["max_inner_opt_count"].asInt();
 	
-	runcl.QD_count=0;
-	runcl.A_count=0;
-	runcl.G_count=0;
+	runcl.QD_count				= 0;
+	runcl.A_count				= 0;
+	runcl.G_count				= 0;
 	runcl.initialize_fp32_params();											// reset params for update QD & A
 	
 	do{ 
@@ -152,9 +159,11 @@ int Dynamic_slam::nextFrame() {
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;
 	} while (!doneOptimizing && (opt_count<max_opt_count));
+	
 	//////////////////////////////////
 	int outer_iter = obj["regularizer_outer_iter"].asInt();
 	int inner_iter = obj["regularizer_inner_iter"].asInt();
+	
 	for (int i=0; i<outer_iter ; i++){
 		for (int j=0; j<inner_iter ; j++){
 			SpatialCostFns();
@@ -162,11 +171,7 @@ int Dynamic_slam::nextFrame() {
 		}
 		ExhaustiveSearch();
 	}
-	runcl.costvol_frame_num++;
-	runcl.dataset_frame_num++;
-	
-	return(0);						// NB option to return an error that stops the main loop.
-};
+}
 
 void Dynamic_slam::report_GT_pose_error(){
 	int local_verbosity_threshold = 0;

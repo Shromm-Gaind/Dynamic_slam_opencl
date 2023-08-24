@@ -86,6 +86,8 @@ class Dynamic_slam
     cv::Matx44f getInvPose(cv::Matx44f pose);
     
     int  nextFrame();
+    void optimize_depth();
+    
     void predictFrame();
     void getFrame();
     void getFrameData();

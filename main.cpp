@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
 			ds_error = dynamic_slam.nextFrame();
 			frame_count ++;
 		}
+		dynamic_slam.optimize_depth();
 		dynamic_slam.runcl.saveCostVols(imagesPerCV);
 		
 		//dynamic_slam.initialize_keyframe_from_tracking();
