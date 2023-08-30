@@ -151,6 +151,10 @@ void RunCL::img_variance(){
 	status = clFinish(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk1,  global_work_size="<< global_work_size <<flush;
 	res = clEnqueueNDRangeKernel(m_queue, img_variance_kernel, 1, 0, &global_work_size, &local_work_size, 0, NULL, &ev); 					// run img_variance _kernel  aka img_variance(..) ##### TODO which CommandQueue to use ? What events to check ?
+	
+	
+	
+	
 	if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
 	status = clFlush(m_queue);				                                                               if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = clWaitForEvents (1, &ev);		                                                               if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) = "<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
@@ -169,19 +173,19 @@ void RunCL::img_variance(){
                                                                                                                                                     cout << ")" << flush;
                                                                                                                                                 }cout << "\n)\n" << flush;
                                                                                                                                             } 
-	float var_sum_reults[4] = {0};
+	float var_sum_results[4] = {0};
 	uint groups_to_sum = var_sum_mat.at<float>(0, 0);
 	uint start_group   = 1;
 	uint stop_group    = start_group + groups_to_sum;
 																																			if(verbosity>local_verbosity_threshold+2) cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
 	for (int j=start_group; j< stop_group  ; j++){
 		for (int k=0; k<4; k++){
-			var_sum_reults[k] += var_sum_mat.at<float>(j, k); 
+			var_sum_results[k] += var_sum_mat.at<float>(j, k); 
 		}
 	}
-	uint layer =0;
+	uint layer = 0; // TODO convert to mimpap version. 
 	for (int i=0; i<3; i++){
-		img_stats[layer*4 + IMG_VAR + i ]	=	var_sum_reults[i] / var_sum_reults[3];
+		img_stats[layer*4 + IMG_VAR + i ]	=	var_sum_results[i] / var_sum_results[3];
 	}
 																																			// Upload img_variance to GPU 
 	status = clEnqueueWriteBuffer(uload_queue, img_stats_buf, CL_FALSE, 0, img_stats_size_bytes, img_stats, 0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer imgmem status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
@@ -189,12 +193,12 @@ void RunCL::img_variance(){
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout << "\n Var_sum_results = (";
 																																				for (int k=0; k<4; k++){
-																																						cout << ", " << var_sum_reults[k] ;
+																																						cout << ", " << var_sum_results[k] ;
 																																				}cout << ")";
 																																				cout << endl;
 																																				cout << "\n Var_sum_results/num_groups = (";
 																																				for (int k=0; k<4; k++){
-																																					cout << ", " << var_sum_reults[k]/var_sum_reults[3] ;
+																																					cout << ", " << var_sum_results[k]/var_sum_results[3] ;
 																																				}cout << ")";
 																																			}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk3_Finished"<<flush;
@@ -221,7 +225,10 @@ void RunCL::mipmap_linear(){
 	res = clSetKernelArg(mipmap_float4_kernel, 4, sizeof(cl_mem), 						&imgmem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global   float4*	img,			//4	
 	res = clSetKernelArg(mipmap_float4_kernel, 5, (local_size+4) *5*4* sizeof(float), 	NULL);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local    float4*	local_img_patch //5
 	
-	mipmap_call_kernel( mipmap_float4_kernel, m_queue );// TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
+	mipmap_call_kernel( mipmap_float4_kernel, m_queue, mm_start, mm_stop, true );   // TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
+	
+	//mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential=false)
+	
 	
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap(..)_chk3 Finished all loops."<<flush;
@@ -244,16 +251,16 @@ void RunCL::img_gradients(){ //getFrame();
 	//res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &mipmap_buf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global uint*	mipmap_params,	//3
 	
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                              __private	 uint	    layer,		//0
-    res = clSetKernelArg(img_grad_kernel, 1, sizeof(cl_mem), &mipmap_buf);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	mipmap_params,	//1
-	res = clSetKernelArg(img_grad_kernel, 2, sizeof(cl_mem), &uint_param_buf);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	uint_params		//2
-	res = clSetKernelArg(img_grad_kernel, 3, sizeof(cl_mem), &fp32_param_buf);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*	fp32_params		//3
-	res = clSetKernelArg(img_grad_kernel, 4, sizeof(cl_mem), &imgmem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,		//4
-	res = clSetKernelArg(img_grad_kernel, 5, sizeof(cl_mem), &gxmem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gxp,		//5
-	res = clSetKernelArg(img_grad_kernel, 6, sizeof(cl_mem), &gymem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gyp,		//6
-	res = clSetKernelArg(img_grad_kernel, 7, sizeof(cl_mem), &g1mem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//7
-	res = clSetKernelArg(img_grad_kernel, 8, sizeof(cl_mem), &SE3_map_mem);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float2*	SE3_map,	//8
-	//res = clSetKernelArg(img_grad_kernel, 9, sizeof(cl_mem), &depth_mem);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global	float* 		depth_map,	//9		// NB GT_depth, not inv_depth
-	res = clSetKernelArg(img_grad_kernel, 9, sizeof(cl_mem), &SE3_grad_map_mem);									if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	SE3_grad_map//9
+    res = clSetKernelArg(img_grad_kernel,  1, sizeof(cl_mem), &mipmap_buf);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	mipmap_params,	//1
+	res = clSetKernelArg(img_grad_kernel,  2, sizeof(cl_mem), &uint_param_buf);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*	uint_params		//2
+	res = clSetKernelArg(img_grad_kernel,  3, sizeof(cl_mem), &fp32_param_buf);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*	fp32_params		//3
+	res = clSetKernelArg(img_grad_kernel,  4, sizeof(cl_mem), &imgmem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,		//4
+	res = clSetKernelArg(img_grad_kernel,  5, sizeof(cl_mem), &gxmem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gxp,		//5
+	res = clSetKernelArg(img_grad_kernel,  6, sizeof(cl_mem), &gymem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	gyp,		//6
+	res = clSetKernelArg(img_grad_kernel,  7, sizeof(cl_mem), &g1mem);												if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p			//7
+	res = clSetKernelArg(img_grad_kernel,  8, sizeof(cl_mem), &SE3_map_mem);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float2*	SE3_map,	//8
+	res = clSetKernelArg(img_grad_kernel,  9, sizeof(cl_mem), &SE3_grad_map_mem);									if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	SE3_grad_map//9
+	res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &HSV_grad_mem);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	HSV_grad_mem//10
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
@@ -281,6 +288,12 @@ void RunCL::img_gradients(){ //getFrame();
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
 																																				DownloadAndSave_6Channel_volume(  SE3_grad_map_mem, ss.str(), paths.at(ss_path.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );
 																																				///
+																																				ss_path.str(std::string()); // reset ss_path
+																																				ss_path << "HSV_grad_mem"<<flush; 
+																																				cout << "\n" << ss_path.str() <<flush;
+																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem, ss.str(), paths.at(ss_path.str()), 2*mm_size_bytes_C4, mm_Image_size, CV_32FC(8), false, -1, 8 );
+																																				
 																																				cout << "\n\n SE3_grad_map_mem = SE3_grad_map_mem = "<<SE3_grad_map_mem;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk4 Finished."<<flush;}
@@ -1058,8 +1071,8 @@ void RunCL::updateQD(float epsilon, float theta, float sigma_q, float sigma_d, u
 																																				//ss << save_index << "_QD_count_" << QD_count;
 																																				
 																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height ); 			// 2x sized for qx and qy.
-																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1 , mm_Image_size , CV_32FC1, false ,    fp32_params[MAX_INV_DEPTH]  );
+																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
 																																				
 																																				//DownloadAndSave(qmem2,   ss.str(), paths.at("qmem2"),2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );  // 1/uint_params[MM_PIXELS]
 																																				
@@ -1111,8 +1124,8 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 	status = waitForEventAndRelease(&writeEvt); if (status != CL_SUCCESS)	{ cout << "\nwaitForEventAndRelease status = "<<status<<checkerror(status)<<"\n"<<flush; exit_(status);}
 
 	
-	cl_int res;
-	cl_event ev;
+	cl_int		res;
+	cl_event	ev;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateA(..)_chk1 ."<<flush;}
 	
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                            //__private	 uint	    layer,			//0
@@ -1142,7 +1155,7 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 																																				cv::Size q_size( mm_Image_size.width, 2* mm_Image_size.height );
 																																				DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
-																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , 0.1 );
+																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , -1*fp32_params[MAX_INV_DEPTH] ); //0.1
 																																			}
 																																			if(verbosity>0) cout<<"\nRunCL::updateA_chk2_finished,   fp32_params[MAX_INV_DEPTH]="<<fp32_params[MAX_INV_DEPTH]<<flush;
 }

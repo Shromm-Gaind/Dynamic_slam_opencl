@@ -148,14 +148,22 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	float min_rgb 			= min(R_float, min(G_float, B_float) );
 	float divisor 			= V - min_rgb;
 	float S 				= (V!=0)*(V-min_rgb)/V;
-	
+	/*
 	float H = (   (V==R_float && V!=0)* 		(60*(G_float-B_float) / divisor )  \
 			+     (V==G_float && V!=0)*( 120 + 	(60*(B_float-R_float) / divisor )) \
 			+     (V==B_float && V!=0)*( 240 + 	(60*(R_float-G_float) / divisor )) \
 			) / 360;
+	*/
+	// Hue in radians
+	const float Pi_3 = M_PI_F/3;
 	
-	if (!(H<=1.0f && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}	// to replace any NaNs
-	 
+	float H = (   (V==R_float && V!=0)* 	Pi_3* ((G_float-B_float) / divisor )  \
+			+     (V==G_float && V!=0)*		Pi_3*(((B_float-R_float) / divisor ) +2) \
+			+     (V==B_float && V!=0)*		Pi_3*(((R_float-G_float) / divisor ) +4) \
+			);																				// TODO shift "/M_PI_F" to CPU data saving ?
+	
+	if (!(H<=1.0 && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}		// to replace any NaNs
+	
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
 	uint img_row	= base_row + margin;
@@ -163,8 +171,8 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	//uint img_index	= img_row*(cols + 2*margin) + img_col;   									// NB here use cols not mm_cols
 	
 	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
-	
-	float4 temp_float4  = {H,S,V,1.0f};																// Note how to load a float4 vector.
+
+	float4 temp_float4  = {H/M_PI_F,S,V,1.0f};														// Note how to load a float4 vector.
 	if (global_id <= pixels) {
 		img[read_index] 		= temp_float4;
 		local_sum_pix[lid] 		= temp_float4;
@@ -462,7 +470,8 @@ __kernel void  img_grad(
 	__global 	float4*		g1p,			//7
 	__constant 	float2*		SE3_map,		//8
 	//__global	float* 		depth_map,		//9														// NB GT_depth, not inv_depth
-	__global 	float8*		SE3_grad_map	//9														// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
+	__global 	float8*		SE3_grad_map,	//9														// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
+	__global 	float8*		HSV_grad		//10	
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -554,6 +563,12 @@ __kernel void  img_grad(
 		*/
 	}
 	
+	float H = img[offset][0];
+	float S = img[offset][1];
+	float V = img[offset][2];
+	float8 temp_float8  = {sin(H), cos(H), S, V, gx[1], gy[1], gx[2], gy[2] };
+	
+	HSV_grad[offset] = temp_float8;
 }
 
 __kernel void compute_param_maps(

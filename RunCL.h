@@ -78,6 +78,7 @@ public:
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem;	// keyframe_gxmem, keyframe_gymem, keyframe_basemem, 
+	cl_mem				HSV_grad_mem;
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_half4, mm_vol_size_bytes;
@@ -140,6 +141,8 @@ public:
 	void DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset);
 	void DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	
+	void DownloadAndSave_HSV_grad(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset );
+	
 	void SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	
@@ -159,7 +162,7 @@ public:
 	void convert_depth(uint invert, float factor);
 	void mipmap_depthmap(cl_mem depthmap_);
 	
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop);						// Call kernels on mipmap: start,stop allow running specific layers.
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential=false);						// Call kernels on mipmap: start,stop allow running specific layers.
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){
 		mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop );
 	}
