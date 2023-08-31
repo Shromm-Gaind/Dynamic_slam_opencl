@@ -566,7 +566,8 @@ void RunCL::DownloadAndSave_HSV_grad(cl_mem buffer, std::string count, boost::fi
 		ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 		
 		cv::Mat mat_H, mat_SV, mat_Sgrad, mat_Vgrad;
-		mat_H 		= cv::Mat::zeros (size_mat, CV_32FC3);
+		
+		mat_H 		= cv::Mat::zeros (size_mat, CV_32FC4);
 		mat_SV 		= cv::Mat::zeros (size_mat, CV_32FC3);
 		mat_Sgrad 	= cv::Mat::zeros (size_mat, CV_32FC3);
 		mat_Vgrad 	= cv::Mat::zeros (size_mat, CV_32FC3);
@@ -576,26 +577,34 @@ void RunCL::DownloadAndSave_HSV_grad(cl_mem buffer, std::string count, boost::fi
 			float data[8];
 			for (int j=0; j<8; j++){ data[j] = temp_mat.at<float>(i*8  + j) ;}
 			
-			mat_H.at<float>(i*3 ) 		= data[0];
-			mat_H.at<float>(i*3 +1) 	= data[1];
+			mat_H.at<float>(i*4 ) 		= data[0];
+			mat_H.at<float>(i*4 +1) 	= data[1];
+			mat_H.at<float>(i*4 +3) 	= 1.0;			// alpha
 			
 			mat_SV.at<float>(i*3 ) 		= data[2];
 			mat_SV.at<float>(i*3 +1) 	= data[3];
+			//mat_SV.at<float>(i*3 +3) 	= 1.0;			// alpha
 			
 			mat_Sgrad.at<float>(i*3 ) 	= data[4];
 			mat_Sgrad.at<float>(i*3 +1) = data[5];
+			//mat_Sgrad.at<float>(i*3 +3) = 1.0;		// alpha
 			
 			mat_Vgrad.at<float>(i*3 ) 	= data[6];
 			mat_Vgrad.at<float>(i*3 +1) = data[7];
+			mat_Vgrad.at<float>(i*3 +3) = 1.0;			// alpha
 		}
-		SaveMat(mat_H,     CV_32FC3,  folder_tiff,  show,  max_range, "mat_H", count);
+		bool old_tiff = tiff;
+		tiff=true;
+		SaveMat(mat_H,     CV_32FC4,  folder_tiff,  show,  max_range, "mat_H", count);
+		tiff=old_tiff;
+		
 		SaveMat(mat_SV,    CV_32FC3,  folder_tiff,  show,  max_range, "mat_SV", count);
 		SaveMat(mat_Sgrad, CV_32FC3,  folder_tiff,  show,  max_range, "mat_Sgrad", count);
 		SaveMat(mat_Vgrad, CV_32FC3,  folder_tiff,  show,  max_range, "mat_Vgrad", count);
 }
 
 void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
 		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
@@ -611,7 +620,7 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2, "<<flush;
 		stringstream ss;
 		stringstream png_ss;
-		ss<<"/"<<folder_tiff.filename().string()<<"_"<<mat_name<<"_"<<count<<"_sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
+		ss<<"/"<<folder_tiff.filename().string()<<"_"<<mat_name<<"_"<<count<<"__sum"<<sum<<"type_"<<type_string<<"min("<<minVal[0]<<","<<minVal[1]<<","<<minVal[2]<<")_max("<<maxVal[0]<<","<<maxVal[1]<<","<<maxVal[2]<<")";
 		png_ss<< "/" << folder_tiff.filename().string() <<"_"<<mat_name<< "_" << count;
 		if(show){
 			cv::Mat temp;
@@ -622,15 +631,14 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 		folder_png  += "/png/";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
-
+		
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 		
 		if (max_range == 0){ 																												if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
-			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 
-			//spl[3] = cv::Mat::ones (size_mat, CV_32FC1);																					// set alpha=1
+			spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2]; 																// Squash/stretch & shift to 0.0-1.0 range
 			cv::merge(spl, temp_mat);
-		}	// Squash/stretch & shift to 0.0-1.0 range
+		}
 		else if (max_range <0.0){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
 			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range); 
 			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
@@ -640,20 +648,11 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 		}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_3, "<<flush;
 		cv::Mat outMat;
-		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
+		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){																				if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
-			temp_mat *=256;
-			temp_mat.convertTo(outMat, CV_8U);
-			if (type_mat == CV_32FC4){
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_5, "<<flush;
-				std::vector<cv::Mat> matChannels;
-				cv::split(outMat, matChannels);
-				//matChannels.at(3)=255;																									// set alpha=1
-				cv::merge(matChannels, outMat);
-			}
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
-			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
+			
+			temp_mat.convertTo(outMat, CV_8U, 255);																							if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
+			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																		// Has "Grayscale 16-bit gamma integer" ?
 		}else if (type_mat == CV_8UC3){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_7, "<<flush;
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
@@ -927,7 +926,7 @@ void RunCL::initialize(){
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<" )_chk0"<<flush;
 																																				//cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<< ",  start="<<start<<",  stop="<<stop <<flush;
@@ -973,7 +972,7 @@ void RunCL::allocatemem(){
 	depth_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 12= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Used to be : Copy used by tracing & auto-calib. Now spare buffer for upload & computations
 	depth_mem_GT		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 13= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // Where depthmap GT mimpap is constructed.
 	
-	keyframe_imgmem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 14= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	keyframe_imgmem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 2*mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 14= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	keyframe_depth_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 15= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // The depth map for tracking, i.e. used when adding frames to the cost volume.
 	//keyframe_basemem	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// Depth mapping buffers
 	keyframe_g1mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 16= "<<checkerror(res)<<"\n"<<flush;exit_(res);}

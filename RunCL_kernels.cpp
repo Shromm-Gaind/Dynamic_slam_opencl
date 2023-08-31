@@ -265,7 +265,7 @@ void RunCL::img_gradients(){ //getFrame();
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk2"<<flush;}
 	mipmap_call_kernel( img_grad_kernel, m_queue );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk3 Finished all loops. Saving gxmem, gymem, g1mem."<<flush;
-																																				stringstream ss;	ss << dataset_frame_num << "_img_grad";
+																																				stringstream ss;	ss << dataset_frame_num << "__img_grad_kernel";
 																																				stringstream ss_path;	
 																																				ss_path << "gxmem"; 
 																																				cout << "\n" << ss_path.str() <<flush;
@@ -292,7 +292,7 @@ void RunCL::img_gradients(){ //getFrame();
 																																				ss_path << "HSV_grad_mem"<<flush; 
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_HSV_grad(  HSV_grad_mem, ss.str(), paths.at(ss_path.str()), 2*mm_size_bytes_C4, mm_Image_size, CV_32FC(8), false, -1, 8 );
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem, ss.str(), paths.at(ss_path.str()), 2*mm_size_bytes_C4, mm_Image_size, CV_32FC(8), false, -1, 0 );
 																																				
 																																				cout << "\n\n SE3_grad_map_mem = SE3_grad_map_mem = "<<SE3_grad_map_mem;
 																																			}
@@ -835,8 +835,10 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	costvol_frame_num = 0;
 	cl_event writeEvt, ev;																													// Load keyframe
 	cl_int res, status;
-	status = clEnqueueCopyBuffer( m_queue, imgmem, 		keyframe_imgmem, 			0, 0, mm_size_bytes_C4, 0, NULL, &writeEvt);			if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_imgmem\n" 	<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, HSV_grad_mem/*imgmem*/, 	keyframe_imgmem, 			0, 0, 2*mm_size_bytes_C4, 0, NULL, &writeEvt);		if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_imgmem\n" 	<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)_keyframe_imgmem\n" 	<< flush;exit_(status);}
+
+	// res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &HSV_grad_mem);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	HSV_grad_mem//10
 	
 	//key_frame_depth_map_src
 	//keyframe_depth_mem
@@ -876,7 +878,8 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 																																				ss << save_index;													// Save buffers to file ###########
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.5.1 ."<<flush;
 																																				
-																																				DownloadAndSave_3Channel(	keyframe_imgmem, 			ss.str(), paths.at("keyframe_imgmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				//DownloadAndSave_3Channel(	keyframe_imgmem, 			ss.str(), paths.at("keyframe_imgmem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  keyframe_imgmem, 			ss.str(), paths.at("keyframe_imgmem"),2*mm_size_bytes_C4, mm_Image_size, CV_32FC(8),	false, -1, 0 );
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.6 ."<<flush;
 																																				
 																																				DownloadAndSave(		 	keyframe_depth_mem,   		ss.str(), paths.at("keyframe_depth_mem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]); 
@@ -911,7 +914,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//4
 	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		keyframe_imgmem,				//5		// equivalent to basemem
 	
-	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &imgmem);				if(res!=CL_SUCCESS){cout<<"\nimgmem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem,							//6		// equivalent to imgmem
+	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &HSV_grad_mem/*imgmem*/);if(res!=CL_SUCCESS){cout<<"\nimgmem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		imgmem,							//6		// equivalent to HSV_grad_mem /*imgmem*/
 	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &cdatabuf);				if(res!=CL_SUCCESS){cout<<"\ncdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdata
 	res = clSetKernelArg(depth_cost_vol_kernel,  8, sizeof(cl_mem), &hdatabuf);				if(res!=CL_SUCCESS){cout<<"\nhdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// hdata
 	res = clSetKernelArg(depth_cost_vol_kernel,  9, sizeof(cl_mem), &lomem);				if(res!=CL_SUCCESS){cout<<"\nlomem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// lo
@@ -920,6 +923,8 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	res = clSetKernelArg(depth_cost_vol_kernel, 12, sizeof(cl_mem), &dmem);					if(res!=CL_SUCCESS){cout<<"\ndmem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// d	//__global 		float* dpt,	// dmem, depth D
 	res = clSetKernelArg(depth_cost_vol_kernel, 13, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdata
 	
+	
+	// res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &HSV_grad_mem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}						//__global 	 float4*	HSV_grad_mem//10
 	/*
 	#define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 	#define MIN_INV_DEPTH		1
@@ -1011,20 +1016,21 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	__global float* img_sum)	//10
 {
 	*/
-	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk1 ."<<flush;}
-	mipmap_call_kernel( depth_cost_vol_kernel, m_queue, start, stop );
+	mipmap_call_kernel( depth_cost_vol_kernel, m_queue, start, stop ); // , true
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk3 ."<<flush;}
 																																			if(verbosity>local_verbosity_threshold ) { // && count == costVolLayers - 1
 																																				cout << "\ncount = " << count << flush;
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
-																																				DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
+																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("imgmem"), 2*mm_size_bytes_C4,   mm_Image_size,   CV_32FC(8),false, -1, 0 );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
 																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[LAYERS]
 																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
-																																				//DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
+																																				
+																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
 																																				//DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;

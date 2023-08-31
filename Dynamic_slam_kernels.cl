@@ -162,7 +162,7 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 			+     (V==B_float && V!=0)*		Pi_3*(((R_float-G_float) / divisor ) +4) \
 			);																				// TODO shift "/M_PI_F" to CPU data saving ?
 	
-	if (!(H<=1.0 && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}		// to replace any NaNs
+	if (!(H<=2*M_PI_F && H>=0.0f) || !(S<=1.0f && S>=0.0f) || !(V<=1.0f && V>=0.0f) ) {H=S=V=0.0f;}		// to replace any NaNs
 	
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
@@ -172,7 +172,7 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	
 	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
 
-	float4 temp_float4  = {H/M_PI_F,S,V,1.0f};														// Note how to load a float4 vector.
+	float4 temp_float4  = {H/(2*M_PI_F),S,V,1.0f};													// Note how to load a float4 vector. Also H->(0,1) for display.
 	if (global_id <= pixels) {
 		img[read_index] 		= temp_float4;
 		local_sum_pix[lid] 		= temp_float4;
@@ -563,10 +563,10 @@ __kernel void  img_grad(
 		*/
 	}
 	
-	float H = img[offset][0];
+	float H = img[offset][0] * 2*M_PI_F;
 	float S = img[offset][1];
 	float V = img[offset][2];
-	float8 temp_float8  = {sin(H), cos(H), S, V, gx[1], gy[1], gx[2], gy[2] };
+	float8 temp_float8  = { sin(H) , cos(H), S, V, gx[1], gy[1], gx[2], gy[2] }; // 0.0f, 0.0f }; //  gx[2], gy[2] };   pr.z, 0.5 // 0.0f, 0.0f,   sin(H)
 	
 	HSV_grad[offset] = temp_float8;
 }
@@ -1112,8 +1112,8 @@ __kernel void DepthCostVol(
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
 	__global 	float16*k2k,				//4
-	__global 	float4* base,				//5		keyframe_basemem
-	__global 	float4* img,				//6
+	__global 	float8* base,				//5		keyframe_basemem  
+	__global 	float8* img,				//6		HSV_grad_mem/*imgmem*/ now float8
 	__global 	float*  cdata,				//7
 	__global 	float*  hdata,				//8
 	__global 	float*  lo,					//9
@@ -1157,7 +1157,7 @@ __kernel void DepthCostVol(
 	float v 			= (int)(global_id / cols);
 	*/
 	//int offset_3 		= global_id *3;													// Get keyframe pixel values
-	float4 B = base[read_index];	//B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
+	float8 B = base[read_index];	//B.x = base[read_index].x;	B.y = base[read_index].y;	B.z = base[read_index].z;		// pixel from keyframe
 	
 	int costvol_layers	= uint_params[COSTVOL_LAYERS];
 	//int pixels 			= uint_params[PIXELS];
@@ -1167,7 +1167,7 @@ __kernel void DepthCostVol(
 	
 	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;	// variables for the cost vol
 	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=read_index,	layer = 0;
-	float4 	c, c_00, c_01, c_10, c_11;
+	float8 	c, c_00, c_01, c_10, c_11;
 	float 	c0 = cdata[cv_idx];															// cost for this elem of cost vol
 	float 	w  = hdata[cv_idx];															// count of updates of this costvol element. w = 001 initially
 	
@@ -1182,14 +1182,14 @@ __kernel void DepthCostVol(
 	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1;  // +k2k[11]/z
 	//float h/z  = k2k[12]*u_flt + k2k_pvt[13]*v_flt + k2k_pvt[14]*1; // +k2k[15]/z
 	float uh3, vh3, wh3;
-	
+	/*
 	if (global_id_u==0){ 
 		printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, k2k= ( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )( %f,  %f,  %f,  %f, )",\
 		mipmap_layer, k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11], k2k_pvt[12], k2k_pvt[13], k2k_pvt[14], k2k_pvt[15] \
 		);
 		printf("\n__kernel void DepthCostVol(): uh2=%f, vh2=%f  , wh2=%f ", uh2, vh2, wh2 );
 	}
-	
+	*/
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
@@ -1207,15 +1207,24 @@ __kernel void DepthCostVol(
 		int_u2 = ceil(u2/reduction-0.5);												// nearest neighbour interpolation
 		int_v2 = ceil(v2/reduction-0.5);												// NB this corrects the sparse sampling to the redued scales.
 		
-		uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;  				// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img 
-		
+		uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;  				// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img now float8* for HSV_grad_mem
+		/*
 		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i, read_index_new=%i, cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
 			mipmap_layer, read_offset_, mm_pixels, read_index_new, cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
-		
+		*/
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
 			c				= img[read_index_new];										
+			/*
 			float rx		= (c.x-B.x);   float ry= (c.y-B.y);   float rz= (c.z-B.z);	// Compute photometric cost // L2 norm between keyframe & new frame pixels.
-			rho 			= sqrt( rx*rx + ry*ry + rz*rz )*50;							//TODO make *50 an auto-adjusted parameter wrt cotrast in area of interest.
+			rho 			= sqrt( rx*rx + ry*ry + rz*rz )*50;							//TODO make *50 an auto-adjusted parameter wrt contrast in area of interest.
+			*/
+			
+			float8 r 		= c-B;
+			rho=0;
+			for (int r_n=0; r_n<4; r_n++) {rho += pown(r[r_n],2);}
+			//rho += pown(r[3],2);
+			rho = sqrt(rho);
+			
 			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);
 			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
@@ -1306,7 +1315,7 @@ __kernel void UpdateQD(
 	
 	if (global_id_u < mim_pixels) {
 		g1_4 = g1pt[pt];
-		g1 = g1_4.x;// + g1_4.y + g1_4.z ;									// reduce channel count of g1. Here Manhatan norm. bad choice. Hue is not good. 
+		g1 =  g1_4.x * g1_4.y * g1_4.z ;									// reduce channel count of g1. Here Manhatan norm. bad choice. Hue is not good. 
 		qx = qpt[pt];														// TODO Later try   g1 = 1-(1-g_saturation)*(1-g_value) , i.e. where sat and val agree: less fooled by shadows.
 		qy = qpt[pt+wh];
 		d  = dpt[pt];
