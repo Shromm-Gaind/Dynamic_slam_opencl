@@ -178,7 +178,7 @@ void RunCL::img_variance(){
 	uint start_group   = 1;
 	uint stop_group    = start_group + groups_to_sum;
 																																			if(verbosity>local_verbosity_threshold+2) cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
-	for (int j=start_group; j< stop_group  ; j++){
+	for (int j=start_group; j< stop_group; j++){
 		for (int k=0; k<4; k++){
 			var_sum_results[k] += var_sum_mat.at<float>(j, k); 
 		}
@@ -1167,17 +1167,75 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 }
 
 
+void RunCL::measureDepthFit(uint start, uint stop){
+	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::measureDepthFit(..)_chk0 ."<<flush;}
+	
+	cl_int 		status;
+	cl_int		res;
+	cl_event	ev;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::measureDepthFit(..)_chk1 ."<<flush;}
+	
+	res = clSetKernelArg(measureDepthFit_kernel, 1, sizeof(cl_mem), &mipmap_buf); 			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint*	mipmap_params,				//1
+	res = clSetKernelArg(measureDepthFit_kernel, 2, sizeof(cl_mem), &uint_param_buf); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint*	uint_params,				//2
+	res = clSetKernelArg(measureDepthFit_kernel, 3, sizeof(cl_mem), &fp32_param_buf); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  fp32_params,				//3
+	
+	res = clSetKernelArg(measureDepthFit_kernel, 4, sizeof(cl_mem), &dmem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt							//4		// dmem,     depth D
+	res = clSetKernelArg(measureDepthFit_kernel, 5, sizeof(cl_mem), &depth_mem_GT);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt_GT						//5
+	res = clSetKernelArg(measureDepthFit_kernel, 6, sizeof(cl_mem), &dmem_disparity);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt_disparity				//6
+	
+	res = clSetKernelArg(measureDepthFit_kernel, 7, local_work_size*4*sizeof(float), NULL);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float*	local_sum_dpt_disparity		//7
+	res = clSetKernelArg(measureDepthFit_kernel, 8, sizeof(cl_mem), &dmem_disparity_sum);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*	global_sum_dpt_disparity,	//8
+	
+	
+	status = clFlush(m_queue); 					if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clFinish(m_queue); 				if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
 
-
-
-
-
-
-
-
-
-
-
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::measureDepthFit(..)_chk2 ."<<flush;}
+	mipmap_call_kernel( measureDepthFit_kernel, m_queue, start, stop );
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout<<"\n\nRunCL::measureDepthFit(..)_chk3, A_count=" << A_count <<flush;
+																																			}
+																																			if(verbosity>local_verbosity_threshold) {
+																																				stringstream ss;
+																																				ss << "measureDepthFit"<< save_index << "_A_count_" << A_count ;
+																																				DownloadAndSave_3Channel(dmem_disparity,   ss.str(), paths.at("dmem_disparity"),    mm_size_bytes_C4,   mm_Image_size, CV_32FC4,  false , 0.0,   0 ,  true); //  float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/)
+																																			}
+	cv::Mat dmem_disparity_sum_mat = cv::Mat::zeros (d_disp_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)		// NB the data returned is one float4 per group, for the base image, holding disparity (depth, ....) plus entry[3]=pixel count.
+	ReadOutput( dmem_disparity_sum_mat.data, var_sum_mem, d_disp_sum_size_bytes );                                                          // se3_sum_size_bytes
+	                                                                                                                                         if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::measureDepthFit(..)_chk3 ."<<flush;
+																																				cout << "\ndmem_disparity_sum_mat.size()="<<dmem_disparity_sum_mat.size()<<flush;
+																																				cout << "\nd_disp_sum_size="<<d_disp_sum_size<<flush;
+                                                                                                                                                cout << "\n dmem_disparity_sum_mat.data = (\n";
+																																				
+                                                                                                                                                for (int i=0; i<d_disp_sum_size; i++){
+                                                                                                                                                    cout << "\n group="<<i<<" : ( " << flush;
+                                                                                                                                                    for (int j=0; j<4; j++){
+                                                                                                                                                        cout << dmem_disparity_sum_mat.at<float>(i,j) << " , " << flush;
+                                                                                                                                                    }
+                                                                                                                                                    cout << ")" << flush;
+                                                                                                                                                }cout << "\n)\n" << flush;
+                                                                                                                                            } 
+	float depth_disp_sum_reults[4] = {0};
+	uint groups_to_sum = dmem_disparity_sum_mat.at<float>(0, 0);
+	uint start_group   = 1;
+	uint stop_group    = start_group + groups_to_sum;
+																																			if(verbosity>local_verbosity_threshold) cout << "\ngroups_to_sum="<<groups_to_sum<<",  stop_group="<<stop_group<<endl<<flush;
+	for (int j=start_group; j< stop_group; j++){
+		for (int k=0; k<4; k++){
+			depth_disp_sum_reults[k] += dmem_disparity_sum_mat.at<float>(j, k); 
+		}
+	}   
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n start_group=" << start_group << ", stop_group=" << stop_group;
+																																				cout << "\n depth_disp_sum_reults = (";
+																																				for (int k=0; k<4; k++){
+																																						cout << ", " << depth_disp_sum_reults[k] ;
+																																				}cout << ")";
+																																				cout << endl;
+																																				
+																																			}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::measureDepthFit()_chk4_Finished"<<flush;
+}
 
 
 

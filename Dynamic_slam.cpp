@@ -1251,6 +1251,8 @@ bool Dynamic_slam::updateA(){
 	
 	runcl.updateA( runcl.fp32_params[LAMBDA], runcl.fp32_params[THETA],  runcl.mm_start, runcl.mm_stop );
 	
+	runcl.measureDepthFit(runcl.mm_start, runcl.mm_stop);
+	
 	runcl.fp32_params[THETA] *= obj["thetaStep"].asFloat();
 	
 	//return doneOptimizing;
