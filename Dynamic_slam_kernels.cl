@@ -1103,6 +1103,16 @@ __kernel void transform_depthmap(
 	// uh2/(read_cols_*256); //v2_flt;// u2_flt;// vh2/read_cols_; // uh2/read_cols_; // ((float)read_index_new)/((float)mm_pixels); // newdepth; //depth_map_in[read_index]; //  
 }
 
+///////////////////// Photometrc cost ///////////////////
+
+// Tau_HSV_grad(I) := distance in 8D space [ sin(Hue ), cos(Hue ), Saturation , (Saturation)/dx , (Saturation)/dy , Value , (Value)/dx , (Vallue)/dy ]
+float Tau_HSV_grad (float8 B, float8 c){ // Poss also weight vector.
+	float Tau_sq = 0;
+	float8 Tau8 = B - c;
+	for (int i = 0; i<8; i++){ Tau_sq += pown( Tau8[i], 2); }
+	return sqrt(Tau_sq);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////// Depth mapping //////////////////////////////////////////
 
@@ -1218,14 +1228,15 @@ __kernel void DepthCostVol(
 			float rx		= (c.x-B.x);   float ry= (c.y-B.y);   float rz= (c.z-B.z);	// Compute photometric cost // L2 norm between keyframe & new frame pixels.
 			rho 			= sqrt( rx*rx + ry*ry + rz*rz )*50;							//TODO make *50 an auto-adjusted parameter wrt contrast in area of interest.
 			*/
-			
-			float8 r 		= c-B;
-			rho=0;
+			/*
 			for (int r_n=0; r_n<4; r_n++) {rho += pown(r[r_n],2);}
 			//rho += pown(r[3],2);
 			rho = sqrt(rho);
-			
-			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);
+			...
+			float8 r 		= c-B;
+			*/
+			rho=Tau_HSV_grad(B, c);														// Compute rho photometic cost
+			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);							// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
 			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
@@ -1559,11 +1570,29 @@ __kernel void MeasureDepthFit(						// measure the fit of the depthmap against t
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
-	float depth_disparity = dpt[read_index] ; //- 1/dpt_GT[read_index];
-	float4 disparity 				= { depth_disparity, 1/dpt_GT[read_index] , 0.0f, 1.0f };  // -depth_disparity
+	float depth_disparity = dpt[read_index] - dpt_GT[read_index];
 	
-	dpt_disparity[read_index]		= disparity;
-	local_sum_dpt_disparity[lid]	= disparity;
+	float sq_depth_disparity = depth_disparity * depth_disparity * 64 * 64;
+	
+	float proportional_sdd = sq_depth_disparity / (dpt_GT[read_index] * dpt_GT[read_index] * 64 * 8);
+	
+	float4 disparity 	= { depth_disparity , -depth_disparity, proportional_sdd, 1.0f};
+							
+						//= {dpt_GT[read_index] * 64, sq_depth_disparity, proportional_sdd , 1.0f };
+																							// B = true inverse depth
+																							// G = sq_depth_disparity
+																							// R = proportional_sdd
+						//= {dpt_GT[read_index], depth_disparity , -depth_disparity, 1.0f }; 
+																							// {B, G, R, A} Need x64 to spread in visible range of .tiff .
+																							// B = true inverse depth
+																							// G = est_inv_depth > true inv_depth, i.e. est too close
+																							// R = est_inv_depth < true inv_depth, i.e. est too far
+	if (global_id_u    < mipmap_params_[MiM_PIXELS]){
+		dpt_disparity[read_index]		= disparity;
+		local_sum_dpt_disparity[lid]	= disparity;
+	}else{
+		local_sum_dpt_disparity[lid]	= 0;
+	}
 
 	int max_iter = ilogb((float)(group_size));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)					// problem : how to produce one result for each mipmap layer ?  
@@ -1574,7 +1603,7 @@ __kernel void MeasureDepthFit(						// measure the fit of the depthmap against t
 		if (lid<group_size)  local_sum_dpt_disparity[lid] += local_sum_dpt_disparity[lid+group_size];	// local_sum_pix  
 	}
 	
-	barrier(CLK_LOCAL_MEM_FENCE);
+	barrier(CLK_LOCAL_MEM_FENCE);  // TODO get summation of depth error working 
 	if (lid==0) {
 		uint group_id 			= get_group_id(0);
 		uint global_sum_offset 	= 0; 																	//read_offset_ / local_size ;		// only the base layer		// Compute offset for this layer

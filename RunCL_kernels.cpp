@@ -850,6 +850,7 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	DownloadAndSave(		 	key_frame_depth_map_src,   	ss.str(),   paths.at("key_frame_depth_map_src"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. key_frame_depth_map_src ..) finished\n"<<flush;
 
 	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src, keyframe_depth_mem,			0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}	
+	status = clEnqueueCopyBuffer( m_queue, depth_mem_GT, 			keyframe_depth_mem_GT,		0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}	
 	status = clEnqueueCopyBuffer( m_queue, g1mem, 					keyframe_g1mem, 			0, 0, mm_size_bytes_C4, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_g1mem\n" 						<< flush;exit_(status);}
 	status = clEnqueueCopyBuffer( m_queue, SE3_grad_map_mem, 		keyframe_SE3_grad_map_mem, 	0, 0, mm_size_bytes_C1*6*8, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_SE3_grad_map_mem\n" 			<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)\n" 	<< flush;exit_(status);}
@@ -1031,7 +1032,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				
 																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
-																																				//DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
+																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}
@@ -1180,7 +1181,7 @@ void RunCL::measureDepthFit(uint start, uint stop){
 	res = clSetKernelArg(measureDepthFit_kernel, 3, sizeof(cl_mem), &fp32_param_buf); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  fp32_params,				//3
 	
 	res = clSetKernelArg(measureDepthFit_kernel, 4, sizeof(cl_mem), &dmem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt							//4		// dmem,     depth D
-	res = clSetKernelArg(measureDepthFit_kernel, 5, sizeof(cl_mem), &depth_mem_GT);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt_GT						//5
+	res = clSetKernelArg(measureDepthFit_kernel, 5, sizeof(cl_mem), &keyframe_depth_mem_GT);if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt_GT						//5
 	res = clSetKernelArg(measureDepthFit_kernel, 6, sizeof(cl_mem), &dmem_disparity);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  dpt_disparity				//6
 	
 	res = clSetKernelArg(measureDepthFit_kernel, 7, local_work_size*4*sizeof(float), NULL);	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float*	local_sum_dpt_disparity		//7
@@ -1198,7 +1199,7 @@ void RunCL::measureDepthFit(uint start, uint stop){
 																																			if(verbosity>local_verbosity_threshold) {
 																																				stringstream ss;
 																																				ss << "measureDepthFit"<< save_index << "_A_count_" << A_count ;
-																																				DownloadAndSave_3Channel(dmem_disparity,   ss.str(), paths.at("dmem_disparity"),    mm_size_bytes_C4,   mm_Image_size, CV_32FC4,  false , 0.0,   0 ,  true); //  float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/)
+																																				DownloadAndSave_3Channel(dmem_disparity,   ss.str(), paths.at("dmem_disparity"),    mm_size_bytes_C4,   mm_Image_size, CV_32FC4,  false , 1.0,   0 ,  true); //  float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/)
 																																			}
 	cv::Mat dmem_disparity_sum_mat = cv::Mat::zeros (d_disp_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)		// NB the data returned is one float4 per group, for the base image, holding disparity (depth, ....) plus entry[3]=pixel count.
 	ReadOutput( dmem_disparity_sum_mat.data, var_sum_mem, d_disp_sum_size_bytes );                                                          // se3_sum_size_bytes
@@ -1215,6 +1216,7 @@ void RunCL::measureDepthFit(uint start, uint stop){
                                                                                                                                                     cout << ")" << flush;
                                                                                                                                                 }cout << "\n)\n" << flush;
                                                                                                                                             } 
+	// TODO   get summation of depth error working 
 	float depth_disp_sum_reults[4] = {0};
 	uint groups_to_sum = dmem_disparity_sum_mat.at<float>(0, 0);
 	uint start_group   = 1;

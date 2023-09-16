@@ -77,7 +77,7 @@ public:
 	cl_mem				cdatabuf, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
-	cl_mem 				keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem;	// keyframe_gxmem, keyframe_gymem, keyframe_basemem, 
+	cl_mem 				keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;	// keyframe_gxmem, keyframe_gymem, keyframe_basemem, 
 	cl_mem				HSV_grad_mem, dmem_disparity, dmem_disparity_sum;
 	
 	cv::Mat 			baseImage;
