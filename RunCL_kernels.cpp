@@ -11,7 +11,7 @@ void RunCL::predictFrame(){ //predictFrame();
 }
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -1;
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout << "\n RunCL::loadFrame_chk 0\n" << flush;}
 	cl_int status;
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
@@ -23,7 +23,7 @@ void RunCL::loadFrame(cv::Mat image){ //getFrame();
 }
 
 void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV), NB we will use basemem for image upload, and imgmem for the MipMap. RGB is default for .png standard.
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = -1;
                                                                                                                                             if(verbosity>local_verbosity_threshold) {
                                                                                                                                                 cout<<"\n\nRunCL::cvt_color_space()_chk0"<<flush;
                                                                                                                                                 cout << "\n";
@@ -203,6 +203,65 @@ void RunCL::img_variance(){
 																																			}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk3_Finished"<<flush;
 }
+
+void RunCL::blur_image(){
+	int local_verbosity_threshold = -1;
+	
+	cl_int res, status;
+	cl_event ev, writeEvt;																																												// blur_image_kernel
+	size_t local_size = local_work_size;																																								// set kernel args
+	uint layer = 0;
+	res = clSetKernelArg(blur_image_kernel, 0, sizeof(uint), 						&layer);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant uint*		mipmap_params,	//0
+    res = clSetKernelArg(blur_image_kernel, 1, sizeof(cl_mem), 						&mipmap_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant uint*		mipmap_params,	//1
+	res = clSetKernelArg(blur_image_kernel, 2, sizeof(cl_mem), 						&gaussian_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant float*		gaussian,		//2
+	res = clSetKernelArg(blur_image_kernel, 3, sizeof(cl_mem), 						&uint_param_buf);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant uint*		uint_params,	//3
+	res = clSetKernelArg(blur_image_kernel, 4, sizeof(cl_mem), 						&imgmem);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global   float4*	img,			//4	
+	res = clSetKernelArg(blur_image_kernel, 5, sizeof(cl_mem), 						&imgmem_blurred);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global   float4*	img,			//4	
+	res = clSetKernelArg(blur_image_kernel, 6, (local_size+4) *5*4* sizeof(float), 	NULL);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local    float4*	local_img_patch //5
+	
+	
+	status = clFlush(m_queue);				if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clFinish(m_queue); 			if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk1,  global_work_size="<< global_work_size <<flush;
+	res = clEnqueueNDRangeKernel(m_queue, blur_image_kernel, 1, 0, &global_work_size, &local_work_size, 0, NULL, &ev); 																					// run blur_image_kernel 
+	
+	if (res != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
+	status = clFlush(m_queue);				                                                               if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clWaitForEvents (1, &ev);		                                                               if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) = "<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
+                                                                                                                                            if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::img_variance()_chk2"<<flush;
+	
+																																			if (verbosity>local_verbosity_threshold){
+                                                                                                                                                stringstream ss;		ss << dataset_frame_num << "_blur_image";
+                                                                                                                                                stringstream ss_path;	ss_path << "imgmem_blurred";
+                                                                                                                                                
+                                                                                                                                                cv::Size new_Image_size = cv::Size(mm_width, mm_height);
+                                                                                                                                                size_t   new_size_bytes = mm_width * mm_height * 4* 4;
+                                                                                                                                                
+                                                                                                                                                cout << "imgmem_blurred="<< imgmem_blurred << endl << flush;
+                                                                                                                                                cout <<", ss.str()="<< ss.str() << endl << flush;
+                                                                                                                                                cout <<", paths.at(\"imgmem_blurred\")="<< paths.at("imgmem_blurred") << endl << flush;
+                                                                                                                                                
+                                                                                                                                                cout <<", paths.at(" << ss_path.str() <<")="<< paths.at(ss_path.str()) << endl << flush;
+                                                                                                                                                cout <<", new_size_bytes="<< new_size_bytes << endl << flush;
+                                                                                                                                                cout <<", new_Image_size="<< new_Image_size <<"" << endl << flush;
+                                                                                                                                                
+                                                                                                                                                DownloadAndSave_3Channel(	imgmem_blurred, ss.str(), paths.at( ss_path.str() ), new_size_bytes/*mm_size_bytes_C4*/, new_Image_size/*mm_Image_size*/,  CV_32FC4 /*mm_Image_type*/, 	false );
+																																			}
+	res = clEnqueueCopyBuffer(
+		m_queue,							// cl_command_queue command_queue
+		imgmem_blurred, 					// cl_mem src_buffer
+		imgmem, 							// cl_mem dst_buffer
+		0,									// size_t src_offset
+		0,									// size_t dst_offset
+		mm_size_bytes_C4,					// size_t size
+		0,									// cl_uint num_events_in_wait_list
+		NULL,								// const cl_event* event_wait_list
+		&writeEvt							// cl_event* event
+	);
+	
+	if (res != CL_SUCCESS)	{ cout << "\nRunCL::blur_image() clEnqueueCopyBuffer(...)  res = " << checkerror(res) <<"\n"<<flush; exit_(res);}
+}
+
 
 void RunCL::mipmap_linear(){
 	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_linear(..)_chk0"<<flush;}
@@ -1031,8 +1090,8 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				
-																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
-																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ ); 
+																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
+																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}

@@ -166,6 +166,7 @@ RunCL::RunCL(Json::Value obj_){
 																																			/*Step 7: Create kernel objects.*//////////// 
 	cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
 	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				NULL);
+	blur_image_kernel				= clCreateKernel(m_program, "blur_image", 					NULL);
 	reduce_kernel					= clCreateKernel(m_program, "reduce", 						NULL);
 	mipmap_float4_kernel			= clCreateKernel(m_program, "mipmap_linear_flt4", 			NULL);
 	mipmap_float_kernel				= clCreateKernel(m_program, "mipmap_linear_flt", 			NULL);
@@ -213,7 +214,7 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;																							// Vector of device buffer names
 																																			// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
-	std::vector<std::string> names = {"imgmem", "keyframe_imgmem", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
+	std::vector<std::string> names = {"imgmem", "imgmem_blurred", "keyframe_imgmem", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
 										"SE3_grad_map_mem", "keyframe_SE3_grad_map_mem", \
 										"SE3_map_mem", \
 										"SE3_incr_map_mem", "SE3_rho_map_mem", \
@@ -681,8 +682,10 @@ void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, bo
 																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
 
-void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
+void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, bool exception_tiff /*=false*/){
 	int local_verbosity_threshold = 0;
+	bool old_tiff = tiff;
+	if (exception_tiff == true) tiff = exception_tiff;
 																																			if(verbosity>0) {
 																																				cout<<"\n\nDownloadAndSaveVolume, costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]";
 																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<size_mat<<"\t"<<flush;
@@ -739,6 +742,7 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		if(png==true)  cv::imwrite(folder_png.string(), outMat );
 		if(show) cv::imshow( ss.str(), outMat );
 	}
+	tiff = old_tiff;
 }
 
 void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
@@ -766,7 +770,7 @@ void RunCL::initialize_fp32_params(){
 }
 
 void RunCL::initialize(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
@@ -917,6 +921,30 @@ void RunCL::initialize(){
 		mipmap[MiM_WRITE_COLS] 		= mipmap[MiM_WRITE_COLS]/2;
 		mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	}
+																																			if(verbosity>local_verbosity_threshold) {
+																																				for(int reduction = 0; reduction <= mm_num_reductions+1; reduction++) {
+																																					cout << "\n\n reduction = " 		<< reduction;
+																																					cout << "\n MiM_PIXELS = " 			<< MipMap[reduction*8 +MiM_PIXELS];
+																																					cout << "\n MiM_READ_OFFSET = " 	<< MipMap[reduction*8 +MiM_READ_OFFSET] ;
+																																					cout << "\n MiM_WRITE_OFFSET = " 	<< MipMap[reduction*8 +MiM_WRITE_OFFSET];
+																																					cout << "\n MiM_READ_COLS = " 		<< MipMap[reduction*8 +MiM_READ_COLS];
+																																					cout << "\n MiM_WRITE_COLS = " 		<< MipMap[reduction*8 +MiM_WRITE_COLS];
+																																					cout << "\n MiM_GAUSSIAN_SIZE = " 	<< MipMap[reduction*8 +MiM_GAUSSIAN_SIZE];
+																																					cout << "\n MiM_READ_ROWS = " 		<< MipMap[reduction*8 +MiM_READ_ROWS];
+																																					cout << "\n MiM_WRITE_ROWS = " 		<< MipMap[reduction*8 +MiM_WRITE_ROWS];
+																																				}
+																																			}
+																																			/*
+																																			#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer.
+																																			#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data
+																																			#define MiM_WRITE_OFFSET	2
+																																			#define MiM_READ_COLS		3	// cols without margins
+																																			#define MiM_WRITE_COLS		4
+																																			#define MiM_GAUSSIAN_SIZE	5	// filter box size
+																																			#define MiM_READ_ROWS		6	// rows without margins
+																																			#define MiM_WRITE_ROWS		7
+																																			*/
+	
 																																			// Summation buffer sizes
 	se3_sum_size 		= 1 + ceil( (float)(MipMap[(mm_num_reductions+1)*8 + MiM_READ_OFFSET]) / (float)local_work_size ) ;					// i.e. num workgroups used = MiM_READ_OFFSET for 1 layer more than used / local_work_size,   will give one row of vector per group.
 	uint num_DoFs		= 6 ; 																												// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
@@ -967,6 +995,8 @@ void RunCL::allocatemem(){
 	cl_int 			res;
 	
 	imgmem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 1= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	imgmem_blurred		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 1= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
 	gxmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 2= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	gymem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 3= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	g1mem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 4= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -1132,6 +1162,7 @@ RunCL::~RunCL(){  // TODO  repace individual buffer clearance with the large arr
 	cl_int status;																														// release memory
 	
 	status = clReleaseMemObject(imgmem);						if (status != CL_SUCCESS)	{ cout << "\nimgmem                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(imgmem_blurred);				if (status != CL_SUCCESS)	{ cout << "\nimgmem                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 	status = clReleaseMemObject(gxmem);							if (status != CL_SUCCESS)	{ cout << "\ngxmem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 	status = clReleaseMemObject(gymem);							if (status != CL_SUCCESS)	{ cout << "\ngymem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
 	status = clReleaseMemObject(g1mem);							if (status != CL_SUCCESS)	{ cout << "\ng1mem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;

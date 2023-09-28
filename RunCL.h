@@ -70,10 +70,10 @@ public:
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
 	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
-	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
 	
 	//bool 				frame_bool_idx=0;
-	cl_mem 				basemem, imgmem,  gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
+	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
 	cl_mem				cdatabuf, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
@@ -145,7 +145,7 @@ public:
 	void DownloadAndSave_HSV_grad(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset=0 );
 	
 	void SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
-	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
+	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, bool exception_tiff=false );
 	
 	void initialize_fp32_params();
 	void initialize();																													// Setting up buffers & mipmap parameters
@@ -156,6 +156,7 @@ public:
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();
 	void img_variance();
+	void blur_image();
 	void mipmap_linear();
 	void img_gradients();
 	

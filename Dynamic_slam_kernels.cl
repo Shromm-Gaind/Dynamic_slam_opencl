@@ -118,6 +118,8 @@ struct FBufs {
 #define IMG_MEAN			0	// for img_stats
 #define IMG_VAR 			1	//
 
+
+
 __kernel void cvt_color_space_linear(																// Writes the first entry in a linear mipmap, and computes img_mean
 	__global	uchar*	base,			//0															// NB for debugging the mimpam is arranged as a series below eachother with margins.
 	__global	float4*	img,			//1															// This can be changed to dense packing in a linear array, to reduce memeory and data transfer requirements.
@@ -137,7 +139,7 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	uint8 mipmap_params_	= mipmap_params[0];
 	uint read_offset_ 		= mipmap_params_[MiM_READ_OFFSET];
 	uint cols 				= uint_params[COLS];
-	uint margin 			= uint_params[MARGIN];
+	//uint margin 			= uint_params[MARGIN];
 	uint mm_cols			= uint_params[MM_COLS];
 
 	float R_float			= base[global_id*3]  /256.0f;
@@ -166,8 +168,8 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	
 	uint base_row	= global_id/cols ;
 	uint base_col	= global_id%cols ;
-	uint img_row	= base_row + margin;
-	uint img_col	= base_col + margin;
+	//uint img_row	= base_row + margin;
+	//uint img_col	= base_col + margin;
 	//uint img_index	= img_row*(cols + 2*margin) + img_col;   									// NB here use cols not mm_cols
 	
 	uint read_index = read_offset_  +  base_row  * mm_cols  + base_col  ;							// NB 4 channels.  + margin
@@ -217,6 +219,9 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 		}else global_sum_pix[global_sum_offset] = 0;
 	}
 }
+
+
+
 
 __kernel void image_variance(
 	__global	float4*	img_stats,		//0
@@ -291,6 +296,77 @@ __kernel void image_variance(
 		}else global_sum_var[global_sum_offset] = 0;
 	}
 }
+
+__kernel void blur_image(
+	__private	uint	layer,			//0															// Intitial lyer bluring needs a different buffer to write blurred image to. 
+	__constant 	uint8*	mipmap_params,	//1															// => the original loading should be to an interim buffer. 
+	__constant 	float* 	gaussian,		//2
+	__constant 	uint*	uint_params,	//3
+	__global 	float4*	img,			//4
+	__global	float4* img_blurred,	//5
+	__local	 	float4*	local_img_patch //6
+			  )
+{
+	int global_id_u 		= (int)get_global_id(0);
+	float global_id_flt 	= global_id_u;
+	uint lid 				= get_local_id(0);
+	uint group_size 		= get_local_size(0);
+	uint patch_length		= group_size+4;
+	uint pixels 			= uint_params[PIXELS];
+	
+	uint8 mipmap_params_	= mipmap_params[0];
+	uint read_offset_ 		= mipmap_params_[MiM_READ_OFFSET];
+	uint cols 				= uint_params[COLS];
+	uint mm_cols			= uint_params[MM_COLS];
+	
+	uint base_row			= global_id_u/cols ;
+	uint base_col			= global_id_u%cols ;
+	uint read_index 		= read_offset_  +  base_row  * mm_cols  + base_col  ;
+	
+	uint read_rows_			= mipmap_params_[MiM_READ_ROWS];
+	uint read_cols_ 		= mipmap_params_[MiM_READ_COLS];
+	uint read_row   		= global_id_u / read_cols_ ;
+	uint read_column		= fmod(global_id_flt, read_cols_);
+	
+	for (int i=0, j=-2; i<5; i++, j++){																// Load local_img_patch
+		local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
+	}
+	////
+	if (lid==0 || lid==1){
+		for (int i=0; i<5; i++){
+			local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -2]; //white; //
+		}
+	}
+	if (lid==group_size-2 || lid==group_size-1){
+		for (int i=0; i<5; i++){
+			local_img_patch[lid+4 + i*patch_length] = img[ read_index +i*mm_cols +2]; //black; //
+		}
+	}
+	////
+	if ((read_row>read_rows_-3) ||  (read_row < 3)  ){												// Prevents blurring with black space below the image.
+		for (int i=0; i<5; i++){
+			local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
+		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
+	float4 blurred_pixel = 0;
+	for (int i=0; i<5; i++){
+		for (int j=0; j<5; j++){
+			blurred_pixel += local_img_patch[lid+j + i*patch_length]/25; 							// 5x5 box filter, rather than Gaussian
+		}
+	}
+	if (read_column < 2 || read_column > read_cols_ -3) {
+		blurred_pixel = 0;
+		for (int i=0; i<5; i++){
+			blurred_pixel += local_img_patch[lid+2 + i*patch_length]/5;								// prevents blur wrapping left-right.
+		}
+	}
+	if (read_row>=read_rows_ || global_id_u >= pixels) return;									// num pixels to be written & num threads to really use. // mipmap_params_[MiM_PIXELS]
+	
+	blurred_pixel[3] = 1.0f;
+	img_blurred[ read_index] = blurred_pixel;
+}
+
 
 __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
@@ -1180,7 +1256,8 @@ __kernel void DepthCostVol(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	/////////////////////////////////////////////////////////////
-	
+	if (global_id_u==0) printf("\n\n__kernel void DepthCostVol(): mipmap_layer=%i, mipmap_params_[MiM_PIXELS]=%i, mipmap_params_[MiM_READ_OFFSET]=%i, mipmap_params_[MiM_WRITE_OFFSET]=%i, mipmap_params_[MiM_READ_COLS]=%i, mipmap_params_[MiM_WRITE_COLS]=%i, mipmap_params_[MiM_GAUSSIAN_SIZE]=%i, mipmap_params_[MiM_READ_ROWS]=%i, mipmap_params_[MiM_WRITE_ROWS]=%i", mipmap_layer, mipmap_params_[MiM_PIXELS], mipmap_params_[MiM_READ_OFFSET], mipmap_params_[MiM_WRITE_OFFSET], mipmap_params_[MiM_READ_COLS], mipmap_params_[MiM_WRITE_COLS], mipmap_params_[MiM_GAUSSIAN_SIZE], mipmap_params_[MiM_READ_ROWS], mipmap_params_[MiM_WRITE_ROWS]
+						);
 	//int global_id = get_global_id(0);
 	/*
 	int pixels 			= floor(params[pixels_]);
@@ -1231,25 +1308,26 @@ __kernel void DepthCostVol(
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
 	for( layer=0;  layer<=costvol_layers; layer++ ){
-		cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
-		cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
-		w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
 		uh3  = uh2 + k2k_pvt[3]*inv_depth;
 		vh3  = vh2 + k2k_pvt[7]*inv_depth;
 		wh3  = wh2 + k2k_pvt[11]*inv_depth;
 		u2   = uh3/wh3;
 		v2   = vh3/wh3;
-		/*
+		
 		int_u2 = ceil(u2/reduction-0.5);												// nearest neighbour interpolation
 		int_v2 = ceil(v2/reduction-0.5);												// NB this corrects the sparse sampling to the redued scales.
-		uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;  				// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img now float8* for HSV_grad_mem
-		*/
-		/*
-		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i, read_index_new=%i, cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
-			mipmap_layer, read_offset_, mm_pixels, read_index_new, cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
-		*/
+		//uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;  				// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img now float8* for HSV_grad_mem
+		
+		// read_index_new=%i,  read_index_new,
+		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i,  cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
+			mipmap_layer, read_offset_, mm_pixels,  cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
+		
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
+			cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
+			cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
+			w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
+			
 			// c = img[read_index_new];																// nearest neighbour
 			c = bilinear(img, u2/reduction, v2/reduction, mm_cols, read_offset_, reduction); 		// bilinear(float8* img, float u_flt, float v_flt, int cols)
 			/*
@@ -1264,7 +1342,7 @@ __kernel void DepthCostVol(
 			float8 r 		= c-B;
 			*/
 			rho				= Tau_HSV_grad(B, c);										// Compute rho photometic cost
-			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);							// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
+			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);	 						// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
 			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
@@ -1281,6 +1359,7 @@ __kernel void DepthCostVol(
 	a[read_index] 	= mini*inv_d_step + min_inv_depth; //c.x; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
 	d[read_index] 	= mini*inv_d_step + min_inv_depth; //B.x; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
 	hi[read_index] 	= maxv; 															// max photometric cost
+	
 }
 
 __kernel void UpdateQD(
