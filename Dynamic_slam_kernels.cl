@@ -1189,6 +1189,11 @@ float Tau_HSV_grad (float8 B, float8 c){ // Poss also weight vector.
 	return sqrt(Tau_sq);
 }
 
+float8 Tau_HSV_grad_8chan (float8 B, float8 c){ // Poss also weight vector.
+	float8 Tau8 = B - c;
+	return fabs(Tau8);
+}
+
 ///////////////////// Interpolation /////////////////////
 
 float8 nearest_neigbour (float8* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction){
@@ -1233,7 +1238,8 @@ __kernel void DepthCostVol(
 	__global 	float*  hi,					//10
 	__global 	float*  a,					//11
 	__global 	float*  d,					//12
-	__global 	float*  img_sum				//13
+	__global 	float*  img_sum,			//13
+	__global 	float8* cdata_8chan			//14
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -1256,8 +1262,10 @@ __kernel void DepthCostVol(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	/////////////////////////////////////////////////////////////
+	/*
 	if (global_id_u==0) printf("\n\n__kernel void DepthCostVol(): mipmap_layer=%i, mipmap_params_[MiM_PIXELS]=%i, mipmap_params_[MiM_READ_OFFSET]=%i, mipmap_params_[MiM_WRITE_OFFSET]=%i, mipmap_params_[MiM_READ_COLS]=%i, mipmap_params_[MiM_WRITE_COLS]=%i, mipmap_params_[MiM_GAUSSIAN_SIZE]=%i, mipmap_params_[MiM_READ_ROWS]=%i, mipmap_params_[MiM_WRITE_ROWS]=%i", mipmap_layer, mipmap_params_[MiM_PIXELS], mipmap_params_[MiM_READ_OFFSET], mipmap_params_[MiM_WRITE_OFFSET], mipmap_params_[MiM_READ_COLS], mipmap_params_[MiM_WRITE_COLS], mipmap_params_[MiM_GAUSSIAN_SIZE], mipmap_params_[MiM_READ_ROWS], mipmap_params_[MiM_WRITE_ROWS]
 						);
+	*/
 	//int global_id = get_global_id(0);
 	/*
 	int pixels 			= floor(params[pixels_]);
@@ -1280,6 +1288,7 @@ __kernel void DepthCostVol(
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
 	
 	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;	// variables for the cost vol
+	float8	rho_8chan;
 	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=read_index,	layer = 0;
 	float8 	c, c_00, c_01, c_10, c_11;
 	float 	c0 = cdata[cv_idx];															// cost for this elem of cost vol
@@ -1307,6 +1316,7 @@ __kernel void DepthCostVol(
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
+	float cost_8chan[MAX_LAYERS];
 	for( layer=0;  layer<=costvol_layers; layer++ ){
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
 		uh3  = uh2 + k2k_pvt[3]*inv_depth;
@@ -1317,12 +1327,13 @@ __kernel void DepthCostVol(
 		
 		int_u2 = ceil(u2/reduction-0.5);												// nearest neighbour interpolation
 		int_v2 = ceil(v2/reduction-0.5);												// NB this corrects the sparse sampling to the redued scales.
+		/*
 		//uint read_index_new = read_offset_ + int_v2 * mm_cols  + int_u2;  				// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img now float8* for HSV_grad_mem
 		
 		// read_index_new=%i,  read_index_new,
 		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i,  cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
 			mipmap_layer, read_offset_, mm_pixels,  cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
-		
+		*/
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
 			cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
 			cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
@@ -1341,9 +1352,12 @@ __kernel void DepthCostVol(
 			...
 			float8 r 		= c-B;
 			*/
-			rho				= Tau_HSV_grad(B, c);										// Compute rho photometic cost
-			cost[layer] 	= (cost[layer]*w + rho) / (w + 1);	 						// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
-			cdata[cv_idx] 	= cost[layer];  											// CostVol set here ###########
+			rho						= Tau_HSV_grad(B, c);								// Compute rho photometic cost
+			rho_8chan				= Tau_HSV_grad_8chan(B, c);
+			cost[layer] 			= (cost[layer]*w + rho) / (w + 1);	 				// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
+			cost_8chan[layer] 		= (cost_8chan[layer]*w + rho) / (w + 1);	
+			cdata[cv_idx] 			= cost[layer];  									// CostVol set here ###########
+			cdata_8chan[cv_idx] 	= cost_8chan[layer];
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
 		}

@@ -981,7 +981,8 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	res = clSetKernelArg(depth_cost_vol_kernel, 10, sizeof(cl_mem), &himem);				if(res!=CL_SUCCESS){cout<<"\nhimem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// hi
 	res = clSetKernelArg(depth_cost_vol_kernel, 11, sizeof(cl_mem), &amem);					if(res!=CL_SUCCESS){cout<<"\namem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// a	//__global 		float* apt,	// amem, auxilliary A
 	res = clSetKernelArg(depth_cost_vol_kernel, 12, sizeof(cl_mem), &dmem);					if(res!=CL_SUCCESS){cout<<"\ndmem res = "     		<<checkerror(res)<<"\n"<<flush;exit_(res);}		// d	//__global 		float* dpt,	// dmem, depth D
-	res = clSetKernelArg(depth_cost_vol_kernel, 13, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdata
+	res = clSetKernelArg(depth_cost_vol_kernel, 13, sizeof(cl_mem), &img_sum_buf);			if(res!=CL_SUCCESS){cout<<"\nimg_sum_buf res = " 	<<checkerror(res)<<"\n"<<flush;exit_(res);}		// img_sum_buf
+	res = clSetKernelArg(depth_cost_vol_kernel, 14, sizeof(cl_mem), &cdatabuf_8chan);		if(res!=CL_SUCCESS){cout<<"\ncdatabuf_8chan res = " <<checkerror(res)<<"\n"<<flush;exit_(res);}		// cdatabuf_8chan
 	
 	
 	// res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &HSV_grad_mem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}						//__global 	 float4*	HSV_grad_mem//10
@@ -1091,6 +1092,10 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				
 																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
+																																				//DownloadAndSaveVolume(		cdatabuf_8chan, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
+																																				
+																																				DownloadAndSave_8Channel_volume(  cdatabuf_8chan, ss.str(), paths.at("cdatabuf_8chan"), 8*mm_size_bytes_C1, mm_Image_size, CV_32FC1, false, 1, costVolLayers );
+																																				
 																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;

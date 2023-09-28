@@ -74,7 +74,7 @@ public:
 	
 	//bool 				frame_bool_idx=0;
 	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
-	cl_mem				cdatabuf, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem				cdatabuf, cdatabuf_8chan, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;					// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;	// keyframe_gxmem, keyframe_gymem, keyframe_basemem, 
@@ -142,9 +142,13 @@ public:
 	void DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset=0);
 	void DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	
+	void DownloadAndSave_8Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/);
+	void DownloadAndSave_8Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
+	
 	void DownloadAndSave_HSV_grad(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset=0 );
 	
 	void SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
+	void SaveMat_1chan(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count);
 	void DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, bool exception_tiff=false );
 	
 	void initialize_fp32_params();
@@ -365,8 +369,8 @@ public:
 	void ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0) {
 		cl_event readEvt;
 		cl_int status;
-														//cout<<"\nReadOutput: "<<flush;
-														//cout<<"&outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
+														cout<<"\nReadOutput: "<<flush;
+														cout<<"&outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
 		status = clEnqueueReadBuffer(dload_queue,			// command_queue
 											buf_mem,		// buffer
 											CL_FALSE,		// blocking_read
