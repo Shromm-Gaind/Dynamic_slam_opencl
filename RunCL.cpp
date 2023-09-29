@@ -639,7 +639,7 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
-		folder_png  += "/png/";
+		folder_png  += "/png";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
 		
@@ -674,7 +674,7 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 
 void RunCL::SaveMat_1chan(cv::Mat temp_mat, int type_mat, boost::filesystem::path folder_tiff, bool show, float max_range, std::string mat_name, std::string count){
 	int local_verbosity_threshold = -1;
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_1, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_1, "<<flush;
 		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
 		string 		type_string=checkCVtype(type_mat);
 		double 		minVal=1, 			maxVal=0;
@@ -682,42 +682,43 @@ void RunCL::SaveMat_1chan(cv::Mat temp_mat, int type_mat, boost::filesystem::pat
 		double max = 0;
 		cv::minMaxLoc(temp_mat, &minVal, &maxVal, &minLoc, &maxLoc);
 		if (maxVal > max) max = maxVal;
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_2, "<<flush;
 		stringstream ss;
 		stringstream png_ss;
-		ss<<"/"<<folder_tiff.filename().string()<<"_"<<mat_name<<"_"<<count<<"__sum"<<sum<<"type_"<<type_string<<"min("<<minVal<<")_max("<<maxVal<<")";
-		png_ss<< "/" << folder_tiff.filename().string() <<"_"<<mat_name<< "_" << count;
+		ss<<"/" << mat_name<<"__sum"<<sum<<"type_"<<type_string<<"min("<<minVal<<")_max("<<maxVal<<")";
+		png_ss<< "/" << mat_name;
 		if(show){
 			cv::Mat temp;
 			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
-		folder_png  += "/png/";
+		folder_png  += "/png";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
 		
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 		
-		if (max_range == 0){ 																												if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
+		if (max_range == 0){ 																												if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_2.1, (max_range == 0)    spl[0] /= maxVal[0];  spl[1] /= maxVal[1];  spl[2] /= maxVal[2];"<<flush;
 			temp_mat /= maxVal; 
 		}
-		else if (max_range <0.0){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+		else if (max_range <0.0){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
 			temp_mat /=(-2*max_range); 
 			temp_mat +=0.5; 
-		}else{ 																																if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+		}else{ 																																if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
 			temp_mat /=max_range;
 		}
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_3, "<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_3, "<<flush;
 		cv::Mat outMat;
-		if (type_mat == CV_32FC1){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_4, "<<flush;
+		if (type_mat == CV_32FC1){																											if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_4, "<<flush;
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 			
-			temp_mat.convertTo(outMat, CV_8U, 255);																							if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
+			temp_mat.convertTo(outMat, CV_8U, 255);																							if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
 			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																		// Has "Grayscale 16-bit gamma integer" ?
 		}																																	else {cout << "\n\nError RunCL::SaveMat_1chan(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_Chk_9, finished "<<flush;
+		
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nSaveMat_1chan_Chk_7, finished "<<flush;
 }
 
 void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
@@ -733,11 +734,13 @@ void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, bo
 																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
 }
 
-void RunCL::DownloadAndSave_8Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
+void RunCL::DownloadAndSave_8Channel(cl_mem buffer, std::string count, std::map< std::string, boost::filesystem::path > folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
 	int local_verbosity_threshold = -1;
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_8Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<",  offset= "<< offset <<"\t"<<flush;
-		cv::Mat temp_mat;
-		temp_mat = cv::Mat::zeros (size_mat.height, size_mat.width, CV_32FC(8) ); 
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout<<"\n\nDownloadAndSave_8Channel_Chk_0    filename = ["<<folder_tiff["0"].filename()<<"] folder="<<folder_tiff["0"]<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<",  offset= "<< offset <<"\t"<<flush;
+																																			}
+	cv::Mat temp_mat;
+	temp_mat = cv::Mat::zeros (size_mat.height, size_mat.width, CV_32FC(8) ); 
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_8Channel_Chk_1"
 																																				<<"   temp_mat.rows = "			<< temp_mat.rows 
 																																				<<",  temp_mat.cols = "			<< temp_mat.cols 
@@ -746,34 +749,27 @@ void RunCL::DownloadAndSave_8Channel(cl_mem buffer, std::string count, boost::fi
 																																				<<",  size_bytes = "			<< temp_mat.total() * temp_mat.elemSize() * temp_mat.channels() 
 																																				<<",  8*image_size_bytes = "	<< 8*image_size_bytes 
 																																				<<",  mm_vol_size_bytes*8 = "	<< mm_vol_size_bytes*8 <<flush;
-		ReadOutput(temp_mat.data, buffer,  /* 8* */ image_size_bytes,   offset);
+	ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 		
-		cv::Mat mat[8];
-		for (int i=0; i<8; i++){	
-			mat[i] = cv::Mat::zeros (size_mat, CV_32FC1);				// zero mat[i]
+	cv::Mat mat[8];
+	for (int i=0; i<8; i++){	
+		mat[i] = cv::Mat::zeros (size_mat, CV_32FC1);				// zero mat[i]
+	}
+	for (int i=0; i<mat[0].total(); i++){
+		for (int j=0; j<8; j++){ 
+			mat[j].at<float>(i) = temp_mat.at<float>(i*8  + j) ;				// copy 8 channel pixel
 		}
-		
-		for (int i=0; i<mat[0].total()/8; i++){
-			float data[8];
-			for (int j=0; j<8; j++){ 
-				data[j] = temp_mat.at<float>(i*8  + j) ;				// copy 8 channel pixel
-			}
-			for (int j=0; j<4; j++){
-				mat[j].at<float>(i) = data[j] ;							// write pixel to 8 mats
-			}
-		}
+	}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_8Channel_Chk_2";
-																																			/* if(verbosity>local_verbosity_threshold){
-																																				cout << "\nmat_u alpha = ";
-																																				for (int px=0; px< (mat[0].rows * mat[0].cols ) ; px += 1000){
-																																					cout <<", " << mat[0].at<float>(px*4  + 3);
-																																				}cout << flush;
-																																			} */
-		for (int i=0; i<8; i++){
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_8Channel_Chk_3, i = "<< i << flush;
-			stringstream ss;	ss << count << "__channel_"<< i <<"_";
-			SaveMat_1chan(mat[i], CV_32FC1,  folder_tiff,  show,  max_range, ss.str(), count);
-		}
+	std::vector<std::string> names = {"0","1","2","3","4","5","6","7"};
+	
+	for (int i=0; i<8; i++){																												// for each channel
+		boost::filesystem::path temp_path2 = folder_tiff[names[i]];
+		
+		stringstream ss;	ss << "channel" << names[i] << "_" << count ;
+		SaveMat_1chan(mat[i], CV_32FC1,  temp_path2,  show,  max_range, ss.str(), count);
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_8Channel_Chk_3, i = "<< i <<",  temp_path2 = "<<temp_path2<<", ss.str() = "<<ss.str()<<", count = "<<count<< flush;
+	}
 }
 
 void RunCL::DownloadAndSave_8Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers ){
@@ -782,11 +778,32 @@ void RunCL::DownloadAndSave_8Channel_volume(cl_mem buffer, std::string count, bo
 																																				cout<<"\n\nDownloadAndSave_8Channel_volume_chk_0   costVolLayers="<<costVolLayers<<", filename = ["<<folder.filename().string()<<"]"<<flush;
 																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 																																			}
+	boost::filesystem::path temp_path1 = folder;
+	temp_path1 += "/";
+	temp_path1 += count;
+	boost::filesystem::create_directory(temp_path1);																							// make new folder for this cost volume
+	
+	std::map< std::string, boost::filesystem::path > channel_paths;
+	std::vector<std::string> names = {"0","1","2","3","4","5","6","7"};
+	std::pair<std::string, boost::filesystem::path> tempPair;
+	
+	for (std::string key : names){
+		boost::filesystem::path temp_path2 = temp_path1;
+		temp_path2 += "/channel";
+		temp_path2 += key;
+		tempPair = {key, temp_path2};
+		channel_paths.insert(tempPair);
+		boost::filesystem::create_directory(temp_path2);																						// make new folders for each channel of this cost volume
+		temp_path2 += "/png/";
+		boost::filesystem::create_directory(temp_path2);
+	}
+	
 	for (uint i=0; i<vol_layers; i++) {
 		stringstream ss;	ss << count <<"__layer_"<< i <<"_";
-		DownloadAndSave_8Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
+		DownloadAndSave_8Channel(buffer, ss.str(), channel_paths, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
+																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  : ss.str() = "<< ss.str()<<",  temp_path1 = "<<temp_path1 << flush;}
 	}
-																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_2  finished " << flush;}
 }
 
 void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, bool exception_tiff /*=false*/){

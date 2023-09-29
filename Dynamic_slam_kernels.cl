@@ -1191,7 +1191,9 @@ float Tau_HSV_grad (float8 B, float8 c){ // Poss also weight vector.
 
 float8 Tau_HSV_grad_8chan (float8 B, float8 c){ // Poss also weight vector.
 	float8 Tau8 = B - c;
-	return fabs(Tau8);
+	float8 absTau8;
+	for (int i = 0; i<8; i++){ absTau8[i] = sqrt( pown( Tau8[i], 2) ); }  //      Tau_sq += pown( Tau8[i], 2);
+	return Tau8;
 }
 
 ///////////////////// Interpolation /////////////////////
@@ -1248,7 +1250,7 @@ __kernel void DepthCostVol(
 	uint group_size 	= get_local_size(0);
 	
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];									// choose correct layer of the mipmap
-	if (global_id_u    >= mipmap_params_[MiM_PIXELS] ) return;
+	
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
@@ -1316,7 +1318,7 @@ __kernel void DepthCostVol(
 	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
-	float cost_8chan[MAX_LAYERS];
+	float8 cost_8chan[MAX_LAYERS];
 	for( layer=0;  layer<=costvol_layers; layer++ ){
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
 		uh3  = uh2 + k2k_pvt[3]*inv_depth;
@@ -1355,13 +1357,17 @@ __kernel void DepthCostVol(
 			rho						= Tau_HSV_grad(B, c);								// Compute rho photometic cost
 			rho_8chan				= Tau_HSV_grad_8chan(B, c);
 			cost[layer] 			= (cost[layer]*w + rho) / (w + 1);	 				// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
-			cost_8chan[layer] 		= (cost_8chan[layer]*w + rho) / (w + 1);	
+			cost_8chan[layer] 		= (cost_8chan[layer]*w + rho_8chan) / (w + 1);	
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if ( !( (int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1) || (global_id_u >= mipmap_params_[MiM_PIXELS] ) ) ) {	
 			cdata[cv_idx] 			= cost[layer];  									// CostVol set here ###########
 			cdata_8chan[cv_idx] 	= cost_8chan[layer];
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
 		}
 	}
+	if (global_id_u  >= mipmap_params_[MiM_PIXELS] ) return;
 	for( layer=0;  layer<costvol_layers; layer++ ){
 		if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
 			minv = cost[layer];															// NB Use array private to this thread.

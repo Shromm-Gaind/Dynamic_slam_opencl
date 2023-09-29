@@ -1092,7 +1092,6 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				
 																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
-																																				//DownloadAndSaveVolume(		cdatabuf_8chan, 	ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/); 
 																																				
 																																				DownloadAndSave_8Channel_volume(  cdatabuf_8chan, ss.str(), paths.at("cdatabuf_8chan"), 8*mm_size_bytes_C1, mm_Image_size, CV_32FC1, false, 1, costVolLayers );
 																																				
