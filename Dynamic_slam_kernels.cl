@@ -1319,6 +1319,10 @@ __kernel void DepthCostVol(
 	#define MAX_LAYERS 256 //64
 	float cost[MAX_LAYERS];
 	float8 cost_8chan[MAX_LAYERS];
+	bool miss = false;
+	bool in_image = false;
+	if ( global_id_u  < mipmap_params_[MiM_PIXELS] ) in_image = true;
+	
 	for( layer=0;  layer<=costvol_layers; layer++ ){
 		inv_depth = (layer * inv_d_step) + min_inv_depth;								// locate pixel to sample from  new image. Depth dependent part.
 		uh3  = uh2 + k2k_pvt[3]*inv_depth;
@@ -1336,7 +1340,7 @@ __kernel void DepthCostVol(
 		if (global_id_u==0) printf("\n__kernel void DepthCostVol(): mipmap_layer=%i, read_offset_=%i, mm_pixels=%i,  cv_idx=%i  ###  depth layer=%i, inv_depth=%f, inv_d_step=%f,  min_inv_depth=%f,  uh3=%f,  vh3=%f,  wh3=%f,  u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i  ", \
 			mipmap_layer, read_offset_, mm_pixels,  cv_idx,    layer, inv_depth, inv_d_step, min_inv_depth, uh3, vh3, wh3, u2, v2, int_u2, int_v2 );
 		*/
-		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip
+		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip     || (in_image == false)
 			cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
 			cost[layer] = cdata[cv_idx];													// cost for this elem of cost vol
 			w  = hdata[cv_idx];																// count of updates of this costvol element. w = 001 initially
@@ -1358,28 +1362,27 @@ __kernel void DepthCostVol(
 			rho_8chan				= Tau_HSV_grad_8chan(B, c);
 			cost[layer] 			= (cost[layer]*w + rho) / (w + 1);	 				// Compute update of cost vol element, taking account of 'w  = hdata[cv_idx];' number of hits to this element.
 			cost_8chan[layer] 		= (cost_8chan[layer]*w + rho_8chan) / (w + 1);	
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-		if ( !( (int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1) || (global_id_u >= mipmap_params_[MiM_PIXELS] ) ) ) {	
+		
 			cdata[cv_idx] 			= cost[layer];  									// CostVol set here ###########
 			cdata_8chan[cv_idx] 	= cost_8chan[layer];
 			hdata[cv_idx] 	= w + 1;													// Weightdata, counts updates of this costvol element.
 			img_sum[cv_idx] += (c.x + c.y + c.z)/3;
-		}
+		} else { miss = true; }
+		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-	if (global_id_u  >= mipmap_params_[MiM_PIXELS] ) return;
-	for( layer=0;  layer<costvol_layers; layer++ ){
-		if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
-			minv = cost[layer];															// NB Use array private to this thread.
-			mini = layer;
+	if ( (miss == false) && (in_image == true) ) { 
+		for( layer=0;  layer<costvol_layers; layer++ ){
+			if (cost[layer] < minv) { 														// Find idx & value of min cost in this ray of cost vol, given this update.
+				minv = cost[layer];															// NB Use array private to this thread.
+				mini = layer;
+			}
+			maxv = fmax(cost[layer], maxv);
 		}
-		maxv = fmax(cost[layer], maxv);
+		lo[read_index] 	= minv; 															// min photometric cost  // rho;//
+		a[read_index] 	= mini*inv_d_step + min_inv_depth; //c.x; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
+		d[read_index] 	= mini*inv_d_step + min_inv_depth; //B.x; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
+		hi[read_index] 	= maxv; 															// max photometric cost
 	}
-	lo[read_index] 	= minv; 															// min photometric cost  // rho;//
-	a[read_index] 	= mini*inv_d_step + min_inv_depth; //c.x; //uh2; //c.x; // mini*inv_d_step + min_inv_depth;	// inverse distance
-	d[read_index] 	= mini*inv_d_step + min_inv_depth; //B.x; //mini*inv_d_step + min_inv_depth; //uh3; //c.y; // mini*inv_d_step + min_inv_depth; 
-	hi[read_index] 	= maxv; 															// max photometric cost
-	
 }
 
 __kernel void UpdateQD(
