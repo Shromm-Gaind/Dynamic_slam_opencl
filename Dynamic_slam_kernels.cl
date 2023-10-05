@@ -1668,6 +1668,354 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	//	theta, lambda, hi[read_index], lo[read_index], r, d, min_d, max_d, minl, depthStep, costvol_layers, start_layer, end_layer );
 }
 
+////////// Non-Primal-Dual kernels for cost functions //////////////////////////////////////////////////////////////////////////
+/// Priors on Shape ////
+__kernel void inv_depth_grad (
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float*  inv_depth,			//4		// dmem,     depth 
+	__global 	float2*  grad_inv_depth		//5
+){
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+	
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint /*v*/  read_row  	= global_id_u / read_cols_;					// read_row
+	uint /*u*/  read_column	= fmod(global_id_flt, read_cols_);			// read_column
+	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;
+	////
+	// From __kernel void  img_grad(..)
+	int upoff			= -(read_row  >1 )*mm_cols;													//-(read_row  != 0)*mm_cols;				// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;									// (read_row  < read_rows_-1) * mm_cols;
+    int lfoff			= -(read_column >1);														//-(read_column != 0);
+	int rtoff			=  (read_column < read_cols_-2);											// (read_column < mm_cols-1);
+	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
+	
+	float pr =  inv_depth[offset + rtoff];
+	float pl =  inv_depth[offset + lfoff];
+	float pu =  inv_depth[offset + upoff];
+	float pd =  inv_depth[offset + dnoff];
+	
+	float2 grad;
+	grad.x = pr - pl;
+	grad.y = pd - pu;
+	
+	grad_inv_depth[read_index]	= grad;
+}
+
+
+__kernel void div_inv_depth_grad (	// Divergence of gradient of inverse depth i.e. smoothness of gradient of depth
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float2* grad_inv_depth,		//5
+	__global 	float*  div_inv_depth_grad,	//6
+	__global 	float2* grad2_inv_depth		//7
+)
+{
+	// from __kernel void UpdateA(..)
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+	
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+	
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint /*v*/  read_row   	= global_id_u / read_cols_;					// read_row
+	uint /*u*/  read_column = fmod(global_id_flt, read_cols_);			// read_column
+	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;
+	///////////////////////////
+	// Definition of Divergence of a vector field v:  Del dot v(x,y) = gradient_v(x,z) dot v(x,y)  = delta(V_x) / delta(x)  +  delta(V_y) / delta(y)
+	
+	// From __kernel void  img_grad(..)
+	int upoff			= -(read_row  >1 )*mm_cols;													//-(read_row  != 0)*mm_cols;				// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;									// (read_row  < read_rows_-1) * mm_cols;
+    int lfoff			= -(read_column >1);														//-(read_column != 0);
+	int rtoff			=  (read_column < read_cols_-2);											// (read_column < mm_cols-1);
+	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
+	
+	float pr =  grad_inv_depth[offset + rtoff].x;
+	float pl =  grad_inv_depth[offset + lfoff].x;
+	float pu =  grad_inv_depth[offset + upoff].y;
+	float pd =  grad_inv_depth[offset + dnoff].y;
+	
+	float2 grad;
+	grad.x = pr - pl;
+	grad.y = pd - pu;
+	
+	grad2_inv_depth[read_index]		= grad;
+	div_inv_depth_grad[read_index]	= (grad_inv_depth[read_index].x  *  grad.x ) +  (grad_inv_depth[read_index].y   *  grad.y ) ;
+}
+
+
+__kernel void project_point_cloud (				// Possibly useful output, saves CPU work.
+	__private	uint		mipmap_layer,		//0
+	__constant 	uint8*		mipmap_params,		//1
+	__constant 	uint*		uint_params,		//2
+	__global 	float16*	inv_k,				//3		// inverse projection matrix
+	__global 	float*  	fp32_params,		//4
+	__global 	float*  	inv_depth,			//5
+	__global 	float3* 	point_cloud			//6
+)
+{
+	// from __kernel void DepthCostVol(..)
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	uint8 mipmap_params_= mipmap_params[mipmap_layer];									// choose correct layer of the mipmap
+	
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;										// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);								// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	//////////////
+	
+	uint mm_pixels		= uint_params[MM_PIXELS];
+	if (global_id_u > mm_pixels) return;
+	
+	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
+	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
+	
+	float16 inv_k_pvt		= inv_k[0];
+	float 	inv_depth_pvt 	= inv_depth[read_index];
+	float3 	point;
+	
+	point.x = inv_k_pvt[0]*u_flt + inv_k_pvt[1]*v_flt + inv_k_pvt[ 2]*1 + inv_k_pvt[ 3]*inv_depth_pvt;  // TODO check correct matrix computaion for inverse projection. esp 3rd & 4th cols of this equation.
+	point.y = inv_k_pvt[4]*u_flt + inv_k_pvt[5]*v_flt + inv_k_pvt[ 6]*1 + inv_k_pvt[ 7]*inv_depth_pvt;
+	point.z = inv_k_pvt[8]*u_flt + inv_k_pvt[9]*v_flt + inv_k_pvt[10]*1 + inv_k_pvt[11]*inv_depth_pvt;
+	
+	point_cloud[read_index] = point;
+}
+
+
+__kernel void compute_curvature (
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float*  inv_depth,			//4	
+	__global 	float*  mean_curvature,		//5
+	__global	float8* loss_params			//6
+)
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	uint8 mipmap_params_= mipmap_params[mipmap_layer];									// choose correct layer of the mipmap
+	
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_pixels		= uint_params[MM_PIXELS];
+	if (global_id_u > mm_pixels) return;
+	
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint /*v*/  read_row	= global_id_u / read_cols_;									// read_row
+	uint /*u*/  read_column	= fmod(global_id_flt, read_cols_);							// read_column
+	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;
+	
+	// From SIRFS : Section 5.1 ... Mean curvature is defined as the average of principal curvatures.
+	// H = 1/2(k_1 + k_2) , can be approxiated on a surface using filter convolutions that prroximate 1st & 2nd partial derivatives.
+	// Eq 15.
+	// H(Z) = ((1+Z²_x) z_yy - 2Z_x*Z_y*Z_xy +(1+Z²_y)Z_xx)  / (2(1+Z²_x + Z2_y)⁽3/2) )
+	
+	// From SIRFS supplementary data Section 3
+	// Mean curvature H(Z) of depthmap Z.
+	
+	int upoff			= -(read_row  >1 )*mm_cols;										//-(read_row  != 0)*mm_cols;				// up, down, left, right offsets, by boolean logic.
+	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;						// (read_row  < read_rows_-1) * mm_cols;
+	int lfoff			= -(read_column >1);											//-(read_column != 0);
+	int rtoff			=  (read_column < read_cols_-2);								// (read_column < mm_cols-1);
+	uint offset			=   read_column + read_row  * mm_cols + read_offset_ ;
+	
+	float a = inv_depth[offset+lfoff+upoff];
+	float b = inv_depth[offset		+upoff];
+	float c = inv_depth[offset+rtoff+upoff];
+	float d = inv_depth[offset+lfoff];
+	float e = inv_depth[offset];
+	float f = inv_depth[offset+rtoff];
+	float g = inv_depth[offset+lfoff+dnoff];
+	float h = inv_depth[offset		+dnoff];
+	float i = inv_depth[offset+rtoff+dnoff];
+	 
+	float Z_x  = ( 2*(d - f) + (a - c) + (g - i) )/8;
+	float Z_y  = ( 2*(c - h) + (a - g) + (c - i) )/8;
+	float Z_xx = ( a -2*b + c + 2*d -4*e + 2*f + g - 2*h + i )/4;
+	float Z_yy = ( a +2*b + c - 2*d -4*e - 2*f + g + 2*h + i )/4;
+	float Z_xy = ( a - c + g - i )/4;
+	
+	float Z_x_sq = pown(Z_x,2);
+	float Z_y_sq = pown(Z_y,2);
+	
+	float M = sqrt(1 + Z_x_sq + Z_y_sq );
+	float N = ((1 + Z_x_sq) * Z_yy) - (2*Z_x*Z_y*Z_xy) + ((1 + Z_y_sq) * Z_xx);
+	float D = 2 * pown(M,3);
+	
+	mean_curvature[offset] = N/D;
+	
+	float M_sq = pown(M,2);
+	float F_x  = 2*(Z_x*Z_yy - Z_xy*Z_y) - (3*Z_x*N)/M_sq;
+	float F_y  = 2*(Z_xx*Z_y - Z_x*Z_xy) - (3*Z_y*N)/M_sq;
+	float F_xx = 1 + Z_y_sq;
+	float F_yy = 1 + Z_x_sq;
+	float F_xy = -2 *Z_x*Z_y;
+	
+	float8 loss_params_pvt = {M, N, D, F_x, F_y, F_xx, F_yy, F_xy};						// M & N included for debugging.
+	
+	loss_params[offset] = loss_params_pvt;
+}
+
+// NB SIRFS section 5.1 "Our smoothness prior for shapes is a Gaussian scale mixture on the localvariaion of the mean curvature of Z (the depth map).
+// Eq 16.  f_k(Z) = SUM_i{ SUM_(j in N(i)){ c(H(Z)_i - H(Z)_j  , alpha_k, sigma_k) } }
+// NB this produces a distribution of cost for +ve and -ve curvatures, with minimum cost for a plane surface.
+// The learned GSM is very heavy tailed, fig 11, encourages mostly smooth, with occassionally very non-smooth, i.e. bend rarely.
+
+__kernel void curvature_gradient(
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float*  mean_curvature,		//4
+	__global 	float*  grad_curvature		//5
+			  )
+{
+	
+	// TODO ? should we rather have geeric kernel code for grad & div, then in host "createKernel(...)" different instances, with different Arguments set, for inv_depth, curvature, and other maps. // 
+	
+	
+}
+
+__kernel void curvature_smoothness (
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params,		//3
+	__global 	float*  mean_curvature,		//4
+	__global 	float*  div_curvature		//5
+)
+{
+	
+	
+	
+	
+}
+													// Parsimony costs : Need to sort pixels by bin-sort, then attraction between neighbours #################################################
+__kernel void plane_parsimony ( 					// 3D orientation of plane + orthogonal distance from camera
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+__kernel void curvature_parsimony ( 				// 2D major,minor curvature
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+/// Priors on Reflectance ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__kernel void reflectance_smoothness ( 				// Modfied Cook-Torrance,  HSV_lambertian, HSV_specular, roughness, metal-glass  (8D reflectance space) NB Plenoxels transmitance....
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+__kernel void reflectance_parsimony ( 
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+__kernel void reflectance_absolute_value ( 
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+__kernel void illumination_model ( 
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+//// relative velocity map /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__kernel void smoothness_relative_velocity ( 
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+//// rendering model //////////// 					// called (i) to construct cost vol (ii) predict next frame.  NB need modfied Cook-Torrance with glassy & metalic specular components.
+
+__kernel void render_image ( 
+	__private	uint	mipmap_layer,		//0
+	__constant 	uint8*	mipmap_params,		//1
+	__constant 	uint*	uint_params,		//2
+	__global 	float*  fp32_params			//3
+)
+{
+	
+}
+
+
+
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 
