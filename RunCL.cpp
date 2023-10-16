@@ -520,7 +520,7 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 }
 
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = 1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
 		cv::Mat temp_mat, temp_mat2;
 		
@@ -552,7 +552,7 @@ void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::fi
 		}
 		//cv::imshow("mat_u", mat_u);
 		//cv::imshow("mat_v", mat_v);
-		cv::waitKey(-1);
+		//cv::waitKey(-1);
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout << "\nmat_v alpha = ";
 																																				for (int px=0; px< (mat_v.rows * mat_v.cols ) ; px += 1000){
@@ -731,7 +731,7 @@ void RunCL::DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, bo
 		stringstream ss;	ss << count <<"_"<< i <<"_";
 		DownloadAndSave_6Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes);
 	}
-																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+																																			if(verbosity> local_verbosity_threshold){cout << "DownloadAndSave_6Channel_volume_chk_1  finished" << flush;}
 }
 
 void RunCL::DownloadAndSave_8Channel(cl_mem buffer, std::string count, std::map< std::string, boost::filesystem::path > folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
