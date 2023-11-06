@@ -48,7 +48,7 @@
     "opencl_platform":0,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices
     "opencl_device":0,
     "":"",
-    "MipMap_margin":1,          // 4
+    "MipMap_margin":1,          //4
     "num_reductions":6,         //4                                     // Layers-1 of image pyramid in MipMap
     "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
     "":"",

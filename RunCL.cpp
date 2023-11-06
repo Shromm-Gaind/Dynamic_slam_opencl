@@ -214,6 +214,53 @@ void RunCL::createFolders(){
 	
 	boost::filesystem::path temp_path = out_path;																							// Vector of device buffer names
 																																			// imgmem[2],  gxmem[2], gymem[2], g1mem[2],  k_map_mem[2], SE3_map_mem[2], dist_map_mem[2];
+	/*
+		 "imgmem",						mm_size_bytes_C4,  		.HSV 3chan image. Also receives HSV_grad (2chan per image, 4 images per map) from buildDepthCostVol
+		 "imgmem_blurred",				mm_size_bytes_C4,  		.HSV 3chan, before mipmap
+		 "keyframe_imgmem",				2*mm_size_bytes_C4,		.HSV_grad (2chan per image, 4 images per map)
+
+		 "gxmem",						mm_size_bytes_C4, 		.rgba 4chan
+		 "gymem",						.""
+		 "g1mem",						.""
+		 "keyframe_g1mem",				.""
+
+		 "SE3_grad_map_mem",			mm_size_bytes_C1*6*8	.rgba 4chan, 6 gradient maps,
+		 "keyframe_SE3_grad_map_mem",	.""
+
+		 "SE3_map_mem",					mm_size_bytes_C1*12		.Green-Blue,  rgba 4chan
+		 "SE3_incr_map_mem",			mm_size_bytes_C1*24		.4chan rgba, alpha continuous scale ############## broken,
+		 "SE3_rho_map_mem",				mm_size_bytes_C4,  		.4chan rgba, alpha continuous scale ############## broken,
+
+		 "SO3_incr_map_mem",			uses SE3 buffer			.4chan rgba, alpha continuous scale ############## broken,
+		 "SO3_rho_map_mem",				""						.4chan rgba, alpha continuous scale ############## broken,
+
+		 "basemem", 					image_size_bytes,  		.3chan rgb
+		 "keyframe_basemem",			## no buffer allocated?  currently not used ?
+
+		 "depth_mem",					mm_size_bytes_C1		.1chan?		// used in RunCL::load_GT_depth, convert_depth, precomp_param_maps, transform_depthmap, & Dynamic_slam::initialize_keyframe_from_tracking.
+		 "keyframe_depth_mem",			mm_size_bytes_C1		.1chan		// used by tracking
+		 "key_frame_depth_map_src",		mm_size_bytes_C1	 	.""			// used in RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src)
+
+		 "depth_GT",					mm_size_bytes_C1,		.1chan, before mipmap
+		 "dmem",						mm_size_bytes_C1,		.1chan
+		 "amem", 						.""
+
+		 "lomem",						mm_size_bytes_C1,		.1chan
+		 "himem",						.""
+
+		 "qmem",						2 * mm_size_bytes_C1, 	.A_count, Q_count
+		 "qmem2",						.""
+
+		 "cdatabuf",					mm_vol_size_bytes, 		1chan, 64layer volume
+		 "cdatabuf_8chan",				mm_vol_size_bytes*8, 	1 folder per vol/8chan/ 64layers
+
+		 "hdatabuf",					1mm_vol_size_bytes, 	chan, 64layer volume
+
+		 "img_sum_buf",					2 * mm_vol_size_bytes,	4chan rgba, only used when debugging. Written to by RunCL::updateDepthCostVol(..)
+		 "HSV_grad_mem",				2*mm_size_bytes_C4,  	2chan per image, 4 images per map,
+
+		 "dmem_disparity"				rgb image ?
+		 */
 	std::vector<std::string> names = {"imgmem", "imgmem_blurred", "keyframe_imgmem", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
 										"SE3_grad_map_mem", "keyframe_SE3_grad_map_mem", \
 										"SE3_map_mem", \
@@ -417,7 +464,8 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		
 		if (type_mat == CV_16FC3)	{
 			temp_mat2 = cv::Mat::zeros (size_mat, CV_16FC3);																				//cout << "\nReading CV_16FC3. size_mat="<< size_mat<<",   temp_mat2.total()*temp_mat2.elemSize()="<< temp_mat2.total()*temp_mat2.elemSize() << flush;
-			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  										// baseImage.total() * baseImage.elemSize()    // void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
+			ReadOutput(temp_mat2.data, buffer,  temp_mat2.total()*temp_mat2.elemSize(),   offset );  										// baseImage.total() * baseImage.elemSize()
+																																			// void ReadOutput(   uchar* outmat,   cl_mem buf_mem,   size_t data_size,   size_t offset=0)
 			temp_mat = cv::Mat::zeros (size_mat, CV_32FC3);
 			temp_mat2.convertTo(temp_mat, CV_32FC3);																						// NB conversion to FP32 req for cv::sum(..).
 		} else {

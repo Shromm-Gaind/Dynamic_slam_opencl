@@ -132,13 +132,30 @@ public:
 	void createFolders();																												// Called by RunCL(..) constructor, above.
 	
 	void saveCostVols(float max_range);
+	//void DownloadAndSave_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
+void DownloadAndSave_linearMipMap (
+    cl_mem 		buffer,
+	std::string count,
+	std::map< std::string, boost::filesystem::path > folder_tiff,
+	size_t      image_size_bytes,
+	cv::Size    size_mat,
+    int 		type_mat_out,               /*(data size and channels)*/
+    int 		num_channels_out,
+    int 		num_channels_in,
+    int 		maps_in_vol,
+	int 		start_layer,
+    int 		stop_layer,
+    float 		max_range,
+	bool 		exception_tiff,
+	bool 		show
+);
+
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	
 	void DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range=1, uint offset=0, bool exception_tiff=false );
 	void DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
-	void DownloadAndSave_3Channel_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
-	
+
 	void DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint offset=0);
 	void DownloadAndSave_6Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	

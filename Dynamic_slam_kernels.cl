@@ -220,9 +220,6 @@ __kernel void cvt_color_space_linear(																// Writes the first entry i
 	}
 }
 
-
-
-
 __kernel void image_variance(
 	__global	float4*	img_stats,		//0
 	__global	float4*	img,			//1
@@ -366,7 +363,6 @@ __kernel void blur_image(
 	blurred_pixel[3] = 1.0f;
 	img_blurred[ read_index] = blurred_pixel;
 }
-
 
 __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
