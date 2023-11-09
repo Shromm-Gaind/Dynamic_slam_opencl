@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.h"     // Shelve linearMipMap for now. It will not make kernels simpler or faster.
 
 #define SDK_SUCCESS 0
 #define SDK_FAILURE 1
@@ -41,7 +41,7 @@ void RunCL::DownloadAndSave_linearMipMap (
     size_t      image_size_bytes,
     cv::Size    size_mat,
 
-    int type_mat_out,           /*(data size and channels)*/
+    int type_mat_out,           / *(data size and channels)* /
     int num_channels_out,       // channels per image to write to file
     int num_channels_in,        // channels in the buffer
     int maps_in_vol,            // layers of depth cost vol,  //uint vol_layers,
@@ -52,11 +52,11 @@ void RunCL::DownloadAndSave_linearMipMap (
     float max_range,            // used to scale the values in the png for visualization
     bool exception_tiff,        // generate tiff, when tiffs are globally turned off
     bool show                   // display the image(s).
-/*
+
     //uint offset =0,       // passed to ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0)
     //cv::Mat temp_mat,           // mat passed to SaveMat or SaveMat_1chan
     //std::string mat_name        //
-*/
+
 ){
     int type_mat_in = CV_MAKETYPE(CV_32F, num_channels_in);                                 // create temp_mat1
     cv::Mat tempMat1(size_mat, type_mat_in);
@@ -117,6 +117,7 @@ void RunCL::DownloadAndSave_linearMipMap (
 
     // display image
 }
+
 
 void RunCL::DownloadAndSave_... (){
     DownloadAndSave_linearMipMap (

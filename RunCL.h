@@ -132,14 +132,16 @@ public:
 	void createFolders();																												// Called by RunCL(..) constructor, above.
 	
 	void saveCostVols(float max_range);
+/*
 	//void DownloadAndSave_linear_Mipmap(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, int type_mat, bool show );
-void DownloadAndSave_linearMipMap (
+void DownloadAndSave_linearMipMap (						// Shelve linearMipMap for now. It will not make kernels simpler or faster.
+
     cl_mem 		buffer,
 	std::string count,
 	std::map< std::string, boost::filesystem::path > folder_tiff,
 	size_t      image_size_bytes,
 	cv::Size    size_mat,
-    int 		type_mat_out,               /*(data size and channels)*/
+    int 		type_mat_out,               // (data size and channels)
     int 		num_channels_out,
     int 		num_channels_in,
     int 		maps_in_vol,
@@ -149,7 +151,7 @@ void DownloadAndSave_linearMipMap (
 	bool 		exception_tiff,
 	bool 		show
 );
-
+*/
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range );
 	void DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );
 	
@@ -198,7 +200,7 @@ void DownloadAndSave_linearMipMap (
 	
 	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
-	   void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
+	void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, uint start, uint stop);
 	void updateG(int count, uint start, uint stop);
 	void updateA(float lambda, float theta, uint start, uint stop);

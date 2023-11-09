@@ -69,6 +69,7 @@ add_executable(Dynamic_slam
         main.cpp
         Dynamic_slam.cpp
         Dynamic_slam.h
+        #RunCL_LinearMipMaps.cpp                        # Shelved. It will not make kernels simpler or faster.
         RunCL_kernels.cpp
         RunCL.cpp
         RunCL.h
