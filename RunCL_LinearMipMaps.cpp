@@ -86,7 +86,7 @@ void RunCL::DownloadAndSave_linearMipMap (
     std::vector<cv::Mat>    tempMat3_vec;                                                   // create tempMat3_vec
     std::vector<float*>     data3;
     cv::Size size_mipmap_mat(mm_height, mm_width );
-
+///////////////////
     for (int i=0; i<num_Mats; i++){
         tempMat3_vec.push_back(cv::Mat::zeros(size_mipmap_mat, CV_32FC4));
         data3.push_back( (float*)tempMat3_vec[i].data );

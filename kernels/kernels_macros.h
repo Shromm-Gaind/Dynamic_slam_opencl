@@ -1,3 +1,6 @@
+#ifndef KERNEL_MACROS_H
+#define KERNEL_MACROS_H
+
 #define MAX_INV_DEPTH		0	// fp32_params indices, 		for DTAM mapping algorithm.
 #define MIN_INV_DEPTH		1
 #define INV_DEPTH_STEP		2
@@ -32,3 +35,5 @@
 
 #define IMG_MEAN			0	// for img_stats
 #define IMG_VAR 			1	//
+
+#endif /*KERNEL_MACROS_H*/
