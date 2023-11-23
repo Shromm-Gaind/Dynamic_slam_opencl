@@ -188,7 +188,20 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
     }
     m_program 	= clCreateProgramWithSource( m_context, num_files, (const char**)strings, lengths, &status );								/*Step 5: Create program object*/////////////
 																							if(status!=CL_SUCCESS)	{cout<<"\n11 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-	status = clBuildProgram(m_program, 1, devices, NULL, NULL, NULL);																		/*Step 6: Build program.*/////////////////////
+	const char * include_dir = obj["kernel_build_options"].asCString();																		//  "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/";
+	cout << "\n" << include_dir << "\n" << flush;
+
+	status = clBuildProgram(m_program, 1, devices, include_dir , NULL, NULL);																/*Step 6: Build program.*/////////////////////
+	/*
+		cl_int clBuildProgram(
+								cl_program 				program,
+								cl_uint 				num_devices,
+								const cl_device_id* 	device_list,
+								const char* 			options,
+								void (CL_CALLBACK* pfn_notify)(cl_program program, void* user_data),
+								void* 					user_data
+								);
+	*/
 																							if (status != CL_SUCCESS){
 																								printf("\nclBuildProgram failed: %d\n", status);
 																								char buf[0x10000];
@@ -202,27 +215,29 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
 }
 
 void RunCL::createKernels(){
-    cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		NULL);
-	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				NULL);
-	blur_image_kernel				= clCreateKernel(m_program, "blur_image", 					NULL);
-	reduce_kernel					= clCreateKernel(m_program, "reduce", 						NULL);
-	mipmap_float4_kernel			= clCreateKernel(m_program, "mipmap_linear_flt4", 			NULL);
-	mipmap_float_kernel				= clCreateKernel(m_program, "mipmap_linear_flt", 			NULL);
+	cl_int err_code;
 
-	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					NULL);
-	comp_param_maps_kernel			= clCreateKernel(m_program, "compute_param_maps", 			NULL);
-	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					NULL);
-	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					NULL);
+    cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'cvt_color_space_linear'  kernel not built.\n"	<<flush; exit(0);   }
+	img_variance_kernel				= clCreateKernel(m_program, "image_variance", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'image_variance'  kernel not built.\n"			<<flush; exit(0);   }
+	blur_image_kernel				= clCreateKernel(m_program, "blur_image", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'blur_image'  kernel not built.\n"				<<flush; exit(0);   }
+	reduce_kernel					= clCreateKernel(m_program, "reduce", 						&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'reduce'  kernel not built.\n"					<<flush; exit(0);   }
+	mipmap_float4_kernel			= clCreateKernel(m_program, "mipmap_linear_flt4", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'mipmap_linear_flt4'  kernel not built.\n"		<<flush; exit(0);   }
+	mipmap_float_kernel				= clCreateKernel(m_program, "mipmap_linear_flt", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'mipmap_linear_flt'  kernel not built.\n"		<<flush; exit(0);   }
 
-	//invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				NULL);
-	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				NULL);
-	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			NULL);
-	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				NULL);
-	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					NULL);
-	updateG_kernel  				= clCreateKernel(m_program, "UpdateG", 						NULL);
-	updateA_kernel  				= clCreateKernel(m_program, "UpdateA", 						NULL);
+	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'img_grad'  kernel not built.\n"					<<flush; exit(0);   }
+	comp_param_maps_kernel			= clCreateKernel(m_program, "compute_param_maps", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'compute_param_maps'  kernel not built.\n"		<<flush; exit(0);   }
+	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'so3_grad'  kernel not built.\n"					<<flush; exit(0);   }
+	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'se3_grad'  kernel not built.\n"					<<flush; exit(0);   }
 
-	measureDepthFit_kernel			= clCreateKernel(m_program, "MeasureDepthFit", 				NULL);
+	//invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError ''  kernel not built.\n"						<<flush; exit(0);   }
+	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'convert_depth'  kernel not built.\n"			<<flush; exit(0);   }
+	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'transform_depthmap'  kernel not built.\n"		<<flush; exit(0);   }
+	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'DepthCostVol'  kernel not built.\n"				<<flush; exit(0);   }
+	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'UpdateQD'  kernel not built.\n"					<<flush; exit(0);   }
+	updateG_kernel  				= clCreateKernel(m_program, "UpdateG", 						&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'UpdateG'  kernel not built.\n"					<<flush; exit(0);   }
+	updateA_kernel  				= clCreateKernel(m_program, "UpdateA", 						&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'UpdateA'  kernel not built.\n"					<<flush; exit(0);   }
+
+	measureDepthFit_kernel			= clCreateKernel(m_program, "MeasureDepthFit", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'MeasureDepthFit'  kernel not built.\n"			<<flush; exit(0);   }
 }
 
 int RunCL::convertToString(const char *filename, std::string& s){
@@ -260,7 +275,7 @@ void RunCL::initialize_fp32_params(){
 	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json .
 	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
 
-	fp32_params[INV_DEPTH_STEP]	=	 ( fp32_params[MAX_INV_DEPTH] - fp32_params[MIN_INV_DEPTH] ) /  uint_params[LAYERS]	;
+	fp32_params[INV_DEPTH_STEP]	=	 ( fp32_params[MAX_INV_DEPTH] - fp32_params[MIN_INV_DEPTH] ) /  uint_params[COSTVOL_LAYERS]	;
 
 	fp32_params[ALPHA_G]		=    obj["alpha_g"].asFloat()		;
 	fp32_params[BETA_G]			=    obj["beta_g"].asFloat()		;
@@ -338,13 +353,13 @@ void RunCL::initialize(){
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;
 	uint_params[COLS]			= 	baseImage_width ;
-	uint_params[LAYERS]			= 	obj["layers"].asUInt() ;
+	uint_params[COSTVOL_LAYERS]	= 	obj["layers"].asUInt() ;
 	uint_params[MARGIN]			= 	mm_margin ;
 	uint_params[MM_PIXELS]		= 	mm_height * mm_width ;
 	uint_params[MM_ROWS]		= 	mm_height ;
 	uint_params[MM_COLS]		= 	mm_width ;
 
-	initialize_fp32_params();																												// Requires uint_params[LAYERS]	;
+	initialize_fp32_params();																												// Requires uint_params[COSTVOL_LAYERS]	;
 																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.9\n\n" << flush;
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																			//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );

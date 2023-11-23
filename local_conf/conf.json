@@ -13,6 +13,8 @@
     "kernel_folder":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
     "kernel_files":["kernels_macros.h", "kernels_load_image.cl", "kernels_mapping.cl", "kernels_tracking.cl", "kernels_setup_keyframe.cl"],        // array of kernel filenames
 
+    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
+
     "opencl_platform":0,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices
     "opencl_device":0,
 
@@ -75,4 +77,7 @@
                                 //"/home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj0_loop",
                                 //"/home/hockingsn/Programming/OpenCV/OpenDTAM/data/Trajectory_30_seconds",
                                 //"D:\\projects\\DTAM-master\\DTAM-master\\Trajectory_30_seconds\\",
+
+                                // "\"-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/\""
+                                // /home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels
 }

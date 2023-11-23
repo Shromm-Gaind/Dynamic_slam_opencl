@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.16   FATAL_ERROR) # 3.1 << C_STANDARD 11
 cmake_policy(SET CMP0054 NEW)
 
 project(Dynamic_slam LANGUAGES C CXX)
-add_subdirectory (utils)
+#add_subdirectory (utils)
 
 set(CMAKE_C_STANDARD 17)
 #set(CMAKE_CPP_STANDARD 11) # set(CMAKE_CPP_STANDARD 17)  NB need (<=11 for VTP)  &&  (>+11 for C++ threads)
@@ -70,15 +70,22 @@ add_executable(Dynamic_slam
         Dynamic_slam.cpp
         Dynamic_slam.h
         #RunCL_LinearMipMaps.cpp                        # Shelved. It will not make kernels simpler or faster.
-        RunCL_kernels.cpp
-        RunCL.cpp
-        RunCL.h
-        #Dynamic_slam_kernels.cl                        # OpenCL device code ? does this need to be here at all ?
-        utils/utils.hpp
-        #utils/fileLoader.cpp
-        #utils/fileLoader.hpp
-        convertAhandaPovRayToStandard.cpp #utils/
-        convertAhandaPovRayToStandard.h #utils/
+        ##RunCL_kernels.cpp
+        ##RunCL.cpp
+        ##RunCL.h
+        kernels/kernels_macros.h
+        RunCL/RunCL.h
+        RunCL/RunCL_class.cpp
+        RunCL/RunCL_DownloadAndSave.cpp
+        RunCL/RunCL_load_image.cpp
+        RunCL/RunCL_macro_conversion.cpp
+        RunCL/RunCL_mapping.cpp
+        RunCL/RunCL_setup_keyframe.cpp
+        RunCL/RunCL_tracking.cpp
+
+        utils/convertTransforms.hpp
+        utils/convertAhandaPovRayToStandard.cpp
+        utils/convertAhandaPovRayToStandard.h
         )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 

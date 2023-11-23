@@ -423,6 +423,88 @@ __kernel void UpdateA(						// pointwise exhaustive search
 }
 
 
+__kernel void MeasureDepthFit(						// measure the fit of the depthmap against the groud truth.
+	__private	uint	mipmap_layer,				//0
+	__constant 	uint8*	mipmap_params,				//1
+	__constant 	uint*	uint_params,				//2
+	__global 	float*  fp32_params,				//3
+	__global 	float*  dpt,						//4		// dmem,     depth D
+	__global 	float*  dpt_GT,						//5
+	__global 	float4* dpt_disparity,				//6
+	__local		float4*	local_sum_dpt_disparity,	//7
+	__global	float4*	global_sum_dpt_disparity	//8
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	uint lid 			= get_local_id(0);
+	uint group_size 	= get_local_size(0);
+
+	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+	uint v    			= global_id_u / read_cols_;					// read_row
+	uint u 				= fmod(global_id_flt, read_cols_);			// read_column
+	float u_flt			= u * reduction;
+	float v_flt			= v * reduction;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+
+	float depth_disparity = dpt[read_index] - dpt_GT[read_index];
+
+	float sq_depth_disparity = depth_disparity * depth_disparity * 64 * 64;
+
+	float proportional_sdd = sq_depth_disparity / (dpt_GT[read_index] * dpt_GT[read_index] * 64 * 8);
+
+	float4 disparity 	= { depth_disparity , -depth_disparity, proportional_sdd, 1.0f};
+
+						//= {dpt_GT[read_index] * 64, sq_depth_disparity, proportional_sdd , 1.0f };
+																							// B = true inverse depth
+																							// G = sq_depth_disparity
+																							// R = proportional_sdd
+						//= {dpt_GT[read_index], depth_disparity , -depth_disparity, 1.0f };
+																							// {B, G, R, A} Need x64 to spread in visible range of .tiff .
+																							// B = true inverse depth
+																							// G = est_inv_depth > true inv_depth, i.e. est too close
+																							// R = est_inv_depth < true inv_depth, i.e. est too far
+	if (global_id_u    < mipmap_params_[MiM_PIXELS]){
+		dpt_disparity[read_index]		= disparity;
+		local_sum_dpt_disparity[lid]	= disparity;
+	}else{
+		local_sum_dpt_disparity[lid]	= 0;
+	}
+
+	int max_iter = ilogb((float)(group_size));
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)					// problem : how to produce one result for each mipmap layer ?
+																										// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
+
+		if (lid<group_size)  local_sum_dpt_disparity[lid] += local_sum_dpt_disparity[lid+group_size];	// local_sum_pix
+	}
+
+	barrier(CLK_LOCAL_MEM_FENCE);  // TODO get summation of depth error working
+	if (lid==0) {
+		uint group_id 			= get_group_id(0);
+		uint global_sum_offset 	= 0; 																	//read_offset_ / local_size ;		// only the base layer		// Compute offset for this layer
+		uint num_groups 		= get_num_groups(0);
+
+		float4 layer_data 		= {num_groups, reduction, 0.0f, 0.0f };									// Write layer data to first entry  ## problem float4 into float ##
+		if (global_id_u == 0) 	{
+			global_sum_dpt_disparity[global_sum_offset] 	= num_groups;
+			global_sum_dpt_disparity[global_sum_offset+1] 	= reduction;
+			global_sum_dpt_disparity[global_sum_offset+2] 	= 0.0f;
+			global_sum_dpt_disparity[global_sum_offset+3] 	= 0.0f;
+		}
+		global_sum_offset += 4 + group_id;
+
+		if (local_sum_dpt_disparity[0][3] >0){																	// Using alpha channel local_sum_pix[0][3], to count valid pixels being summed.
+			global_sum_dpt_disparity[global_sum_offset] 	= local_sum_dpt_disparity[0];				// Save to global_sum_pix // Count hits, and divide group by num hits, without using atomics!
+		}else global_sum_dpt_disparity[global_sum_offset] 	= 0;
+	}
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

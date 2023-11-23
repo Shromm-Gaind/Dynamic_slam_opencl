@@ -1,5 +1,40 @@
 #include "kernels_macros.h"
 
+__kernel void convert_depth(
+	__private	uint 	invert,					//0
+	__private	float 	factor,					//1
+	__constant 	uint*	mipmap_params,			//2		// NB uses ony mipmap_params[layer=0]
+	__constant	uint*	uint_params,			//3
+	__global	float* 	depth_mem,				//4
+	__global	float* 	depth_mem_GT			//5
+		)
+{
+	int global_id 		= (int)get_global_id(0);
+	uint pixels 		= uint_params[PIXELS];
+
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint cols 			= uint_params[COLS];
+	uint margin 		= uint_params[MARGIN];
+	uint mm_cols		= uint_params[MM_COLS];
+
+	uint base_row		= global_id/cols ;
+	uint base_col		= global_id%cols ;
+	uint img_row		= base_row + margin;
+	uint img_col		= base_col + margin;
+
+	uint read_index 	= read_offset_  +  base_row  * mm_cols  + base_col  ;
+	uint global_id_u 	= get_global_id(0);
+
+	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
+	float depth 		= depth_mem[global_id_u]/factor;
+
+	//if (global_id_u == 0)printf("\n__kernel void convert_depth(..) invert=%u, factor=%f ", invert, factor );
+
+	if (!(depth==0)){
+		if ( invert==true ) depth_mem_GT[read_index] =  1/depth;
+		else depth_mem_GT[read_index] = depth;
+	}
+}
 
 __kernel void transform_depthmap(
 	__private	uint	mipmap_layer,			//0

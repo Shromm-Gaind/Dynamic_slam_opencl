@@ -65,13 +65,13 @@ __kernel void so3_grad(
 	__global 	float4*	img_new,				//6
 	__global 	float8*	SE3_grad_map_cur_frame,	//7
 	__global 	float8*	SE3_grad_map_new_frame,	//8
-	//__global	float* 	depth_map,				//9													// NB GT_depth, not inv_depth
-	__local		float4*	local_sum_grads,		//10
-	__global	float4*	global_sum_grads,		//11
-	__global 	float4*	SE3_incr_map_,			//12
-	__global	float4* Rho_,					//13
-	__local		float4*	local_sum_rho_sq,		//14												// 1 DoF, float4 channels
-	__global 	float4*	global_sum_rho_sq		//15
+	//__global	float* 	depth_map,				//													// NB GT_depth, not inv_depth
+	__local		float4*	local_sum_grads,		//9
+	__global	float4*	global_sum_grads,		//10
+	__global 	float4*	SE3_incr_map_,			//11
+	__global	float4* Rho_,					//12
+	__local		float4*	local_sum_rho_sq,		//13												// 1 DoF, float4 channels
+	__global 	float4*	global_sum_rho_sq		//14
 	)
  {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
@@ -85,13 +85,13 @@ __kernel void so3_grad(
 
 	uint8 mipmap_params_= mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
+	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];											// Width of this layer of the image pyramid.
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
 
 	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];
-	uint mm_cols		= uint_params[MM_COLS];
+	uint mm_cols		= uint_params[MM_COLS];														// Width of the whole buffer.
 	uint mm_pixels		= uint_params[MM_PIXELS];
 
 	float SE3_LM_a		= fp32_params[SE3_LM_A];													// Optimisation parameters
@@ -102,7 +102,7 @@ __kernel void so3_grad(
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
 	float u_flt			= u * reduction;															// NB this causes sparse sampling of the original space, to use the same k2k at every scale.
 	float v_flt			= v * reduction;
-	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
+	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;										// Where to read keyframe
 	float alpha			= img_cur[read_index].w;
 
 	float uh2 = so3_k2k[0]*u_flt + so3_k2k[1]*v_flt + so3_k2k[2]*1;
@@ -114,15 +114,23 @@ __kernel void so3_grad(
 	int  u2			= floor((u2_flt/reduction)+0.5f) ;												// nearest neighbour interpolation
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;												// NB this corrects the sparse sampling to the redued scales.
 
-	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; 										// read_cols_
+	//if(u==1 && v==1)printf("\n__kernel void so3_grad(..) u=1 , v=1 , u2=%i, v2=%i, reduction=%u\n", u2, v2, reduction );
+	if(u==10 && v==10){
+		float so3[16];
+		for(int i=0; i<16; i++){so3[i] =  so3_k2k[i];}
+		printf("\n__kernel void so3_grad(..) u=10, v=10, u2=%i, v2=%i, reduction=%u,  so3_k2k[]=(%f, %f, %f, %f,    %f, %f, %f, %f,    %f, %f, %f, %f,    %f, %f, %f, %f),"
+		, u2, v2, reduction, so3[0], so3[1], so3[2], so3[3], so3[4], so3[5], so3[6], so3[7], so3[8], so3[9], so3[10], so3[11], so3[12], so3[13], so3[14], so3[15] );
+	}
+
+	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; 										// read_cols_   ... Where to read new frame.
 	uint num_DoFs = 3;
 
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}, zero_f4={0.0f,0.0f,0.0f,0.0f};
-	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
-	if (!intersection) read_index_new = read_index;
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels); // chk (u,v,u2,v2) are within bounds of image.
+	if (!intersection) read_index_new = read_index;													// if anything is out of bounds, .... ? ambigious
 
 	for (int i=0; i<num_DoFs; i++) local_sum_grads[i*local_size + lid] = 0;							// Essential to zero local mem.
-	if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
+	if (  intersection  ) {																			// if (not cleanly within new frame) skip  TODO Problem u2&v2 are wrong.
 		int idx = 0;
 		rho     = img_cur[read_index] - img_new[read_index_new];
 		rho[3]  = alpha;
@@ -320,5 +328,56 @@ __kernel void se3_grad(
 				global_sum_grads[rho_global_sum_offset] = 0;
 			}
 		}
+	}
+}
+
+__kernel void reduce (																				// TODO use this for the second stage image summation tasks.
+	__constant 	uint*		mipmap_params,		//0		// kernel not currently in use, needs to integrate with mipmap.
+	__constant 	uint*		uint_params,		//1
+	__global	float8*		se3_sum,			//2
+	__local		float8*		local_sum_grads,	//3
+	__global 	float8*		se3_sum2			//4
+		 )
+{
+	uint global_id_u 	= get_global_id(0);
+	float global_id_flt = global_id_u;
+	if (global_id_u >= mipmap_params[MiM_PIXELS]) return;
+	uint lid 			= get_local_id(0);
+	uint local_size 	= get_local_size(0);
+	uint group_size 	= local_size;
+	uint read_offset_ 	= mipmap_params[MiM_READ_OFFSET];
+	uint read_cols_ 	= mipmap_params[MiM_READ_COLS];
+	uint mm_cols		= uint_params[MM_COLS];
+	uint reduction		= mm_cols/read_cols_;
+
+	uint global_sum_offset 	= read_offset_ / local_size ;											// Compute offset for this layer
+	//
+	local_sum_grads[lid] = se3_sum[global_sum_offset  + global_id_u];
+	int max_iter = ilogb((float)(group_size));
+
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   /= 2;
+		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
+		if (lid<group_size)  local_sum_grads[lid] += local_sum_grads[lid+group_size];				// local_sum_grads
+	}
+
+	if (lid==0) {
+		uint group_id 	= get_group_id(0);
+		uint global_sum_offset = read_offset_ / local_size ;										// Compute offset for this layer
+		uint num_groups = get_num_groups(0);
+		/*
+		printf("\n\n reduction=%u,  global_sum_offset=%u,  num_groups=%u,  group_id=%u, \nlocal_sum_grads[lid]=( %f, %f, %f, %f,   %f, %f, %f, %f ),  \nse3_sum2[group_id]=( %f, %f, %f, %f,   %f, %f, %f, %f ) "\
+		, reduction, global_sum_offset,  num_groups, group_id \
+		, local_sum_grads[lid][0],local_sum_grads[lid][1],local_sum_grads[lid][2],local_sum_grads[lid][3], local_sum_grads[lid][4],local_sum_grads[lid][5],local_sum_grads[lid][6],local_sum_grads[lid][7] \
+		, se3_sum2[group_id][0], se3_sum2[group_id][1], se3_sum2[group_id][2], se3_sum2[group_id][3],    se3_sum2[group_id][4], se3_sum2[group_id][5], se3_sum2[group_id][6], se3_sum2[group_id][7]\
+		);
+		*/
+		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };			// Write layer data to first entry
+		if (global_id_u == 0) {se3_sum2[global_sum_offset] = layer_data; }
+		global_sum_offset += 1+ group_id;
+
+		if (local_sum_grads[0][7] >0){
+			se3_sum2[global_sum_offset] = local_sum_grads[0] / local_sum_grads[0][7];				// Save to se3_sum2 // Count hits, and divide group by num hits, without using atomics!
+		}else se3_sum2[global_sum_offset] = 0;
 	}
 }

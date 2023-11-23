@@ -13,10 +13,6 @@ Vec3f direction;
 Vec3f upvector;
 void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& cameraMatrix)
 {
-    int verbosity = 0;
-    int local_verbosity_threshold = 1;
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 0"<<flush;
-	
     char     text_file_name[600];                                               // open .txt file
     sprintf(text_file_name,"%s",filepath);
     ifstream cam_pars_file(text_file_name);
@@ -26,10 +22,6 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
     Point3f  upvector;
     Point3f  posvector;
     Point3f  rightvector;
-    																													if(verbosity>local_verbosity_threshold) {
-                                                                                                                            cout << "\n convertAhandaPovRayToStandard_chk 1"<<endl<<flush;
-                                                                                                                        }
-	
     while(1){
         cam_pars_file.getline(readlinedata,300);                                // read line
         if ( cam_pars_file.eof() ) break;
@@ -73,22 +65,12 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
             iss >> rightvector.y;    iss.ignore(1,',');
         }
     }
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 2"<<flush;
-	
     R        = Mat(3,3,CV_32F);                                                 // compute rotation & translation
     R.row(0) = Mat(direction.cross(upvector)).t();
     R.row(1) = Mat(-upvector).t();
     R.row(2) = Mat(direction).t();
     T        = -R*Mat(posvector);
-    // debug
-    Point3f test_point = {1,1,1}; 
-    Mat test_T = -R*Mat(test_point);
-    																													if(verbosity>local_verbosity_threshold) {
-                                                                                                                            cout << "\n convertAhandaPovRayToStandard_chk 3"<<flush;
-                                                                                                                            cout << "\n posvector="<< posvector.x << ", " << posvector.y << ", " << posvector.z << endl << flush;
-                                                                                                                            cout << "\n test_T="<< test_T.at<float>(0) << ", " << test_T.at<float>(1) << ", " << test_T.at<float>(2) << endl << flush;
-                                                                                                                        }
-	
+
     float focal_length  = norm(direction);                                      // compute intrinsic cameraMatrix
     float aspect_ratio  = norm(rightvector)/norm(upvector);
     float angle         = norm(rightvector)/norm(direction);
@@ -98,41 +80,13 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
     float Oy            = (height+1)*0.5;
     float fx            = width  * norm(direction) / norm(rightvector);         // pixel size
     float fy            = height * norm(direction) / norm(upvector);
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 4"<<flush;
+
     float K[9]  = {fx,    0,   Ox, \
                     0,   fy,   Oy, \
                     0,    0,    1
     };
     cameraMatrix = cv::Mat(3,3, CV_32FC1);
     for (int i=0; i<9; i++){ cameraMatrix.at<float>(i/3, i%3) = K[i]; }
-    																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 5"<<flush;
-	
-}
-
-Mat loadDepthAhanda(string filename, int r,int c,Mat cameraMatrix){
-    ifstream in(filename.c_str());
-    int sz=r*c;
-    Mat_<float> out(r,c);
-    float * p=(float *)out.data;
-    for(int i=0;i<sz;i++){
-        in>>p[i];
-        assert(p[i]!=0);
-    }
-    Mat_<float> K = cameraMatrix;
-    float fx=K(0,0);
-    float fy=K(1,1);
-    float cx=K(0,2);
-    float cy=K(1,2);
-    for (int i=0;i<r;i++){
-        for (int j=0;j<c;j++,p++){
-            float x=j;
-            float y=i;
-            x=(x-cx)/fx;
-            y=(y-cy)/fy;
-            *p=*p/sqrt(x*x+y*y+1);      // converts radial depth to z-depth
-        }
-    }
-    return out;
 }
 
 /*

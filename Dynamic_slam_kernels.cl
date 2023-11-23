@@ -728,7 +728,7 @@ __kernel void so3_grad(
 	__local		float4*	local_sum_rho_sq,		//14												// 1 DoF, float4 channels
 	__global 	float4*	global_sum_rho_sq		//15
 	)
- {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
+{																									// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
@@ -886,7 +886,7 @@ __kernel void se3_grad(
 	__local		float4*	local_sum_rho_sq,		//14	1 DoF, float4 channels
 	__global 	float4*	global_sum_rho_sq		//15
 	)
- {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
+{																									// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);

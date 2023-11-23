@@ -130,7 +130,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
 																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("imgmem"), 2*mm_size_bytes_C4,   mm_Image_size,   CV_32FC(8),false, -1, 0 );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
-																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[LAYERS]
+																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[COSTVOL_LAYERS]
 																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 
@@ -231,7 +231,7 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 	cl_event writeEvt;
 	status = clEnqueueWriteBuffer(uload_queue,  fp32_param_buf, CL_FALSE, 0, 16 * sizeof(float), fp32_params, 0, NULL, &writeEvt);										// WriteBuffer param_buf ##########
 												if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: \nRunCL::updateA_chk0\n" << endl; exit_(status);}
-																																			else if(verbosity>0) {cout << "\nRunCL::updateA_chk0.5\t\tlayers="<< fp32_params[LAYERS] <<" \n" << flush;}
+																																			else if(verbosity>0) {cout << "\nRunCL::updateA_chk0.5\t\tlayers="<< fp32_params[COSTVOL_LAYERS] <<" \n" << flush;}
 
 	status = clFlush(uload_queue); 				if (status != CL_SUCCESS)	{ cout << "\nclFlush status = " << status << checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = waitForEventAndRelease(&writeEvt); if (status != CL_SUCCESS)	{ cout << "\nwaitForEventAndRelease status = "<<status<<checkerror(status)<<"\n"<<flush; exit_(status);}
