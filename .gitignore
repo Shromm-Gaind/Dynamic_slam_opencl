@@ -4,5 +4,5 @@ output/*
 build/*
 .Dynamic_slam_kernels.cl.kate-swp
 *.kate-swp
-local_conf/*.json
+#local_conf/*.json
 Notes_variables.cl

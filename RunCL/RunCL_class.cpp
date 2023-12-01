@@ -1,4 +1,5 @@
 #include "RunCL.h"
+#include "../utils/json_tree.hpp"
 
 void RunCL::testOpencl(){
 	cout << "\n\nRunCL::testOpencl() ############################################################\n\n" << flush;
@@ -159,7 +160,7 @@ void RunCL::createQueues(){
 }
 
 void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
-	cl_int 	status;
+	cl_int 	status;																															if(verbosity>0) cout << "RunCL::createAndBulidProgramFromSource(..)\n" << flush;
 	cl_uint	num_files;
     char** 	strings;
     size_t*	lengths;
@@ -172,7 +173,7 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
 
     for (int i=0; i<num_files; i++){                                                                                                        // for kernel source files in obj array
         const char *filename = obj["kernel_files"][i].asCString();
-        stringstream filepath; filepath << foldername << filename;
+        stringstream filepath; filepath << foldername << filename;																			if(verbosity>0) cout << "\nfilepath = "<< filepath.str() << flush;
 		const std::string tmp =  filepath.str();
 		const char* char_filepath = tmp.c_str();
 		program_handle = fopen(char_filepath, "r");                                          if(program_handle == NULL) { perror("Couldn't find the program file"); exit(1); }
@@ -292,6 +293,7 @@ void RunCL::initialize_fp32_params(){
 void RunCL::initialize(){
 	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) {PrintJSONTree( obj, 1);}
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
 	image_size_bytes_C1	= baseImage.total() * sizeof(float);
@@ -305,7 +307,7 @@ void RunCL::initialize(){
 	mm_num_reductions	= obj["num_reductions"].asUInt();																					// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
 	mm_start			= 0;
 	mm_stop				= mm_num_reductions;																								if(verbosity>local_verbosity_threshold) cout << "\nRunCL::initialize_chk0.5,  mm_start="<<mm_start<<",  mm_stop="<<mm_stop<<" \n" << flush;
-	mm_gaussian_size	= obj["gaussian_size"].asUInt();
+	mm_gaussian_size	= obj["gaussian_size"].asUInt();								cout<<"\nmm_gaussian_size = "<<mm_gaussian_size<<", obj[\"gaussian_size\"].asUInt() = "<< obj["gaussian_size"].asUInt() <<"\n"<<flush;
 	mm_margin			= obj["MipMap_margin"].asUInt() * mm_num_reductions;
 	mm_width 			= baseImage_width  + 2 * mm_margin;
 	mm_height 			= baseImage_height * 2.1  + 2 * mm_margin;  // 1.5
