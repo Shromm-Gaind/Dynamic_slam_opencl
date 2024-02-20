@@ -8,10 +8,10 @@
 
     // Setup openCL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    "kernel_filepath":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/Dynamic_slam_kernels.cl",           // ../Dynamic_slam_kernels.cl  // need file paths for building kernels
+    // "kernel_filepath":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/Dynamic_slam_kernels.cl",           // ../Dynamic_slam_kernels.cl  // need file paths for building kernels
 
     "kernel_folder":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
-    "kernel_files":["kernels_macros.h", "kernels_load_image.cl", "kernels_mapping.cl", "kernels_tracking.cl", "kernels_setup_keyframe.cl"],        // array of kernel filenames
+    "kernel_files":["kernels_macros.h", "kernels.h", "kernels_photometric_cost.cl", "kernels_load_image.cl", "kernels_tracking.cl", "kernels_mapping.cl", "kernels_setup_keyframe.cl"],         // array of kernel filenames
 
     "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
 

@@ -1,6 +1,7 @@
 #include "kernels_macros.h"
+#include "kernels.h"
 
-
+/*  Moved to "kernels_photometric_cost.cl"
 ///////////////////// Photometrc cost ///////////////////
 
 // Tau_HSV_grad(I) := distance in 8D space [ sin(Hue ), cos(Hue ), Saturation , (Saturation)/dx , (Saturation)/dy , Value , (Value)/dx , (Vallue)/dy ]
@@ -22,8 +23,8 @@ float8 Tau_HSV_grad_8chan (float8 B, float8 c){ // Poss also weight vector.
 
 float8 nearest_neigbour (float8* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction){
 	float8 	c;
-	int int_u2 = ceil(u_flt/reduction-0.5);									// nearest neighbour interpolation
-	int int_v2 = ceil(v_flt/reduction-0.5);									// NB this corrects the sparse sampling to the redued scales.
+	int int_u2 = ceil(u_flt/reduction-0.5f);									// nearest neighbour interpolation
+	int int_v2 = ceil(v_flt/reduction-0.5f);									// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + int_v2 * cols  + int_u2;  			// uint read_index_new = (int_v2*cols + int_u2)*3;  // NB float4 c; float4* img now float8* for HSV_grad_mem
 	c = img[read_index_new];
 	return c;
@@ -45,7 +46,7 @@ float8 bilinear (__global float8* img, float u_flt, float v_flt, int cols, int r
 	c = factor_y * (c_11*factor_x  +  c_01*(1-factor_x))   +   (1-factor_y) * (c_10*factor_x  + c_00*(1-factor_x));
 	return c;
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////////// Depth mapping //////////////////////////////////////////
 
 __kernel void DepthCostVol(
@@ -74,7 +75,7 @@ __kernel void DepthCostVol(
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
-	uint margin 		= uint_params[MARGIN];
+	//uint margin 		= uint_params[MARGIN];
 
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;
@@ -92,10 +93,10 @@ __kernel void DepthCostVol(
 	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
 	float min_inv_depth = fp32_params[MIN_INV_DEPTH];
 
-	float 	u2,	v2, rho,	inv_depth=0.0,	ns=0.0,	mini=0.0,	minv=3.0,	maxv=0.0;	// variables for the cost vol
+	float 	u2,	v2, rho,	inv_depth=0.0f,	ns=0.0f,	mini=0.0f,	minv=3.0f,	maxv=0.0f;	// variables for the cost vol
 	float8	rho_8chan;
 	int 	int_u2, int_v2, coff_00, coff_01, coff_10, coff_11, cv_idx=read_index,	layer = 0;
-	float8 	c, c_00, c_01, c_10, c_11;
+	float8 	c;																			//, c_00, c_01, c_10, c_11;
 	float 	c0 = cdata[cv_idx];															// cost for this elem of cost vol
 	float 	w  = hdata[cv_idx];															// count of updates of this costvol element. w = 001 initially
 
@@ -127,8 +128,8 @@ __kernel void DepthCostVol(
 		u2   = uh3/wh3;
 		v2   = vh3/wh3;
 
-		int_u2 = ceil(u2/reduction-0.5);												// nearest neighbour interpolation
-		int_v2 = ceil(v2/reduction-0.5);												// NB this corrects the sparse sampling to the redued scales.
+		int_u2 = ceil(u2/reduction-0.5f);												// nearest neighbour interpolation
+		int_v2 = ceil(v2/reduction-0.5f);												// NB this corrects the sparse sampling to the redued scales.
 
 		if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  	// if (not within new frame) skip     || (in_image == false)
 			cv_idx = read_index + layer*mm_pixels;											// Step through costvol layers
@@ -272,7 +273,7 @@ __kernel void UpdateQD(
 __kernel void  UpdateG(
 	__private	uint		mipmap_layer,	//0
 	__constant	uint8*		mipmap_params,	//1
-	__constant 	uint*		uint_params,	//2
+	__constant 	uint*		uint_params,	//2grep -rn
 	__constant 	float*		fp32_params,	//3
 	__global 	float4*		img,			//4
 	__global 	float4*		g1p				//5
@@ -395,7 +396,7 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	const int 	start_layer = set_start_layer(d, r, max_d, depthStep, costvol_layers, u, v);  // 0;//
 	const int 	end_layer   = set_end_layer  (d, r, max_d, depthStep, costvol_layers, u, v);  // costvol_layers-1; //
 	int 		minl 		= 0;
-	float 		Eaux_min 	= 1e+30; 								// set high initial value
+	float 		Eaux_min 	= 1e+30f; 						// set high initial value
 
 	for(int l = start_layer; l <= end_layer; l++) {
 		const float cost_total = get_Eaux(theta, d, (float)l, min_d, depthStep, lambda, scale_Eaux, cdata[read_index+l*layer_step]);
