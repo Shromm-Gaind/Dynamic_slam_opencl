@@ -329,7 +329,8 @@ void RunCL::img_gradients(){ //getFrame();
 																																				ss_path << "g1mem";
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_3Channel(	g1mem, ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				//DownloadAndSave_3Channel(	g1mem, ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  g1mem,	ss.str(), paths.at("g1mem"), 	mm_size_bytes_C8, mm_Image_size,  CV_32FC(8),false, -1, 0 );
 																																				///
 																																				ss_path.str(std::string()); // reset ss_path
 																																				ss_path << "SE3_grad_map_mem"<<flush;
@@ -341,7 +342,7 @@ void RunCL::img_gradients(){ //getFrame();
 																																				ss_path << "HSV_grad_mem"<<flush;
 																																				cout << "\n" << ss_path.str() <<flush;
 																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_HSV_grad(  HSV_grad_mem, ss.str(), paths.at(ss_path.str()), 2*mm_size_bytes_C4, mm_Image_size, CV_32FC(8), false, -1, 0 );
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem, ss.str(), paths.at(ss_path.str()), mm_size_bytes_C8, mm_Image_size, CV_32FC(8), false, -1, 0 );
 
 																																				cout << "\n\n SE3_grad_map_mem = SE3_grad_map_mem = "<<SE3_grad_map_mem;
 																																			}

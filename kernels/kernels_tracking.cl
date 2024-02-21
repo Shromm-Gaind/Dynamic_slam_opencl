@@ -313,7 +313,7 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 		//delta4.w=alpha;
 		float8 delta8;
 		//for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
-		for (int j=0; j<8; j++)     delta8[j] =     rho_8chan[j] *     ( SE3_grad_cur_px[j]  +   SE3_grad_cur_px[j+4]   +   SE3_grad_new_px[j]    +    SE3_grad_new_px[j+4] );
+		for (int j=0; j<8; j++)     delta8[j] = rho_8chan[j] * ( SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4] );
 
 		local_sum_grads[i*local_size + lid] = delta8;												// write grads to local mem for summing over the work group.
 		SE3_incr_map_[read_index + i * mm_pixels ] = delta8;

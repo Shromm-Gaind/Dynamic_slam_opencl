@@ -18,7 +18,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float16*	k2k,			//4
 	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	base,			//5		keyframe_basemem
 
-	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &HSV_grad_mem/*imgmem*/);if(res!=CL_SUCCESS){cout<<"\nimgmem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	img,			//6		HSV_grad_mem/*imgmem*/ now float8
+	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &HSV_grad_mem/*imgmem*/);if(res!=CL_SUCCESS){cout<<"\nHSV_grad_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	img,			//6		HSV_grad_mem/*imgmem*/ now float8
 	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &cdatabuf);				if(res!=CL_SUCCESS){cout<<"\ncdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  	cdata,			//7
 	res = clSetKernelArg(depth_cost_vol_kernel,  8, sizeof(cl_mem), &hdatabuf);				if(res!=CL_SUCCESS){cout<<"\nhdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  	hdata,			//8
 	res = clSetKernelArg(depth_cost_vol_kernel,  9, sizeof(cl_mem), &lomem);				if(res!=CL_SUCCESS){cout<<"\nlomem res = "    		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  	lo,				//9
@@ -127,18 +127,18 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				cout << "\ncount = " << count << flush;
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
-																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 		mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
-																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("imgmem"), 2*mm_size_bytes_C4,   mm_Image_size,   CV_32FC(8),false, -1, 0 );
-																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
-																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[COSTVOL_LAYERS]
-																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
-																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
+																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 			mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("HSV_grad_mem"),	mm_size_bytes_C8,   mm_Image_size,   CV_32FC(8),false, -1, 0 );
+																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
+																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[COSTVOL_LAYERS]
+																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
+																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 
-																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
+																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
 
-																																				DownloadAndSave_8Channel_volume(  cdatabuf_8chan, ss.str(), paths.at("cdatabuf_8chan"), 8*mm_size_bytes_C1, mm_Image_size, CV_32FC1, false, 1, costVolLayers );
+																																				DownloadAndSave_8Channel_volume(  cdatabuf_8chan, ss.str(), paths.at("cdatabuf_8chan"), mm_size_bytes_C8,	mm_Image_size,   CV_32FC1,  false , 1, costVolLayers );
 
-																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
+																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}
@@ -205,18 +205,20 @@ void RunCL::updateG(int count, uint start, uint stop){
     res = clSetKernelArg(updateG_kernel, 1, sizeof(cl_mem), &mipmap_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*		mipmap_params,	//1
 	res = clSetKernelArg(updateG_kernel, 2, sizeof(cl_mem), &uint_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*		uint_params		//2
 	res = clSetKernelArg(updateG_kernel, 3, sizeof(cl_mem), &fp32_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*		fp32_params		//3
-	res = clSetKernelArg(updateG_kernel, 4, sizeof(cl_mem), &keyframe_imgmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float4*	img,			//4
+	res = clSetKernelArg(updateG_kernel, 4, sizeof(cl_mem), &keyframe_imgmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float8*	img,			//4
 	res = clSetKernelArg(updateG_kernel, 5, sizeof(cl_mem), &keyframe_g1mem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p				//5
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk2"<<flush;}
 	mipmap_call_kernel( updateG_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk3 Saving keyframe_g1mem."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num << "_updateG";
-																																				stringstream ss_path;
-																																				ss_path << "keyframe_g1mem";
-																																				cout << "\n" << ss_path.str() <<flush;
-																																				cout << "\n" <<  paths.at(ss_path.str()) <<flush;
-																																				DownloadAndSave_3Channel(	keyframe_g1mem, ss.str(), paths.at(ss_path.str()),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				/*
+																																					stringstream ss_path;
+																																					ss_path << "keyframe_g1mem";
+																																					cout << "\n" << ss_path.str() 			<<flush;
+																																					cout << "\n" << paths.at(ss_path.str()) <<flush;
+																																				*/
+																																				DownloadAndSave_HSV_grad(  keyframe_g1mem,	ss.str(), paths.at("keyframe_g1mem"), 	mm_size_bytes_C8, mm_Image_size,  CV_32FC(8),false, -1, 0 );	//  /* paths.at(ss_path.str()) */// CV_32FC4, 	false );
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk4 Finished."<<flush;}
 }

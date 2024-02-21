@@ -41,7 +41,7 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 	res = clSetKernelArg(transform_depthmap_kernel,  1, sizeof(cl_mem), &mipmap_buf);			if(res!=CL_SUCCESS){cout<<"\nmipmap_buf = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
 	res = clSetKernelArg(transform_depthmap_kernel,  2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nuint_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
 	res = clSetKernelArg(transform_depthmap_kernel,  3, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		k2k,							//3
-	res = clSetKernelArg(transform_depthmap_kernel,  4, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		keyframe_imgmem,				//4		// uses alpha channel to check bounds
+	res = clSetKernelArg(transform_depthmap_kernel,  4, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float8* 	keyframe_imgmem,				//4		// uses alpha channel to check bounds
 	res = clSetKernelArg(transform_depthmap_kernel,  5, sizeof(cl_mem), &keyframe_depth_mem);	if(res!=CL_SUCCESS){cout<<"\nkeyframe_depth_mem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		keyframe_depth_mem,				//5
 	res = clSetKernelArg(transform_depthmap_kernel,  6, sizeof(cl_mem), &depth_mem);			if(res!=CL_SUCCESS){cout<<"\ndepth_mem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float* 		depth_mem,						//6
 
@@ -63,13 +63,9 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	costvol_frame_num = 0;
 	cl_event writeEvt, ev;																													// Load keyframe
 	cl_int res, status;
-	status = clEnqueueCopyBuffer( m_queue, HSV_grad_mem/*imgmem*/, 	keyframe_imgmem, 			0, 0, 2*mm_size_bytes_C4, 0, NULL, &writeEvt);		if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_imgmem\n" 	<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, HSV_grad_mem/*imgmem*/, 	keyframe_imgmem, 			0, 0, mm_size_bytes_C8, 0, NULL, &writeEvt);		if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_imgmem\n" 	<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)_keyframe_imgmem\n" 	<< flush;exit_(status);}
 
-	// res = clSetKernelArg(img_grad_kernel, 10, sizeof(cl_mem), &HSV_grad_mem);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	HSV_grad_mem//10
-
-	//key_frame_depth_map_src
-	//keyframe_depth_mem
 	stringstream ss;
 	ss << "__buildDepthCostVol";
 	save_index = keyFrameCount*1000 + costvol_frame_num;
@@ -79,7 +75,7 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 
 	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src, keyframe_depth_mem,			0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}
 	status = clEnqueueCopyBuffer( m_queue, depth_mem_GT, 			keyframe_depth_mem_GT,		0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}
-	status = clEnqueueCopyBuffer( m_queue, g1mem, 					keyframe_g1mem, 			0, 0, mm_size_bytes_C4, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_g1mem\n" 						<< flush;exit_(status);}
+	status = clEnqueueCopyBuffer( m_queue, g1mem, 					keyframe_g1mem, 			0, 0, mm_size_bytes_C8, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_g1mem\n" 						<< flush;exit_(status);}
 	status = clEnqueueCopyBuffer( m_queue, SE3_grad_map_mem, 		keyframe_SE3_grad_map_mem, 	0, 0, mm_size_bytes_C1*6*8, 0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_SE3_grad_map_mem\n" 			<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)\n" 	<< flush;exit_(status);}
 
@@ -114,10 +110,12 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 																																				DownloadAndSave(		 	keyframe_depth_mem,   		ss.str(), paths.at("keyframe_depth_mem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.7 ."<<flush;
 
-																																				DownloadAndSave_3Channel(	keyframe_g1mem, ss.str(), paths.at("keyframe_g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				//DownloadAndSave_3Channel(	keyframe_g1mem, ss.str(), paths.at("keyframe_g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  keyframe_g1mem,	ss.str(), paths.at("keyframe_g1mem"), 	mm_size_bytes_C8, mm_Image_size,  CV_32FC(8),false, -1, 0 );
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.8 ."<<flush;
 
-																																				DownloadAndSave_3Channel(	g1mem, 			ss.str(), paths.at("g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				//DownloadAndSave_3Channel(	g1mem, 	ss.str(), paths.at("g1mem"),  mm_size_bytes_C4, mm_Image_size,  CV_32FC4, 	false );
+																																				DownloadAndSave_HSV_grad(  g1mem,	ss.str(), paths.at("g1mem"),  mm_size_bytes_C8, mm_Image_size,  CV_32FC(8), false, -1, 0 );
 																																				cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk1.9 ."<<flush;
 
 																																				DownloadAndSave_6Channel_volume(  keyframe_SE3_grad_map_mem, ss.str(), paths.at("keyframe_SE3_grad_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 );

@@ -318,6 +318,7 @@ void RunCL::initialize(){
 	mm_Image_type		= temp.type();
 	mm_size_bytes_C3	= temp.total() * temp.elemSize() ;																					// for mipmaps with CV_16FC3  mm_width*mm_height*fp16_size;// for FP16 'half', or BF16 on Tensor cores
 	mm_size_bytes_C4	= temp.total() * 4 * sizeof(float);
+	mm_size_bytes_C8	= temp.total() * 8 * sizeof(float);
 	cv::Mat temp2(mm_height, mm_width, CV_32FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
@@ -346,7 +347,7 @@ void RunCL::initialize(){
 																																				cout<<"\n";
 																																				cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
 																																				cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
-																																				cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_size_bytes_C4="<< mm_size_bytes_C4 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
+																																				cout<<"\n"<<", mm_size_bytes_C1="<< mm_size_bytes_C1  <<", mm_size_bytes_C3="<< mm_size_bytes_C3 <<", mm_size_bytes_C4="<< mm_size_bytes_C4 << ", mm_size_bytes_C8="<< mm_size_bytes_C8 <<", mm_vol_size_bytes ="<<  mm_vol_size_bytes  <<flush;
 																																				cout<<"\n";
 																																				cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
 																																				cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
@@ -527,14 +528,14 @@ void RunCL::allocatemem(){
 	imgmem				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 1= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	imgmem_blurred		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 1= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
-	gxmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 2= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	gymem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 3= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
-	g1mem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 4= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	gxmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C8, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 2= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	gymem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C8, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 3= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	g1mem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C8, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 4= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	k_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*10,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 5= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // camera intrinsic map
 	dist_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*28,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 6= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // distorsion map
-	SE3_grad_map_mem 	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*6*8*2,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 7= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*3channels=18, but 4*6=24 because hsv img gradient is held in float4
+	SE3_grad_map_mem 	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C8*6*2,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 7= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // SE3_map * img grad, 6DoF*8channels=48     // 6DoF*3channels=18,but 4*6=24 because hsv img gradient is held in float4
 
-	keyframe_SE3_grad_map_mem = clCreateBuffer(m_context, CL_MEM_READ_WRITE 				, mm_size_bytes_C1*6*8*2,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 8= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	keyframe_SE3_grad_map_mem = clCreateBuffer(m_context, CL_MEM_READ_WRITE 				, mm_size_bytes_C8*6*2,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 8= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 	SE3_incr_map_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*24,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 9= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // For debugging before summation.
 	SE3_map_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1*12,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 10= "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// (row, col) increment fo each parameter.
@@ -546,7 +547,7 @@ void RunCL::allocatemem(){
 	keyframe_depth_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,			0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 15= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // The depth map for tracking, i.e. used when adding frames to the cost volume.
 	keyframe_depth_mem_GT= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,			0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 15.5= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	//keyframe_basemem	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C4,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// Depth mapping buffers
-	keyframe_g1mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 16= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	keyframe_g1mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C8, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 16= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 	dmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1,			0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 17= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // depth in the mapping calculation.
 	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 18= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // 'auxiliary variable to depth" in the mapping calculation.
@@ -581,7 +582,7 @@ void RunCL::allocatemem(){
 	var_sum_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, pix_sum_size_bytes,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 38= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	//reduce_param_buf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 8 * sizeof(uint)	,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
-	HSV_grad_mem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 2*mm_size_bytes_C4,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 39= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	HSV_grad_mem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, mm_size_bytes_C8,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 39= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	dmem_disparity		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C4,			0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 40= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	dmem_disparity_sum	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, d_disp_sum_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 41= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
@@ -634,7 +635,7 @@ void RunCL::allocatemem(){
 	status = clEnqueueFillBuffer(uload_queue, img_sum_buf, 			&zero, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, se3_sum_mem, 			&zero, sizeof(float),   0, se3_sum_size_bytes,		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 
-	status = clEnqueueFillBuffer(uload_queue, HSV_grad_mem, 		&zero, sizeof(float),   0, 2*mm_size_bytes_C4, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, HSV_grad_mem, 		&zero, sizeof(float),   0, mm_size_bytes_C8, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, dmem_disparity, 		&zero, sizeof(float),   0, mm_size_bytes_C4, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, dmem_disparity_sum, 	&zero, sizeof(float),   0, d_disp_sum_size_bytes, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 

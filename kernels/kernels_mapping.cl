@@ -273,10 +273,10 @@ __kernel void UpdateQD(
 __kernel void  UpdateG(
 	__private	uint		mipmap_layer,	//0
 	__constant	uint8*		mipmap_params,	//1
-	__constant 	uint*		uint_params,	//2grep -rn
+	__constant 	uint*		uint_params,	//2
 	__constant 	float*		fp32_params,	//3
-	__global 	float4*		img,			//4
-	__global 	float4*		g1p				//5
+	__global 	float8*		img,			//4		// keyframe_imgmem in HSV_grad colorspace
+	__global 	float8*		g1p				//5
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -299,19 +299,25 @@ __kernel void  UpdateG(
 	float alphaG		= fp32_params[ALPHA_G];
 	float betaG 		= fp32_params[BETA_G];
 
-	float4 pr 	= img[offset + rtoff];
-	float4 pl 	= img[offset + lfoff];
-	float4 pu 	= img[offset + upoff];
-	float4 pd 	= img[offset + dnoff];
+	float8 pr 	= img[offset + rtoff];
+	float8 pl 	= img[offset + lfoff];
+	float8 pu 	= img[offset + upoff];
+	float8 pd 	= img[offset + dnoff];
 
-	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
-	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
+	//float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
+	//float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
 
+	float8 gx = pr - pl;																			// Signed img gradient in in HSV_grad colorspace
+	float8 gy = pd - pu;
+	/*
 	float4 g1	= { \
 		 exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
 		 exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
 		 1.0f };
+	*/
+	float8 g1 =  exp(-alphaG * pow(sqrt(gx*gx + gy*gy), betaG) );
+
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;
 	g1p[offset]= g1;
 }
