@@ -83,7 +83,7 @@ void Dynamic_slam::initialize_camera(){
 																																					cout<<"\tobj[\"cameraMatrix\"][i].asFloat()="<< obj["cameraMatrix"][i].asFloat() <<","<<flush;
 																																				}
 																																			}
-	generate_invK();
+	//generate_invK();
 	R 				= cv::Mat::eye(3,3 , CV_32FC1);																									// intialize ground truth extrinsic data, NB Mat (int rows, int cols, int type)
 	T 				= cv::Mat::zeros(3,1 , CV_32FC1);
 	SO3_pose2pose	= Matx33f_eye;
@@ -96,7 +96,7 @@ void Dynamic_slam::initialize_camera(){
 																																				for (int i=0; i<9; i++){cout << "\n R.at<float>("<<i<<")="<< R.at<float>(i)<< flush ;  }
 																																			}
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 2:" <<flush;}
-	// TODO Also initialize any lens distorsion, vinetting. etc
+	// TODO Also initialize any lens distorsion, vignetting. etc
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 3:" <<flush;}
 	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 4:" <<flush;}
@@ -154,6 +154,7 @@ void Dynamic_slam::optimize_depth(){
 	runcl.G_count				= 0;
 	runcl.initialize_fp32_params();											// reset params for update QD & A
 	
+	cacheGValues();															// initialize "keyframe_g1mem"" map of image edges.
 	do{ 
 		for (int i = 0; i < max_inner_opt_count; i++) updateQD();			// Optimize Q, D   (primal-dual)		/ *5* /
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)

@@ -171,7 +171,7 @@ __kernel void UpdateQD(
 	__constant 	uint8*	mipmap_params,		//1
 	__constant 	uint*	uint_params,		//2
 	__global 	float*  fp32_params,		//3
-	__global 	float4* g1pt,				//4
+	__global 	float4* g1pt,				//4		// keyframe_g1mem
 	__global 	float* 	qpt,				//5		// qmem,						//	2 * mm_size_bytes_C1
 	__global 	float*  apt,				//6		// amem,     auxilliary A
 	__global 	float*  dpt					//7		// dmem,     depth D
@@ -275,8 +275,8 @@ __kernel void  UpdateG(
 	__constant	uint8*		mipmap_params,	//1
 	__constant 	uint*		uint_params,	//2
 	__constant 	float*		fp32_params,	//3
-	__global 	float8*		img,			//4		// keyframe_imgmem in HSV_grad colorspace
-	__global 	float8*		g1p				//5
+	__global 	float8*		img,			//4		// keyframe_imgmem in "HSV_grad" colorspace
+	__global 	float8*		g1p				//5     // keyframe_g1mem
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
