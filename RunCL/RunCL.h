@@ -104,7 +104,7 @@ public:
 
 	int  waitForEventAndRelease(cl_event *event);
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential=false);						// Call kernels on mipmap: start,stop allow running specific layers.
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop ); }
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, true ); }
 
 	void initialize_fp32_params();
 	void initialize();																													// Setting up buffers & mipmap parameters

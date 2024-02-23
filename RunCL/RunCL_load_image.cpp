@@ -421,6 +421,7 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 
 	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, mm_gaussian_size*mm_gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
 	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap_depthmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+
 	size_t local_size = local_work_size;																																							// set kernel args
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                                      __private	 uint	    layer,		    //0
     res = clSetKernelArg(mipmap_float_kernel, 1, sizeof(cl_mem), 					 	&mipmap_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant uint*		mipmap_params,	//1
@@ -430,9 +431,12 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 	res = clSetKernelArg(mipmap_float_kernel, 5, (local_size+4) *5*sizeof(float), 		NULL);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local    float4*	local_img_patch //5
 
 	mipmap_call_kernel( mipmap_float_kernel, m_queue );// TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
+																																			cout<<"\nRunCL::mipmap_depthmap(..)_chk1"<<flush;
 
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap_depthmap(..)_chk3 Finished all loops."<<flush;
+																																			}
+																																			if(verbosity>local_verbosity_threshold) {
 																																				stringstream ss;	ss << dataset_frame_num << "_mipmap_depthmap";
 																																				cv::Size new_Image_size = cv::Size(mm_width, mm_height);
 																																				size_t   new_size_bytes = mm_width * mm_height * 4*4;

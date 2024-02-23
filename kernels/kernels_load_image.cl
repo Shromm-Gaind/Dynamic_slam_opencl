@@ -315,13 +315,16 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
+//global_id_u%1000)
+//													if ( (global_id_u%1000) == 0){printf("\n\n__kernel void mipmap_linear_flt(..), chk_0 __private	uint	layer=%u,  global_id_u=%u", layer, global_id_u);}
+
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
-	/*
-																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
-	*/
+
+//													if ( (global_id_u%1000) ==0){printf("\n\n__kernel void mipmap_linear_flt(..), chk_1 __private	uint	layer=%u", layer);}
+
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -334,13 +337,25 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint mm_cols		= uint_params[MM_COLS];   													// whole mipmap
 
 	uint write_row   	= global_id_u / write_cols_ ;
-	uint write_column 	= fmod(global_id_flt, write_cols_);
+
+	float write_column_a = (global_id_flt/write_cols_);
+	float write_column_b = (global_id_u/write_cols_);
+	float write_column_c =  write_column_a -  write_column_b;
+	float write_column_d =  write_column_c *  write_cols_;
+
+	uint write_column 	= floor(write_column_d);     //fmod(global_id_flt, write_cols_);   fmod is not working on WS with RTX3080, poss old opencl version?
 
 	uint read_row    	= 2*write_row;
 	uint read_column 	= 2*write_column;
 
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column  ;					// NB 4 channels.  + margin
 	uint write_index 	= write_offset_ +  write_row * mm_cols  + write_column ;					// write_cols_, use read_cols_ as multiplier to preserve images  + margin
+
+//	if(global_id_u%10000 == 0)printf("\n\nread_offset_=%u, write_offset_=%u , read_rows_=%u , write_rows_=%u , read_cols_=%u , write_cols_=%u ",read_offset_, write_offset_, read_rows_, write_rows_, read_cols_, write_cols_);
+
+	if(global_id_u%1000 == 0)printf("\n\n	margin =%u , mm_cols=%u , write_row=%u, write_column_d=%f, write_column=%u , read_row=%u , read_index=%u , write_index=%u , global_id_flt=%f, global_id_u=%u \n\n", margin , mm_cols, write_row, write_column_d, write_column, read_row, read_index, write_index, global_id_flt, global_id_u);
+
+//	if(global_id_u%1000 == 0)printf("\n\n	write_column_a=%f, write_column_b=%f, write_column_c=%f, write_column_d=%f  \n\n", write_column_a, write_column_b, write_column_c, write_column_d );
 
 	for (int i=0, j=-2; i<5; i++, j++){																// Load local_img_patch
 		local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
@@ -363,6 +378,8 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		}
 	}
 
+//													if (global_id_u%1000 == 0){printf("\n\n__kernel void mipmap_linear_flt(..), chk_2 __private	uint	layer=%u,  global_id_u=%u", layer, global_id_u);}
+
 	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
 	float reduced_pixel = 0;
 	for (int i=0; i<5; i++){
@@ -371,6 +388,8 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		}
 	}
 
+//													if (global_id_u%1000 ){printf("\n\n__kernel void mipmap_linear_flt(..), chk_3 __private	uint	layer=%u,  global_id_u=%u", layer, global_id_u);}
+
 	if (write_column < 2 || write_column > write_cols_ -3) {
 		reduced_pixel = 0;
 		for (int i=0; i<5; i++){
@@ -378,10 +397,16 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 		}
 	}
 
-	if (write_row>=write_rows_) return;
-	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
+	//												if (global_id_u%1000 ==0){printf("\n\n__kernel void mipmap_linear_flt(..), chk_4 __private	uint	layer=%u,  global_id_u=%u", layer, global_id_u);}
 
+	if (write_row>=write_rows_) {printf("\n (write_row>=write_rows_),   write_row=%u    write_rows_=%u   global_id_u=%u ) ",write_row, write_rows_, global_id_u);   return;}
+
+//	if (global_id_u >= mipmap_params_[MiM_PIXELS]) {printf("(\n global_id_u >= mipmap_params_[MiM_PIXELS])   global_id_u=%u   , mipmap_params_[MiM_PIXELS])=%u  ", global_id_u  , mipmap_params_[MiM_PIXELS] ); return;}											// num pixels to be written & num threads to really use.
+
+//													if (write_index > 1000000){printf("\n __kernel void mipmap_linear_flt(..), chk_5 __private	uint	layer=%u,  global_id_u=%u, write_index=%u", layer, global_id_u, write_index);}
 	img[ write_index] = reduced_pixel;
+
+//													if (global_id_u%1000 ){printf("\n\n__kernel void mipmap_linear_flt(..), chk_6 __private	uint	layer=%u,  global_id_u=%u", layer, global_id_u);}
 }
 
 __kernel void  img_grad(
