@@ -29,7 +29,7 @@
 #define MiM_WRITE_OFFSET	2
 #define MiM_READ_COLS		3	// cols without margins
 #define MiM_WRITE_COLS		4
-#define MiM_GAUSSIAN_SIZE	5	// filter box size
+// #define MiM_GAUSSIAN_SIZE	5	// filter box size
 #define MiM_READ_ROWS		6	// rows without margins
 #define MiM_WRITE_ROWS		7
 

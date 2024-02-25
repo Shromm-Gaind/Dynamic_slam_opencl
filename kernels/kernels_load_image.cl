@@ -150,11 +150,11 @@ __kernel void image_variance(
 __kernel void blur_image(
 	__private	uint	layer,			//0															// Intitial lyer bluring needs a different buffer to write blurred image to.
 	__constant 	uint8*	mipmap_params,	//1															// => the original loading should be to an interim buffer.
-	__constant 	float* 	gaussian,		//2
-	__constant 	uint*	uint_params,	//3
-	__global 	float4*	img,			//4
-	__global	float4* img_blurred,	//5
-	__local	 	float4*	local_img_patch //6
+	//__constant 	float* 	gaussian,		//2
+	__constant 	uint*	uint_params,	//2
+	__global 	float4*	img,			//3
+	__global	float4* img_blurred,	//4
+	__local	 	float4*	local_img_patch //5
 			  )
 {
 	int global_id_u 		= (int)get_global_id(0);
@@ -220,10 +220,10 @@ __kernel void blur_image(
 __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
 	__constant 	uint8*	mipmap_params,	//1
-	__constant 	float* 	gaussian,		//2
-	__constant 	uint*	uint_params,	//3
-	__global 	float4*	img,			//4
-	__local	 	float4*	local_img_patch //5
+	//__constant 	float* 	gaussian,		//2
+	__constant 	uint*	uint_params,	//2
+	__global 	float4*	img,			//3
+	__local	 	float4*	local_img_patch //4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -308,10 +308,10 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
 	__constant 	uint8*	mipmap_params,	//1
-	__constant 	float* 	gaussian,		//2
-	__constant 	uint*	uint_params,	//3
-	__global 	float*	img,			//4
-	__local	 	float*	local_img_patch	//5
+	//__constant 	float* 	gaussian,		//2
+	__constant 	uint*	uint_params,	//2
+	__global 	float*	img,			//3
+	__local	 	float*	local_img_patch	//4
 		 )
 {
 	uint global_id_u 	= get_global_id(0);

@@ -322,7 +322,7 @@ void RunCL::initialize(){
 	cv::Mat temp2(mm_height, mm_width, CV_32FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1  mm_gaussian_size="<<mm_gaussian_size<<" \n\n" << flush;
 																																			// Get the maximum work group size for executing the kernel on the device ///////
 																																			// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
 	cl_int 				status;
@@ -412,7 +412,7 @@ void RunCL::initialize(){
 																																				cout <<"	#define MiM_WRITE_OFFSET	2"<<endl;
 																																				cout <<"	#define MiM_READ_COLS		3	// cols without margins"<<endl;
 																																				cout <<"	#define MiM_WRITE_COLS		4"<<endl;
-																																				cout <<"	#define MiM_GAUSSIAN_SIZE	5	// filter box size"<<endl;
+																																				///cout <<"	#define MiM_GAUSSIAN_SIZE	5	// filter box size"<<endl;
 																																				cout <<"	#define MiM_READ_ROWS		6	// rows without margins"<<endl;
 																																				cout <<"	#define MiM_WRITE_ROWS		7"<<endl;
 																																				cout <<"	"<<endl;
@@ -452,7 +452,7 @@ void RunCL::initialize(){
 																																					cout << "\n MiM_WRITE_OFFSET = " 	<< MipMap[reduction*8 +MiM_WRITE_OFFSET];
 																																					cout << "\n MiM_READ_COLS = " 		<< MipMap[reduction*8 +MiM_READ_COLS];
 																																					cout << "\n MiM_WRITE_COLS = " 		<< MipMap[reduction*8 +MiM_WRITE_COLS];
-																																					cout << "\n MiM_GAUSSIAN_SIZE = " 	<< MipMap[reduction*8 +MiM_GAUSSIAN_SIZE];
+																																					//cout << "\n MiM_GAUSSIAN_SIZE = " 	<< MipMap[reduction*8 +MiM_GAUSSIAN_SIZE];
 																																					cout << "\n MiM_READ_ROWS = " 		<< MipMap[reduction*8 +MiM_READ_ROWS];
 																																					cout << "\n MiM_WRITE_ROWS = " 		<< MipMap[reduction*8 +MiM_WRITE_ROWS];
 																																				}
@@ -463,7 +463,7 @@ void RunCL::initialize(){
 																																			#define MiM_WRITE_OFFSET	2
 																																			#define MiM_READ_COLS		3	// cols without margins
 																																			#define MiM_WRITE_COLS		4
-																																			#define MiM_GAUSSIAN_SIZE	5	// filter box size
+																																			// #define MiM_GAUSSIAN_SIZE	5	// filter box size
 																																			#define MiM_READ_ROWS		6	// rows without margins
 																																			#define MiM_WRITE_ROWS		7
 																																			*/
