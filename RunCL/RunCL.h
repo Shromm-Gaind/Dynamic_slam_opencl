@@ -23,10 +23,13 @@
 #include "../utils/convertTransforms.hpp"
 #include "../kernels/kernels_macros.h"
 
+const uint num_colour_channels = 8;
+
 using namespace std;
 class RunCL
 {
 public:
+
 	Json::Value 		obj;
 	int					verbosity;
 	bool				tiff, png;

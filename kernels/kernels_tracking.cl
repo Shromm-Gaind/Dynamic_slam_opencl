@@ -261,7 +261,7 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 	//float h/z  = k2k[12]*u_flt + k2k_pvt[13]*v_flt + k2k_pvt[14]*1; // +k2k[15]/z
 	float uh3, vh3, wh3;
 
-	// cost volume loop  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// photometric cost ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 	//#define MAX_LAYERS 256 //64
 	//float cost[MAX_LAYERS];
@@ -282,47 +282,41 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 	int_v2 = ceil(v2/reduction-0.5f);																// NB this corrects the sparse sampling to the redued scales.
 	float miss;
 	if ( !((int_u2<0) || (int_u2>read_cols_ -1) || (int_v2<0) || (int_v2>read_rows_-1)) ) {  		// if (not within new frame) skip     || (in_image == false)
-		miss = 1;
-		//cv_idx = read_index + layer*mm_pixels;														// Step through costvol layers
-		c = bilinear(img, u2/reduction, v2/reduction, mm_cols, read_offset_, reduction); 			// bilinear(float8* img, float u_flt, float v_flt, int cols)
-
-		rho						= Tau_HSV_grad(B, c);												// Compute rho photometic cost
-		rho_8chan				= Tau_HSV_grad_8chan(B, c);
+		miss 		= 1;
+		c 			= bilinear(img, u2/reduction, v2/reduction, mm_cols, read_offset_, reduction); 	// bilinear(float8* img, float u_flt, float v_flt, int cols)
+		rho			= Tau_HSV_grad(B, c);															// Compute rho photometic cost
+		rho_8chan	= Tau_HSV_grad_8chan(B, c);
 	} else {
-		miss = 0;
-		rho = 0;
-		rho_8chan = 0;
+		miss 		= 0;
+		rho 		= 0;
+		rho_8chan 	= 0;
 	}
 	///////////////////////////////
 
 
-	Rho_[read_index] = rho_8chan;																	// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
+	Rho_[read_index] = rho_8chan;																	// save pixelwise photometric error map to buffer.
+																									// NB Outside if(){}, to zero non-overlapping pixels.
 	float rho_sq = rho*rho;
-	//float4 rho_4chan_sq = {rho_sq, rho_sq, rho_sq, miss};
+																									//old : float4 rho_4chan_sq = {rho_sq, rho_sq, rho_sq, miss};
 	float8 rho_8chan_sq;
 	for (int i=0; i<8; i++){rho_8chan_sq[i] = rho_8chan[i] * rho_8chan[i]; }
 
 	local_sum_rho_sq[lid] = rho_sq;																	// Also compute global Rho^2.
 
 	for (uint i=0; i<6; i++) {																		// for each SE3 DoF
-		float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
-		//float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
-		float8 SE3_grad_new_px = bilinear_SE3_grad (img, u2/reduction, v2/reduction, mm_cols, read_offset_, reduction, i, mm_pixels);
-
-		//float4 delta4;
-		//delta4.w=alpha;
-		float8 delta8;
-		//for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
-		for (int j=0; j<8; j++)     delta8[j] = rho_8chan[j] * ( SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4] );
-
-		local_sum_grads[i*local_size + lid] = delta8;												// write grads to local mem for summing over the work group.
-		SE3_incr_map_[read_index + i * mm_pixels ] = delta8;
-	}
+		float8 SE3_grad_cur_px 	= SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
+		float8 SE3_grad_new_px 	= bilinear_SE3_grad (img, u2/reduction, v2/reduction, mm_cols, read_offset_, reduction, i, mm_pixels);
+		float8 delta8;																				// per_colour_rho * per_colour_sum_of_grad_per_SE3_DoF
+		for (int j=0; j<8; j++)		delta8[j] 		= rho_8chan[j] * ( SE3_grad_cur_px[j] + SE3_grad_cur_px[j+8] + SE3_grad_new_px[j] + SE3_grad_new_px[j+8] );
+		local_sum_grads[i*local_size + lid] 		= delta8;										// write grads to local mem for summing over the work group.
+		SE3_incr_map_[read_index + i * mm_pixels ]	= delta8;										// For debugging - export map of per_colour_SE3_DoF_increments
+	}																								// TODO Could weight & sum to single channel.
 
 
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
-	int max_iter = 9;//ceil(log2((float)(group_size)));
-	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	int max_iter = 9;//ceil(log2((float)(group_size))); TODO make this a kernel compiliation parameter.... to match group size of the GPU used.  ### portability issue.
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
+																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
 		if (lid<group_size){
@@ -339,7 +333,7 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 		uint se3_global_sum_offset = rho_global_sum_offset *num_DoFs;								// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
 		uint num_groups = get_num_groups(0);
 
-		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };									// Write layer data to first entry
+		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };			// Write layer data to first entry
 		if (global_id_u == 0) {
 			global_sum_rho_sq[rho_global_sum_offset] 	= layer_data;
 			global_sum_grads[se3_global_sum_offset] 	= layer_data;
@@ -350,7 +344,7 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 		if (local_sum_grads[0][3] >0){																// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset] = local_sum_rho_sq[lid];
 			for (int i=0; i<num_DoFs; i++){
-				float8 temp_float8 = local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;
+				float8 temp_float8 = local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;  // divide by count of valid pixels. TODO rework for 8chan.
 				global_sum_grads[se3_global_sum_offset + i] = temp_float8 ;							// local_sum_grads
 			}																						// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 		}else {																						// If no matching pixels in this group, set values to zero.

@@ -314,7 +314,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], 
 		for (int j=start_group; j< stop_group  ; j++){
 			for (int k=0; k<num_DoFs; k++){
 				for (int l=0; l<4; l++){
-					SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); 																// sum j groups for this layer of the MipMap.			// se3_sum_mat.at<float>(j, k);
+					SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l); 		//l =4 =num channels														// sum j groups for this layer of the MipMap.			// se3_sum_mat.at<float>(j, k);
 				}
 			}
 		}
