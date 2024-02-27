@@ -175,7 +175,7 @@ void Dynamic_slam::optimize_depth(){
 }
 
 void Dynamic_slam::report_GT_pose_error(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 	pose2pose_accumulated_GT_algebra 	= SE3_Algebra(pose2pose_accumulated_GT);
 	pose2pose_accumulated_algebra 		= SE3_Algebra(pose2pose_accumulated);
 	pose2pose_accumulated_error_algebra = pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;

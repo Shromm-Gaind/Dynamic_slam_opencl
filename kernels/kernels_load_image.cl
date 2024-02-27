@@ -454,13 +454,12 @@ __kernel void  img_grad(
 	uint v    			= global_id_u / read_cols_;													// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
 	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
-	/*
-		for (uint i=0; i<3; i++) {
-			float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
-			float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
-			SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;// * rotation_wt;
-		}
-	*/
+
+	for (uint i=0; i<3; i++) {
+		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
+		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;// * rotation_wt;
+	}
 	for (uint i=3; i<6; i++) {
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										// NB float4 gx, gy => float8

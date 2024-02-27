@@ -140,6 +140,8 @@ __kernel void so3_grad(
 	float4 rho_sq         = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 	local_sum_rho_sq[lid] = rho_sq;																	// Also compute global Rho^2.
 
+
+
 	for (uint i=0; i<num_DoFs; i++) {																// for each SO3 DoF
 		float4 delta4 = zero_f4;
 		//if ( intersection ){ 																		// never read outside the buffer.
@@ -149,11 +151,17 @@ __kernel void so3_grad(
 			for (int j=0; j<3; j++)  delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
 		//}
 		local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
-		SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
+
+		float4 delta_chk = { SE3_grad_cur_px[0], SE3_grad_cur_px[1], SE3_grad_cur_px[2], SE3_grad_cur_px[3] } ; //
+		SE3_incr_map_[read_index + i * mm_pixels ] =  delta_chk; // delta4;
 	}
 	for (uint i=3; i<6; i++)SE3_incr_map_[read_index + i * mm_pixels ]=zero_f4;						// zero the unused DoFs.
 
-	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
+
+
+
+
+	////////////////////////////////////////////////////////////////////////////////////////		// Reduction  #############################################################################
 
 	int max_iter = 9;//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
