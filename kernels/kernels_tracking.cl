@@ -126,7 +126,8 @@ __kernel void so3_grad(
 	uint num_DoFs = 3;
 
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}, zero_f4={0.0f,0.0f,0.0f,0.0f};
-	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels); // chk (u,v,u2,v2) are within bounds of image.
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+																									// chk (u,v,u2,v2) are within bounds of image.
 	if (!intersection) read_index_new = read_index;													// if anything is out of bounds, .... ? ambigious
 
 	for (int i=0; i<num_DoFs; i++) local_sum_grads[i*local_size + lid] = 0;							// Essential to zero local mem.
@@ -196,7 +197,7 @@ __kernel void so3_grad(
 	}
 }
 
-// new 8 channel se3_grad
+/*// new 8 channel se3_grad
 __kernel void se3_grad(																			// Based on __kernel void DepthCostVol(...){...}
 	__private	uint	mipmap_layer,			//0
 	__constant 	uint8*	mipmap_params,			//1
@@ -262,12 +263,12 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 	float uh3, vh3, wh3;
 
 	// photometric cost ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
+/ *
 	//#define MAX_LAYERS 256 //64
 	//float cost[MAX_LAYERS];
 	//float8 cost_8chan[MAX_LAYERS];
 	//bool miss = false;
-*/
+* /
 	bool in_image = false;
 	if ( global_id_u  < mipmap_params_[MiM_PIXELS] ) in_image = true;
 
@@ -328,10 +329,10 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 	if (lid==0) {
-		uint group_id 	= get_group_id(0);
-		uint rho_global_sum_offset = read_offset_ / local_size ;									// Compute offset for this layer
-		uint se3_global_sum_offset = rho_global_sum_offset *num_DoFs;								// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
-		uint num_groups = get_num_groups(0);
+		uint group_id 				= get_group_id(0);
+		uint rho_global_sum_offset 	= read_offset_ / local_size ;									// Compute offset for this layer
+		uint se3_global_sum_offset 	= rho_global_sum_offset *num_DoFs;								// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
+		uint num_groups 			= get_num_groups(0);
 
 		float8 layer_data = {num_groups, reduction, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };			// Write layer data to first entry
 		if (global_id_u == 0) {
@@ -355,8 +356,8 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 		} // TODO decide on float vs float8 for tracking ....
 	}
  }
-
-/*   old 4 channel se3_grad
+*/
+//   old 4 channel se3_grad
 __kernel void se3_grad(
 	__private	uint	layer,					//0
 	__constant 	uint8*	mipmap_params,			//1
@@ -376,9 +377,9 @@ __kernel void se3_grad(
 	__global 	float4*	global_sum_rho_sq		//15
 	)
  {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
-	uint global_id_u 	= get_global_id(0);
+	uint  global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	uint lid 			= get_local_id(0);
+	uint  lid 			= get_local_id(0);
 
 	uint local_size 	= get_local_size(0);
 	uint group_size 	= local_size;
@@ -491,7 +492,7 @@ __kernel void se3_grad(
 		}
 	}
 }
-*/
+
 
 __kernel void reduce (																				// TODO use this for the second stage image summation tasks.
 	__constant 	uint*		mipmap_params,		//0		// kernel not currently in use, needs to integrate with mipmap.

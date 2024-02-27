@@ -950,8 +950,8 @@ void Dynamic_slam::estimateSE3(){
 			layer--;
 			old_Rho_sq_result = next_layer_Rho_sq_result;
 		}																																	if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 0.5: iter="<<iter<<",  layer="<<layer << flush;}
-		float SE3_results[8][6][num_colour_channels] = {{{0}}};
-		float Rho_sq_results[8][num_colour_channels] = {{0}};
+		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
+		float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
 		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << endl;

@@ -16,7 +16,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	res = clSetKernelArg(depth_cost_vol_kernel,  2, sizeof(cl_mem), &uint_param_buf);		if(res!=CL_SUCCESS){cout<<"\nuint_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,	//2
 	res = clSetKernelArg(depth_cost_vol_kernel,  3, sizeof(cl_mem), &fp32_param_buf);		if(res!=CL_SUCCESS){cout<<"\nfp32_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	float*		fp32_params,	//3
 	res = clSetKernelArg(depth_cost_vol_kernel,  4, sizeof(cl_mem), &k2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float16*	k2k,			//4
-	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_imgmem);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	base,			//5		keyframe_basemem
+	res = clSetKernelArg(depth_cost_vol_kernel,  5, sizeof(cl_mem), &keyframe_imgmem_HSV_grad);		if(res!=CL_SUCCESS){cout<<"\nkeyframe_basemem = "	<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	base,			//5		keyframe_basemem
 
 	res = clSetKernelArg(depth_cost_vol_kernel,  6, sizeof(cl_mem), &HSV_grad_mem/*imgmem*/);if(res!=CL_SUCCESS){cout<<"\nHSV_grad_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8* 	img,			//6		HSV_grad_mem/*imgmem*/ now float8
 	res = clSetKernelArg(depth_cost_vol_kernel,  7, sizeof(cl_mem), &cdatabuf);				if(res!=CL_SUCCESS){cout<<"\ncdatabuf res = " 		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float*  	cdata,			//7
@@ -205,7 +205,7 @@ void RunCL::updateG(int count, uint start, uint stop){
     res = clSetKernelArg(updateG_kernel, 1, sizeof(cl_mem), &mipmap_buf);					if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*		mipmap_params,	//1
 	res = clSetKernelArg(updateG_kernel, 2, sizeof(cl_mem), &uint_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*		uint_params		//2
 	res = clSetKernelArg(updateG_kernel, 3, sizeof(cl_mem), &fp32_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*		fp32_params		//3
-	res = clSetKernelArg(updateG_kernel, 4, sizeof(cl_mem), &keyframe_imgmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float8*	img,			//4
+	res = clSetKernelArg(updateG_kernel, 4, sizeof(cl_mem), &keyframe_imgmem_HSV_grad);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float8*	img,			//4
 	res = clSetKernelArg(updateG_kernel, 5, sizeof(cl_mem), &keyframe_g1mem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p				//5
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk2"<<flush;}

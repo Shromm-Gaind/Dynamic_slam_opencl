@@ -71,7 +71,7 @@ void RunCL::createFolders(){
 
 		 "dmem_disparity"				rgb image ?
 		 */
-	std::vector<std::string> names = {"imgmem", "imgmem_blurred", "keyframe_imgmem", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
+	std::vector<std::string> names = {"imgmem", "imgmem_blurred", "keyframe_imgmem", "keyframe_imgmem_HSV_grad", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
 										"SE3_grad_map_mem", "keyframe_SE3_grad_map_mem", \
 										"SE3_map_mem", \
 										"SE3_incr_map_mem", "SE3_rho_map_mem", \
@@ -333,8 +333,9 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		png_ss<< "/" << folder_tiff.filename().string() << "_" << count;
 		if(show){
 			cv::Mat temp;
-			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)
+			temp_mat.convertTo(temp, CV_8U, 256);																								// NB need CV_U8 for imshow(..)
 			cv::imshow( ss.str(), temp);
+			cv::waitKey(100);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
 		folder_png  += "/png/";

@@ -41,7 +41,7 @@ __kernel void transform_depthmap(
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
 	__global 	float16*k2k,					//3
-	__global 	float8*	old_keyframe,			//4
+	__global 	float4*	old_keyframe,			//4
 	__global	float* 	depth_map_in,			//5
 	__global	float* 	depth_map_out			//6
 		)
