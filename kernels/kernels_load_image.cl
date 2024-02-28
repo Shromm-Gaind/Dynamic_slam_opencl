@@ -393,13 +393,6 @@ __kernel void  img_grad(
 	__constant 	float2*		SE3_map,		//5
 	__global 	float8*		SE3_grad_map,	//6														// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
 	__global 	float8*		HSV_grad		//7
-	/*
-	//__global 	float4*		gxp,			//5
-	//__global 	float4*		gyp,			//6
-	//__global 	float4*		g1p,			//7
-
-	//__global	float* 		depth_map,		//9														// NB GT_depth, not inv_depth
-	*/
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -430,30 +423,17 @@ __kernel void  img_grad(
 	float betaG 		= fp32_params[BETA_G];														// "beta_g": 1.5,			//my dtam_opencl 1.5
 
 	float4 pu, pd, pl, pr;
-	pr =  img[offset + rtoff];
-	pl =  img[offset + lfoff];
-	pu =  img[offset + upoff];
-	pd =  img[offset + dnoff];
+	pr 					=  img[offset + rtoff];
+	pl 					=  img[offset + lfoff];
+	pu 					=  img[offset + upoff];
+	pd 					=  img[offset + dnoff];
 
-	float4 gx	= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };							// Signed img gradient in hsv
-	float4 gy	= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
+	float4 gx			= { (pr.x - pl.x), (pr.y - pl.y), (pr.z - pl.z), 1.0f };					// Signed img gradient in hsv
+	float4 gy			= { (pd.x - pu.x), (pd.y - pu.y), (pd.z - pu.z), 1.0f };
 
-	/*
-		float4 g1  = { \																				// g1 is computed only for keyframes, by UpdateG(..)
-			exp(-alphaG * pow(sqrt(gx.x*gx.x + gy.x*gy.x), betaG) ), \
-			exp(-alphaG * pow(sqrt(gx.y*gx.y + gy.y*gy.y), betaG) ), \
-			exp(-alphaG * pow(sqrt(gx.z*gx.z + gy.z*gy.z), betaG) ), \
-			1.0f };																					// exp(-0.015  * pow(sqrt(gx.x*gx.x + gy.x*gy.x),  1.5)  )
-		if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;
-		g1p[offset]= g1;
-
-		gxp[offset]= fabs(gx);																			// NB taking the absolute loses the sign of the gradient.
-		gyp[offset]= fabs(gy);
-	*/
 	uint reduction		= mm_cols/read_cols_;
 	uint v    			= global_id_u / read_cols_;													// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
-	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
 
 	for (uint i=0; i<3; i++) {
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
