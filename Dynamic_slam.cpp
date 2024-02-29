@@ -126,7 +126,7 @@ int Dynamic_slam::nextFrame() {
 	//use_GT_pose();
 	getFrame();
 	//artificial_SO3_pose_error();
-	estimateSO3();
+//	estimateSO3();
 	//artificial_pose_error();
 	estimateSE3(); 					// own thread ? num iter ?
 	//estimateCalibration(); 		// own thread, one iter.
@@ -847,7 +847,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 }
 
 void Dynamic_slam::estimateSO3(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 	const uint DoF = 3;
 	const uint matxDoF = 9;
 	const uint channels = 4;
@@ -867,7 +867,7 @@ void Dynamic_slam::estimateSO3(){
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSO3()_chk 0.6: iter="<<iter<<",  layer="<<layer << flush;
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
-																																					cout << "\nDynamic_slam::estimateSE3(), Layer "<<i<<" SE3_results/num_groups = (";
+																																					cout << "\nDynamic_slam::estimateSO3(), Layer "<<i<<" SO3_results/num_groups = (";
 																																					for (int k=0; k<DoF; k++){
 																																						cout << "(";
 																																						for (int l=0; l<lst_chan; l++){
@@ -880,7 +880,7 @@ void Dynamic_slam::estimateSO3(){
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance) 
-																																					cout << "\nDynamic_slam::estimateSE3(), Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<",  Rho_sq_results/num_groups = (";
+																																					cout << "\nDynamic_slam::estimateSO3(), Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<",  Rho_sq_results/num_groups = (";
 																																					if (Rho_sq_results[i][lst_chan] > 0){
 																																						for (int l=0; l<lst_chan; l++){  cout << ", " << Rho_sq_results[i][l] / ( Rho_sq_results[i][lst_chan]  *  runcl.img_stats[IMG_VAR+l]  );	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
 																																						}cout << ", " << Rho_sq_results[i][lst_chan] << ")";
@@ -904,7 +904,7 @@ void Dynamic_slam::estimateSO3(){
 		} 
 		
 		old_Rho_sq_result = Rho_sq_result;
-		float SO3_incr[DoF]; for (int SO3=0; SO3<DoF; SO3++) {SO3_incr[SO3] = SO3_results[5][SO3][channel] / ( SO3_results[5][SO3][lst_chan]  *  runcl.img_stats[IMG_VAR+channel]  );}																// For initial example take layer , channel[0] for each SO3 DoF.
+		float SO3_incr[DoF]; for (int SO3=0; SO3<DoF; SO3++) {SO3_incr[SO3] = SO3_results[5][SO3][channel] / ( SO3_results[5][SO3][lst_chan]  *  runcl.img_stats[IMG_VAR+channel]  );}			// For initial example take layer , channel[0] for each SO3 DoF.
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSO3()_chk 1" << flush;
 																																				cout << "\n\nSO3_incr[SO3] = "; 	for (int SO3=0; SO3<DoF;     SO3++) cout << ", " << SO3_incr[SO3];
 																																				
@@ -912,8 +912,8 @@ void Dynamic_slam::estimateSO3(){
 																																				cout << "\n\nold K2K = "; 			for (int SE3=0; SE3<16; SE3++) cout << ", " << K2K.operator()(SE3/4,SE3%4);
 																																			}
 		if (layer==1) factor *= 0.75;
-		Matx31f update; for (int SO3=0; SO3<DoF; SO3++) {update.operator()(SO3) = factor * SO3_results[layer][SO3][channel] / ( SO3_results[layer][SO3][lst_chan] * runcl.img_stats[IMG_VAR+channel] ); }
-		cv::Matx33f SO3Incr_matx 	= SO3_Matx33f(update);
+		Matx31f update; for (int SO3=0; SO3<DoF; SO3++) {update.operator()(SO3) = factor * SO3_results[layer][SO3][channel] / ( SO3_results[layer][SO3][lst_chan] * runcl.img_stats[IMG_VAR+channel] ); }  // For each SO3 DoF, compute update increment, using "channel".
+		cv::Matx33f SO3Incr_matx 	= SO3_Matx33f(update);																					// NB lst_chan holds ...?
 		SO3_pose2pose 				= SO3_pose2pose * SO3Incr_matx;
 		
 		for (int i=0; i<matxDoF; i++) pose2pose.operator()(i/DoF,i%DoF) = SO3_pose2pose.operator()(i/DoF,i%DoF);
@@ -939,7 +939,7 @@ void Dynamic_slam::estimateSO3(){
 }
 
 void Dynamic_slam::estimateSE3(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0" << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX,   next_layer_Rho_sq_result=FLT_MAX;

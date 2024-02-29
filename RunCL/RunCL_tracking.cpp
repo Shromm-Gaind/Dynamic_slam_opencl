@@ -36,7 +36,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 }
 
 void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSO3();	(uint start=0, uint stop=8)
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -3;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk0 . #######################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -72,66 +72,61 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 	mipmap_call_kernel( so3_grad_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSO3_";
-                                                                                                                                                DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, ss.str(), paths.at("SO3_incr_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6 ); //false
-                                                                                                                                                DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SO3_rho_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );  //false
+                                                                                                                                                DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, ss.str(), paths.at("SO3_incr_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, false ); //false
+                                                                                                                                                DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SO3_rho_map_mem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1, false );  //false
 /*
 																																				//DownloadAndSave_3Channel_volume(  keyframe_imgmem,  ss.str(), paths.at("keyframe_imgmem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1, 1 );
 																																				//DownloadAndSave_3Channel_volume(  imgmem,  ss.str(), paths.at("imgmem"), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, 1, 1 );
 */
 																																			}
-																																			if(verbosity>local_verbosity_threshold+2) {cout<<"\n\nRunCL::estimateSO3(..)_chk4 ."<<flush;}		// directly read higher layers
-	uint num_DoFs = 3;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSO3(..)_chk4 ."<<flush;}		// directly read higher layers
+	const uint num_DoFs = 3;
     cv::Mat so3_sum_mat = cv::Mat::zeros (so3_sum_size, num_DoFs*4, CV_32FC1); 		// cv::Mat::zeros (int rows, int cols, int type)		// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
-	ReadOutput( so3_sum_mat.data, se3_sum_mem, so3_sum_size_bytes );                                                                        // so3_sum_size_bytes
-																																			if(verbosity>local_verbosity_threshold+2) {
-																																				cout << "\n\nRunCL::estimateSO3(..)_chk5 ."<<flush;
-																																				cout << "\nso3_sum_mat.size()="<<so3_sum_mat.size()<<flush;
-																																				cout << "\nso3_sum_size="<<so3_sum_size<<flush;
-                                                                                                                                                cout << "\n\n so3_sum_mat.data = (\n";
-                                                                                                                                                for (int i=0; i<so3_sum_size; i++){
-                                                                                                                                                    cout << "\n group="<<i<<" : ( " << flush;															// Print out each workgroup's results. i=group, j=
-                                                                                                                                                    for (int j=0; j<8; j++){	cout << " , \t" << so3_sum_mat.at<float>(i,j); } cout << ")" << flush;	//cout << ",  \n so3_sum_mat.at<float>("<<i<<","<<j<<") = " << flush;
-                                                                                                                                                }cout << "\n)\n" << flush;
-                                                                                                                                                cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
-																																				cout << "\n\nso3_sum_mat.at<float> (i*num_DoFs + j,  k) ";
+	ReadOutput( so3_sum_mat.data, se3_sum_mem, so3_sum_size_bytes );                                                                        // so3_sum_size = num rows = (num work_groups + padding), in se3_sum_mem, when used for "global_sum_grads" in  __kernel void so3_grad(...) .
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\n\nRunCL::estimateSO3(..)_chk5 ."	<<flush;
+																																				cout << "\nso3_sum_mat.size()="				<<so3_sum_mat.size()	<<flush;
+																																				cout << "\nso3_sum_size="					<<so3_sum_size			<<flush;
+                                                                                                                                                cout << "\nmm_num_reductions = " 			<< mm_num_reductions 	<<flush;
+																																				cout << "\nso3_sum_mat.at<float> (i*num_DoFs + j,  k) ,  i=group,  j=SO3 DoF,  i=delta4 (H,S,V, (valid pixels/group_size) )";
 																																				for (int i=0; i< so3_sum_size ; i++){
-																																					cout << "\ni="<<i<<":   ";
+																																					cout << "\ngroup ="<<i<<":   ";
 																																					for (int j=0; j<num_DoFs; j++){
-																																						cout << ",     \n(";
+																																						cout << ",     \t(";
 																																						for (int k=0; k<4; k++){	cout << ", \t" << so3_sum_mat.at<float> (i , j*4 + k); } cout << ")";
 																																					}cout << flush;
 																																				}
 																																				cout << endl << endl;
 																																			}// if start, stop  larger layers, call reduce kernel. ? cut off between large vs small layers ?
-	for (int i=0; i<=mm_num_reductions+1; i++){
+	for (int i=0; i<=mm_num_reductions; i++){																																				//######################################################## // For (each reduction layer) of the image pyramid.
         uint read_offset_ 		= MipMap[i*8 + MiM_READ_OFFSET];																			// mipmap_params_[MiM_READ_OFFSET];
         uint global_sum_offset 	= read_offset_ / local_work_size ;
         uint groups_to_sum 		= so3_sum_mat.at<float>(global_sum_offset, 0);
         uint start_group 		= global_sum_offset + 1;
-        uint stop_group 		= start_group + groups_to_sum ;   // -1																		// skip the last group due to odd 7th value.
-																																			if(verbosity>local_verbosity_threshold+2) {
+        uint stop_group 		= start_group + groups_to_sum ;																				// skip the last group due to odd 7th value.
+																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
 																																			}
-        for (int j=start_group; j< stop_group  ; j++){ 	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SO3_results[i][k][l] += so3_sum_mat.at<float>(j, k*4 + l);	} }
-		}// so3_sum_mat.at<float>(j, k);                         		// sum j groups for this layer of the MipMap.
-																																			if(verbosity>local_verbosity_threshold+2) {
-																																				cout << "\nLayer "<<i<<" SE3_results = (";																// raw results
-																																				for (int k=0; k<num_DoFs; k++){
-																																					cout << "\n(";
-																																					for (int l=0; l<4; l++){
-																																						cout << ", \t" << SO3_results[i][k][l] ;
+        for (int j=start_group; j< stop_group  ; j++){ 	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SO3_results[i][k][l] += so3_sum_mat.at<float>(j, k*4 + l);	} }	}	//#########################################################	// Compute global sum of SO3 delta4 for each SO3 DoF.
+    }																																														//######################################################### // end: For (each reduction layer) loop
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\n\nSO3_results[reduction layer][SO3_DoF][delta4(H,S,V,count)]";
+																																				for (int i=0; i<=mm_num_reductions+1; i++){ 															// results
+																																					cout << "\nLayer "<<i<<" SE3_results = (";																// Raw results, for each reduction layer : Display as text
+																																					for (int k=0; k<num_DoFs; k++){																			// for each SO3 DoF
+																																						cout << "\t(";
+																																						for (int l=0; l<4; l++){																			// for each HSV colour channel.
+																																							cout << ", \t" << SO3_results[i][k][l] ;														// i=reduction layer, k=SO3 DoF, l=delta4 (H,S,V, (valid pixels/group_size) )
+																																						}cout << ")";
 																																					}cout << ")";
-																																				}cout << ")";
-																																			}
-    }
-																																			if(verbosity>local_verbosity_threshold+2) {
+																																				}
 																																				cout << endl;
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 															// results / (num_valid_px * img_variance)
-																																					cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
+																																					cout << "\nLayer "<<i<<" SO3_results/((num valid pixels/group size) * image variance) = (";
 																																					for (int k=0; k<num_DoFs; k++){
-																																						cout << "\n(";
+																																						cout << "\t(";
 																																						for (int l=0; l<3; l++){
-																																							cout << ", \t" << SO3_results[i][k][l] / (SO3_results[i][k][3]  *  img_stats[IMG_VAR+l]  );	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																							cout << ", \t" << SO3_results[i][k][l] / (SO3_results[i][k][3]  *  img_stats[IMG_VAR+l]  );		// divide by ((num valid pixels/group size) * the whole image variance)
 																																						}
 																																						cout << ", " << SO3_results[i][k][3] << ")";
 																																					}cout << ")";
@@ -142,7 +137,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 	ReadOutput( rho_sq_sum_mat.data, se3_sum_rho_sq_mem, pix_sum_size_bytes );
 
 	//float Rho_sq_results[8][4] = {{0}};
-	for (int i=0; i<=mm_num_reductions+1; i++){
+	for (int i=0; i<=mm_num_reductions; i++){
 		uint read_offset_ 			= MipMap[i*8 +MiM_READ_OFFSET];																			// mipmap_params_[MiM_READ_OFFSET];
 		uint global_sum_offset 		= read_offset_ / local_work_size ;
 		uint groups_to_sum 			= so3_sum_mat.at<float>(global_sum_offset, 0);
@@ -172,7 +167,6 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 																																						}
 																																						cout << ", " << Rho_sq_results[i][3] << ")";
 																																					}
-
 																																				}
 																																			}
 
@@ -180,7 +174,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 }
 
 void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -4;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 .##################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
