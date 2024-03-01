@@ -29,6 +29,8 @@ class Dynamic_slam
     RunCL runcl;
     int verbosity;
     bool invert_GT_depth = false;
+    int SE_iter_per_layer;
+    int SE_iter;
     
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//

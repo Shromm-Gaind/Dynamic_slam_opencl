@@ -67,7 +67,9 @@
     "scale_E_aux":10000,        //1.0;                                  // from DTAM_Mapping input/json/icl_numin.json
 
     // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
+    "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking  - currently not in use.
     "SE3_LM_B":0.1,
+    "SE_iter_per_layer":1,
+    "SE_iter":10
     "":""                       
 }

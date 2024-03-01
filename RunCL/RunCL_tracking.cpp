@@ -92,8 +92,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 																																				for (int i=0; i< so3_sum_size ; i++){
 																																					cout << "\ngroup ="<<i<<":   ";
 																																					for (int j=0; j<num_DoFs; j++){
-																																						cout << ",     \t(";
-																																						for (int k=0; k<4; k++){	cout << ", \t" << so3_sum_mat.at<float> (i , j*4 + k); } cout << ")";
+																																						cout << ",     \t(";	for (int k=0; k<4; k++){	cout << ", \t" << so3_sum_mat.at<float> (i , j*4 + k); } 	cout << ")";
 																																					}cout << flush;
 																																				}
 																																				cout << endl << endl;
@@ -180,9 +179,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
     cl_int status;
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\nRunCL::estimateSE3(..)__chk_0.5: K2K= ";
-																																				for (int i=0; i<16; i++){
-																																					cout << ",  "<< fp32_k2k[i]; // K2K ("<<i%4 <<","<< i/4<<") =
-																																				}cout << flush;
+																																				for (int i=0; i<16; i++){ cout << ",  "<< fp32_k2k[i];  }	cout << flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0.6 ,  dataset_frame_num="<<dataset_frame_num<<",   count="<<count<<flush;}
 
@@ -190,7 +187,6 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0.7 "<<flush;}
 																																			// NB GT_depth loaded to depth_mem by void RunCL::loadFrameData(..)
 	cl_int 				res;
-	//size_t local_size = local_work_size;
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                              __private	    uint	    layer,		                    //0
     res = clSetKernelArg(se3_grad_kernel, 1, sizeof(cl_mem), &mipmap_buf);										if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,	                //1
 	res = clSetKernelArg(se3_grad_kernel, 2, sizeof(cl_mem), &uint_param_buf);									if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,					//2
@@ -233,16 +229,12 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 																																				cout << "\n\nRunCL::estimateSE3(..)_chk6 ."<<flush;
 																																				cout << "\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
 																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;
-																																				cout << "\n\n se3_sum_mat.data = (\n";
-																																				for (int i=0; i<se3_sum_size; i++){
-																																					cout << "\n group="<<i<<" : ( " << flush;	for (int j=0; j<8; j++){	cout << " , \t" << se3_sum_mat.at<float>(i,j);	} 	cout << ")" << flush;
-																																				}cout << "\n)\n" << flush;
 																																				cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
-																																				cout << "\n\nse3_sum_mat.at<float> (i*num_DoFs + j,  k) ";
+																																				cout << "\n\nse3_sum_mat.at<float> (i*num_DoFs + j,  k) ,  i=group,  j=SO3 DoF,  i=delta4 (H,S,V, (valid pixels/group_size) )";
 																																				for (int i=0; i< se3_sum_size ; i++){
-																																					cout << "\ni="<<i<<":   ";
+																																					cout << "\ngroup ="<<i<<":   ";
 																																					for (int j=0; j<num_DoFs; j++){
-																																						cout << ",     \n(";	for (int k=0; k<4; k++){	cout << ", \t" << se3_sum_mat.at<float>(i, j*4 + k);	}	cout << ")";
+																																						cout << ",     \t(";	for (int k=0; k<4; k++){	cout << ", \t" << se3_sum_mat.at<float>(i, j*4 + k); }	cout << ")";
 																																					}cout << flush;
 																																				}cout << endl << endl;
 																																			}
@@ -255,18 +247,16 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
 																																			}
-		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }				//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
-		}
-																																			if(verbosity>local_verbosity_threshold) {
-																																				cout << "\nLayer "<<i<<" SE3_results = (";																	// raw results
-																																				for (int k=0; k<num_DoFs; k++){
-																																					cout << "\n(";  for (int l=0; l<4; l++){	cout << ", \t" << SE3_results[i][k][l] ;	}cout << ")";
-																																				}cout << ")";
-																																			}
+		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }	}			//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
     }
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << endl << " SE3_results/num_groups = (H, S, V, alpha=num_groups) ";
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 																// results / (num_valid_px * img_variance)
+																																					cout << "\nLayer "<<i<<" SE3_results = (";																	// raw results
+																																					for (int k=0; k<num_DoFs; k++){
+																																						cout << "\n(";  for (int l=0; l<4; l++){	cout << ", \t" << SE3_results[i][k][l] ;	}cout << ")";
+																																					}cout << ")";
+																																					///
 																																					cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
 																																					for (int k=0; k<num_DoFs; k++){
 																																						cout << "\nDoF="<<k<<" ("; for (int l=0; l<3; l++){	cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  img_stats[IMG_VAR+l]  ); } cout << ", " << SE3_results[i][k][3] << ")";
@@ -290,10 +280,11 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 																// results / (num_valid_px * img_variance)
 																																					cout << "\nLayer "<<i<<" mm_num_reductions = "<< mm_num_reductions <<",  Rho_sq_results/num_groups = (";
 																																					if (Rho_sq_results[i][3] > 0){
-																																						for (int l=0; l<3; l++){	cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  img_stats[IMG_VAR+l]  ); }	// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																						for (int l=0; l<3; l++){	cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  img_stats[IMG_VAR+l]  );
+																																						}
 																																						cout << ", \t" << Rho_sq_results[i][3] << ")";
 																																					}
-																																					else{	for (int l=0; l<3; l++){	cout << ", \t" << 0.0f;		}										// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																					else{	for (int l=0; l<3; l++){	cout << ", \t" << 0.0f;		}
 																																						cout << ", \t" << Rho_sq_results[i][3] << ")";
 																																					}
 																																				}cout << "\n\nRunCL::estimateSE3(..)_finish . ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<flush;
