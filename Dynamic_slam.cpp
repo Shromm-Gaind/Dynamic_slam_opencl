@@ -981,10 +981,7 @@ void Dynamic_slam::estimateSE3(){
 		uint channel  = 2; 																													// TODO combine Rho HSV channels
 		Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
 
-
 		if (layer >0) { next_layer_Rho_sq_result  = Rho_sq_results[layer+1][channel] / ( Rho_sq_results[layer+1][3]  *  runcl.img_stats[IMG_VAR+channel] );}
-
-
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\niter="<<iter<<", layer="<<layer<<", old_Rho_sq_result="<<old_Rho_sq_result<<",  Rho_sq_result="<<Rho_sq_result <<",  next_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<flush;
 																																			} 
@@ -992,8 +989,6 @@ void Dynamic_slam::estimateSE3(){
 																																			if(verbosity>local_verbosity_threshold) {cout << " (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;} 
 			//continue;
 		} 
-
-
 		old_Rho_sq_result = Rho_sq_result;
 		float SE3_incr[6];
 		for (int SE3=0; SE3<6; SE3++) {SE3_incr[SE3] = SE3_results[5][SE3][channel] / ( SE3_results[5][SE3][3]  *  runcl.img_stats[IMG_VAR+channel]  );}																// For initial example take layer , channel[0] for each SE3 DoF.
