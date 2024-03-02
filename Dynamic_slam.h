@@ -29,8 +29,8 @@ class Dynamic_slam
     RunCL runcl;
     int verbosity;
     bool invert_GT_depth = false;
-    int SE_iter_per_layer;
-    int SE_iter;
+    int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter, SE_factor;
+    float SE3_Rho_sq_threshold;
     
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
@@ -101,6 +101,7 @@ class Dynamic_slam
     cv::Matx44f generate_invK_(cv::Matx44f K_);
     void generate_invPose();
     void generate_SE3_k2k( float _SE3_k2k[96] );
+    void update_k2k(Matx61f update_);
     void estimateSO3();
     void estimateSE3();
     void estimateCalibration();

@@ -69,7 +69,10 @@
     // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking  - currently not in use.
     "SE3_LM_B":0.1,
+    "SE3_start_layer":5,
+    "SE3_stop_layer":1,
     "SE_iter_per_layer":1,
-    "SE_iter":10
+    "SE_iter":10,
+    "SE_factor":0.05,
     "":""                       
 }
