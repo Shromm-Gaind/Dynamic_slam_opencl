@@ -91,7 +91,8 @@ RunCL::RunCL(Json::Value obj_){
 	png 		= obj["png"].asBool();
 																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
 	testOpencl();																															// Displays available OpenCL Platforms and Devices.
-																																			if(verbosity>0) cout << "\nRunCL_chk 0\n" << flush;
+																																			std::cout << "\nRunCL_chk 0\n" << std::flush; // if(verbosity>0)
+																																			std::cout << "\nverbosity = "<<verbosity<< std::flush;
 
 																																			/*Step1: Getting platforms and choose an available one.*/////////
 	cl_uint 		numPlatforms;																											//the NO. of platforms
@@ -147,7 +148,7 @@ RunCL::RunCL(Json::Value obj_){
 																																			/*Step 7: Create kernel objects.*////////////
 	createKernels();
 	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
-	createFolders( );																														if(verbosity>0) cout << "RunCL_constructor finished\n" << flush;
+	createFolders( );																														if(verbosity>0) cout << "RunCL_constructor finished ##########################\n" << flush;
 }
 
 
@@ -161,6 +162,7 @@ void RunCL::createQueues(){
 }
 
 void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
+																																			if(verbosity>0) cout << "RunCL::createAndBulidProgramFromSource(..) chk 0\n" << flush;
 	cl_int 	status;
 	cl_uint	num_files;
     char** 	strings;
@@ -214,6 +216,7 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
 	for(int i=0; i<num_files; i++) { free(strings[i]); }
 	free(strings);
 	free(lengths);
+																																			if(verbosity>0) cout << "RunCL::createAndBulidProgramFromSource finished ##########################\n" << flush;
 }
 
 void RunCL::createKernels(){
@@ -339,11 +342,11 @@ void RunCL::initialize(){
 																																				cout<<"\nglobal_work_size="<<global_work_size<<", local_work_size="<<local_work_size<<", deviceId="<<deviceId<<"\n"<<flush;
 																																				cout<<"\nlayerstep=mm_width*mm_height="<<mm_width<<"*"<<mm_height<<"="<<layerstep<<",\tsizeof(layerstep)="<< sizeof(layerstep) <<",\tsizeof(int)="<< sizeof(int) <<flush;
 																																				cout<<"\n";
-																																				cout<<"\nallocatemem chk1, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
+																																				cout<<"\nRunCL::initialize, baseImage.total()=" << baseImage.total() << ", sizeof(float)="<< sizeof(float)<<flush;
 																																				cout<<"\nbaseImage.elemSize()="<< baseImage.elemSize()<<", baseImage.elemSize1()="<<baseImage.elemSize1()<<flush;
 																																				cout<<"\nbaseImage.type()="<< baseImage.type() <<", sizeof(baseImage.type())="<< sizeof(baseImage.type())<<flush;
 																																				cout<<"\n";
-																																				cout<<"\nallocatemem chk2, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
+																																				cout<<"\nRunCL::initialize, image_size_bytes="<< image_size_bytes <<  ", sizeof(float)="<< sizeof(float)<<flush;
 																																				cout<<"\n";
 																																				cout<<"\n"<<", fp16_size ="<< fp16_size   <<", mm_margin="     << mm_margin       <<", mm_width ="     <<  mm_width       <<flush;
 																																				cout<<"\n"<<", mm_height ="<< mm_height   <<", mm_Image_size ="<<  mm_Image_size  <<", mm_Image_type ="<< mm_Image_type   <<flush;
@@ -367,7 +370,7 @@ void RunCL::initialize(){
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																			//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
 																																			if(verbosity>local_verbosity_threshold){
-																																				cout << "\n\nChecking fp32_params[]";
+																																				cout << "\n\nRunCL::initialize  Checking fp32_params[]";
 																																				cout << "\nfp32_params[0 MAX_INV_DEPTH]="	<<fp32_params[MAX_INV_DEPTH]		<<"\t\t1/obj[\"min_depth\"].asFloat()="	<<1/obj["min_depth"].asFloat();
 																																				cout << "\nfp32_params[1 MIN_INV_DEPTH]="	<<fp32_params[MIN_INV_DEPTH]		<<"\t\t1/obj[\"max_depth\"].asFloat()="	<<1/obj["max_depth"].asFloat();
 																																				cout << "\nfp32_params[2 INV_DEPTH_STEP]="	<<fp32_params[INV_DEPTH_STEP];
@@ -406,7 +409,7 @@ void RunCL::initialize(){
 																																			}
 	// ####################################################################################################################################################################
 																																			if(verbosity>local_verbosity_threshold) {
-																																				cout <<"	"<<endl;
+																																				cout <<"	\nRunCL::initialize"<<endl;
 																																				cout <<"	#define MiM_PIXELS			0	// for mipmap_buf, 				when launching one kernel per layer. 	Updated for each layer."<<endl;
 																																				cout <<"	#define MiM_READ_OFFSET		1	// for ths layer, 				start of image data"<<endl;
 																																				cout <<"	#define MiM_WRITE_OFFSET	2"<<endl;
@@ -445,6 +448,7 @@ void RunCL::initialize(){
 		mipmap[MiM_PIXELS]			= mipmap[MiM_READ_COLS] * mipmap[MiM_READ_ROWS];
 	}
 																																			if(verbosity>local_verbosity_threshold) {
+																																				cout <<"	\nRunCL::initialize"<<endl;
 																																				for(int reduction = 0; reduction <= mm_num_reductions+1; reduction++) {
 																																					cout << "\n\n reduction = " 		<< reduction;
 																																					cout << "\n MiM_PIXELS = " 			<< MipMap[reduction*8 +MiM_PIXELS];
@@ -483,13 +487,13 @@ void RunCL::initialize(){
 
 	d_disp_sum_size			=  1 + ceil( (float)(MipMap[(mm_num_reductions+1) + MiM_READ_OFFSET]) / (float)local_work_size ) ;				// mm_size_bytes_C1 =	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	d_disp_sum_size_bytes	=  d_disp_sum_size * sizeof(float) * 4;
-																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_chk finished\n"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_chk finished ############################################################\n"<<flush;
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential){
 	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<" )_chk0"<<flush;
+																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<", layers_sequential="<<layers_sequential<<" )_chk0"<<flush;
 																																				//cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<< ",  start="<<start<<",  stop="<<stop <<flush;
 																																			}
 	cl_event						ev;
@@ -501,11 +505,11 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 			res 	= clSetKernelArg(kernel_to_call, 0, sizeof(int), &reduction);							if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;
 			res 	= clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &num_threads[reduction], &local_work_size, 0, NULL, &ev); // run mipmap_float4_kernel, NB wait for own previous iteration.
 																											if (res    != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-			status 	= clFlush(queue_to_call);																if (status != CL_SUCCESS)	{ cout << "\nclFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
-			if (layers_sequential==true) status 	= clWaitForEvents (1, &ev);																if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
+			status 	= clFlush(queue_to_call);																if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  clFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
+			if (layers_sequential==true) status 	= clWaitForEvents (1, &ev);								if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<") for loop,  clWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
 
 		//} 																																	// TODO execute layers in asynchronous parallel. i.e. relax clWaitForEvents.
-	}status 	= clWaitForEvents (1, &ev);																	if (status != CL_SUCCESS)	{ cout << "\nclWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
+	}if (layers_sequential==false) status 	= clWaitForEvents (1, &ev);										if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<") final,  clWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
 }
 
 int RunCL::waitForEventAndRelease(cl_event *event){
@@ -517,7 +521,7 @@ int RunCL::waitForEventAndRelease(cl_event *event){
 }
 
 void RunCL::allocatemem(){
-	int local_verbosity_threshold = 2;
+	int local_verbosity_threshold = 0;
 																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem()_chk0\n"<<flush;
 	stringstream 	ss;
 	ss 				<< "allocatemem";
@@ -689,7 +693,7 @@ void RunCL::allocatemem(){
 																																			cout << ",mm_vol_size_bytes = " << mm_vol_size_bytes << endl;
 																																			cout << "\n" << flush;
 																																		}
-																																		if(verbosity>local_verbosity_threshold) cout << "RunCL::allocatemem_finished\n\n" << flush;
+																																		if(verbosity>local_verbosity_threshold) cout << "RunCL::allocatemem_finished #############################################################################\n\n" << flush;
 }
 
 RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large array method from Morphogenesis &  fluids_v3 ? OR a C++ vector ?

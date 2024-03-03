@@ -585,7 +585,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	
 	//runcl.loadFrameData(depth_GT, K2K, pose2pose);
 	runcl.load_GT_depth(depth_GT, invert_GT_depth);																							// loads to depth_mem_GT buffer.
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,"<<flush;	
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData finished,#################################################################"<<flush;
 }
 
 void Dynamic_slam::use_GT_pose(){

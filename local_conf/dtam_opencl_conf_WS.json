@@ -69,5 +69,11 @@
     // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
     "SE3_LM_B":0.1,
+    "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
+    "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
+    "SE_iter_per_layer":1,
+    "SE_iter":10,
+    "SE_factor":0.05,
+    "SE3_Rho_sq_threshold":   ???? (float) or float arrary..
     "":""
 }
