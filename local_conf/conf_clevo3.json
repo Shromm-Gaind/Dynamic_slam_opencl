@@ -30,7 +30,7 @@
     // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     "MipMap_margin":1,          //4
-    "num_reductions":6,         //4                                     // Layers-1 of image pyramid in MipMap
+    "num_reductions":6,         //4                                     // Layers-1 of image pyramid in MipMap -> determines RunCL::mm_start and RunCL::mm_stop
     // gaussian_size 3                                                  // Box blurr size. Actually using 5x5 box in the code.
 
     "imagesPerCV":4,            //10,//20,//4,//30//4//7
@@ -69,8 +69,8 @@
     // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
     "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
     "SE3_LM_B":0.1,
-    "SE3_start_layer":5,
-    "SE3_stop_layer":1,
+    "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
+    "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
     "SE_iter_per_layer":1,
     "SE_iter":10,
     "SE_factor":0.05,
