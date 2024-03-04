@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     Json::Reader reader;
     Json::Value obj;
     bool b = reader.parse(ifs, obj);
-	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); }   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
+	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
 	int verbosity_ 		= obj["verbosity"].asInt() ;						// -1= none, 0=errors only, 1=basic, 2=lots.
 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;
 	int max_frame_count = obj["max_frame_count"].asUInt();	

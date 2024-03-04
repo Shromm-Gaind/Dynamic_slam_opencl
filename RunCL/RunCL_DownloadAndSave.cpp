@@ -108,8 +108,8 @@ void RunCL::ReadOutput(uchar* outmat) {
 void RunCL::ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset/*=0*/) {
 		cl_event readEvt;
 		cl_int status;
-														cout<<"\nReadOutput: "<<flush;
-														cout<<"&outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
+														//cout<<"\nReadOutput: "<<flush;
+														//cout<<"&outmat="<<&outmat<<", buf_mem="<<buf_mem<<", data_size="<<data_size<<", offset="<<offset<<"\n"<<flush;
 		status = clEnqueueReadBuffer(dload_queue,			// command_queue
 											buf_mem,		// buffer
 											CL_FALSE,		// blocking_read

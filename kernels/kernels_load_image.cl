@@ -337,7 +337,7 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint write_row   	= global_id_u / write_cols_ ;
 	uint write_column 	= fmod(global_id_flt, write_cols_);
 
-	if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) write_row=%u, write_column=%u \n",write_row, write_column);
+	//if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) write_row=%u, write_column=%u \n",write_row, write_column);
 
 	uint read_row    	= 2*write_row;
 	uint read_column 	= 2*write_column;
@@ -345,7 +345,7 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column  ;					// NB 4 channels.  + margin
 	uint write_index 	= write_offset_ +  write_row * mm_cols  + write_column ;					// write_cols_, use read_cols_ as multiplier to preserve images  + margin
 
-	if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) read_index=%u, write_index=%u \n",read_index, write_index);
+	//if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) read_index=%u, write_index=%u \n",read_index, write_index);
 
 	if ( (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0 ){		// req on RTX GPU
 		for (int i=0, j=-2; i<5; i++, j++){															// Load local_img_patch

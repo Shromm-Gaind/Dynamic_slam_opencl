@@ -173,7 +173,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 }
 
 void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = -4;
+	int local_verbosity_threshold = 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 .##################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -225,7 +225,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 	uint num_DoFs = 6;
     cv::Mat se3_sum_mat = cv::Mat::zeros (se3_sum_size, num_DoFs*4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)				// NB the data returned is one float8 per group, holding one float per 6DoF of SE3, plus entry[7]=pixel count.
 	ReadOutput( se3_sum_mat.data, se3_sum_mem, se3_sum_size_bytes );                                                                        // se3_sum_size_bytes
-																																			if(verbosity>local_verbosity_threshold) {
+																																			if(verbosity>local_verbosity_threshold+2) {
 																																				cout << "\n\nRunCL::estimateSE3(..)_chk6 ."<<flush;
 																																				cout << "\nse3_sum_mat.size()="<<se3_sum_mat.size()<<flush;
 																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;

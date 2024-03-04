@@ -21,7 +21,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
     SE3_stop_layer 				= obj["SE3_stop_layer"].asInt();
 	SE_iter_per_layer 			= obj["SE_iter_per_layer"].asInt();
     SE_iter 					= obj["SE_iter"].asInt();
-	SE_factor					= obj["SE_factor"].asInt();
+	SE_factor					= obj["SE_factor"].asFloat();
 	SE3_Rho_sq_threshold		= obj["SE3_Rho_sq_threshold"].asFloat();
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 0\n" << flush;
 	stringstream ss0;
@@ -1025,7 +1025,7 @@ void Dynamic_slam::estimateSE3(){
 																																			if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::estimateSE3()_chk 1.5" << flush;
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 												// SE3_results / (num_valid_px * img_variance)
-																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.5:, Layer "<<i<<" SE3_results/num_groups = (";
+																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.6:, Layer "<<i<<" SE3_results/num_groups = (";
 																																					for (int k=0; k<6; k++){
 																																						cout << "\t(";
 																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  ); }
@@ -1034,7 +1034,7 @@ void Dynamic_slam::estimateSE3(){
 																																				}
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 												// Rho_sq_results / (num_valid_px * img_variance)
-																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.5:, Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<",  \nRho_sq_results/num_groups = (";
+																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.7:, Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<",  \t\tRho_sq_results/num_groups = (";
 																																					if (Rho_sq_results[i][3] > 0){
 																																						for (int l=0; l<3; l++){  cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  runcl.img_stats[IMG_VAR+l]  );
 																																						}cout << ", " << Rho_sq_results[i][3] << ")";
@@ -1067,7 +1067,15 @@ void Dynamic_slam::estimateSE3(){
 				break; 																														// halt state. Break out of for loop.
 			}																																// Iterating on final layer.
 		} 																																	// Else : normal SE3 update.
-		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 5: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;} 
+
+		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
+
+			cout << "\nupdate : SE3="<<SE3<<",   \tfactor="<<factor<<",  SE3_results[layer][SE3][channel]="<<SE3_results[layer][SE3][channel]<<",  \tSE3_results[layer][SE3][3]="<<SE3_results[layer][SE3][3]<<",  \truncl.img_stats[IMG_VAR+channel]="<<runcl.img_stats[IMG_VAR+channel]<< flush;
+		}
+
+
+
+		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 5: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
 		/*
