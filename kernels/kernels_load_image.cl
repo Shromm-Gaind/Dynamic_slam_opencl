@@ -217,10 +217,9 @@ __kernel void blur_image(
 	img_blurred[ read_index] = blurred_pixel;
 }
 
-__kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot use "half"
+__kernel void mipmap_linear_flt4(		// Mipmap layers must be executed sesequentially			// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
 	__constant 	uint8*	mipmap_params,	//1
-	//__constant 	float* 	gaussian,		//2
 	__constant 	uint*	uint_params,	//2
 	__global 	float4*	img,			//3
 	__local	 	float4*	local_img_patch //4
@@ -231,7 +230,7 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
-																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
+																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt4(..), __private	uint	layer=%u", layer);}
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -255,28 +254,34 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	//float4 white = {1.0f,1.0f,1.0f,1.0f};
 	//float4 black = {0.0f,0.0f,0.0f,0.0f};
 
-	for (int i=0, j=-2; i<5; i++, j++){																// Load local_img_patch
-		local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
-	}
-	////
-	if (lid==0 || lid==1){
-		for (int i=0; i<5; i++){
-			local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -2]; //white; //
+	int in_bounds = global_id_u < mipmap_params_[MiM_PIXELS]/2 ;
+
+	if (in_bounds ==1) {  //  (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0
+		for (int i=0, j=-2; i<5; i++, j++){																// Load local_img_patch
+			local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
 		}
-	}
-	if (lid==group_size-2 || lid==group_size-1){
-		for (int i=0; i<5; i++){
-			local_img_patch[lid+4 + i*patch_length] = img[ read_index +i*mm_cols +2]; //black; //
+		////
+		if (lid==0 || lid==1){
+			for (int i=0; i<5; i++){
+				local_img_patch[lid + i*patch_length] = img[ read_index +i*mm_cols -2]; //white; //
+			}
 		}
-	}
-	////
-	if ((write_row>write_rows_-3) ||  (write_row < 3)  ){											// Prevents blurring with black space below the image.
-		for (int i=0; i<5; i++){
-			local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
+		if (lid==group_size-2 || lid==group_size-1){
+			for (int i=0; i<5; i++){
+				local_img_patch[lid+4 + i*patch_length] = img[ read_index +i*mm_cols +2]; //black; //
+			}
+		}
+		////
+		if ((write_row>write_rows_-3) ||  (write_row < 3)  ){											// Prevents blurring with black space below the image.
+			for (int i=0; i<5; i++){
+				local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
+			}
 		}
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
+	if (in_bounds ==0) return;
+
 	float4 reduced_pixel = 0;
 	for (int i=0; i<5; i++){
 		for (int j=0; j<5; j++){
@@ -305,7 +310,7 @@ __kernel void mipmap_linear_flt4(																	// Nvidia Geforce GPUs cannot 
 	img[ write_index] = reduced_pixel;
 }
 
-__kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot use "half"
+__kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentially			// Nvidia Geforce GPUs cannot use "half"
 	__private	uint	layer,			//0
 	__constant 	uint8*	mipmap_params,	//1
 	__constant 	uint*	uint_params,	//2
@@ -313,7 +318,6 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	__local	 	float*	local_img_patch	//4
 		 )
 {
-
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint lid 			= get_local_id(0);
@@ -321,7 +325,6 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint patch_length	= group_size+4;
 
 //																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
-
 
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
@@ -345,9 +348,10 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column  ;					// NB 4 channels.  + margin
 	uint write_index 	= write_offset_ +  write_row * mm_cols  + write_column ;					// write_cols_, use read_cols_ as multiplier to preserve images  + margin
 
-	//if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) read_index=%u, write_index=%u \n",read_index, write_index);
+	//int in_bounds =( (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0 );	// req on RTX GPU
+	int in_bounds = global_id_u < mipmap_params_[MiM_PIXELS]/2 ; // &&  (read_row>0) && (read_row<read_rows_ )   ); //200; //
 
-	if ( (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0 ){		// req on RTX GPU
+	if (in_bounds == 1){
 		for (int i=0, j=-2; i<5; i++, j++){															// Load local_img_patch
 			local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
 		}
@@ -367,10 +371,14 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 				local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
 			}
 		}
+
+		if (global_id_u==1) printf("\n__kernel void mipmap_linear_flt_():(global_id_u==%u) read_index=%u, write_index=%u, mipmap_params_[MiM_PIXELS]=%u, layer=%u, in_bounds=%u,  lid=%u,  local_img_patch[lid] =%f ",global_id_u, read_index, write_index, mipmap_params_[MiM_PIXELS], layer, in_bounds,  lid,  local_img_patch[lid] );
+
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
 
+	if (in_bounds == 0) return;
 	float reduced_pixel = 0;
 	for (int i=0; i<5; i++){
 		for (int j=0; j<5; j++){
@@ -388,7 +396,9 @@ __kernel void mipmap_linear_flt(																	// Nvidia Geforce GPUs cannot u
 	if (write_row>=write_rows_) return;
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
 
-	if (global_id_u<32) img[write_index] =  local_img_patch[lid]; // write_index // read_index // local_img_patch[lid] ; //0.5; //reduced_pixel;
+	if (global_id_u==300) printf("\n__kernel void mipmap_linear_flt_():(global_id_u==%u) read_index=%u, write_index=%u, mipmap_params_[MiM_PIXELS]=%u, layer=%u, in_bounds=%u, lid=%u,   local_img_patch[lid]=%f, img[read_index]=%f ",global_id_u, read_index, write_index, mipmap_params_[MiM_PIXELS], layer, in_bounds, lid, local_img_patch[lid], img[read_index] );
+
+	img[write_index] =  local_img_patch[lid]; // write_index // read_index // local_img_patch[lid] ; //0.5; //reduced_pixel;
 }
 
 __kernel void  img_grad(

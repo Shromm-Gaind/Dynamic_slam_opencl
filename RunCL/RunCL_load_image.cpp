@@ -411,7 +411,9 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 	res = clSetKernelArg(mipmap_float_kernel, 3, sizeof(cl_mem), 						&depthmap_);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global   float*		img,			//4
 	res = clSetKernelArg(mipmap_float_kernel, 4, (local_size+4) *5*sizeof(float), 		NULL);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local    float*		local_img_patch //5
 
-	mipmap_call_kernel( mipmap_float_kernel, m_queue );// TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
+	// //void RunCL::mipmap_call_kernel( cl_kernel kernel_to_call,   cl_command_queue queue_to_call,   uint start, uint stop,   bool layers_sequential )
+
+	mipmap_call_kernel( mipmap_float_kernel, m_queue, mm_start, mm_stop, true);// TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
 
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\n\nRunCL::mipmap_depthmap(..)_chk3 Finished all loops."<<flush;
@@ -421,7 +423,9 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 																																				ss << "_raw_";
 																																				stringstream ss_path;	ss_path << "dmem";
 																			//void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range )
-																			// TODO fix bug																	DownloadAndSave( depthmap_, ss.str(), paths.at(ss_path.str()), new_size_bytes, new_Image_size, CV_32FC4, false );
+																																				DownloadAndSave( depthmap_,   	ss.str(),   paths.at(ss_path.str()),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
+
+																																				//DownloadAndSave( depthmap_, ss.str(), paths.at(ss_path.str()), new_size_bytes, new_Image_size, CV_32FC4, false );
 																																				cout << "\n  (local_size+4) *5*4* sizeof(float) = "<<  (local_size+4) *5*4* sizeof(float) << " ,   (local_size+4) = " <<  (local_size+4) << endl << flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk4 Finished"<<flush;}
