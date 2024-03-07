@@ -1,7 +1,7 @@
 #include "RunCL.h"
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = -2;
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout << "\n RunCL::loadFrame_chk 0\n" << flush;}
 	cl_int status;
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
@@ -254,7 +254,7 @@ void RunCL::blur_image(){
 
 
 void RunCL::mipmap_linear(){
-	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_linear(..)_chk0"<<flush;}
+	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_linear(..)_chk0"<<flush;}
 	cl_event 	writeEvt;//, ev;
 	cl_int 		res; //, status;
 	/*
@@ -387,7 +387,7 @@ void RunCL::convert_depth(uint invert, float factor){
 }
 
 void RunCL::mipmap_depthmap(cl_mem depthmap_){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
+	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
 	cl_event 	writeEvt;//, ev;
 	cl_int 		res; //, status;
 	/*
@@ -419,8 +419,9 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 																																				cv::Size new_Image_size = cv::Size(mm_width, mm_height);
 																																				size_t   new_size_bytes = mm_width * mm_height * 4*4;
 																																				ss << "_raw_";
-																																				stringstream ss_path;	ss_path << "imgmem";
-																																				DownloadAndSave_3Channel( imgmem, ss.str(), paths.at(ss_path.str()), new_size_bytes, new_Image_size, CV_32FC4, false );
+																																				stringstream ss_path;	ss_path << "dmem";
+																			//void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range )
+																			// TODO fix bug																	DownloadAndSave( depthmap_, ss.str(), paths.at(ss_path.str()), new_size_bytes, new_Image_size, CV_32FC4, false );
 																																				cout << "\n  (local_size+4) *5*4* sizeof(float) = "<<  (local_size+4) *5*4* sizeof(float) << " ,   (local_size+4) = " <<  (local_size+4) << endl << flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk4 Finished"<<flush;}

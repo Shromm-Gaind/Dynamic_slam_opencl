@@ -295,7 +295,7 @@ void RunCL::initialize_fp32_params(){
 }
 
 void RunCL::initialize(){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image

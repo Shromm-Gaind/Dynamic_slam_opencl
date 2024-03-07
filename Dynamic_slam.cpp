@@ -126,7 +126,7 @@ void Dynamic_slam::initialize_camera(){
 }
 
 int Dynamic_slam::nextFrame() {
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num<<" \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
 	predictFrame();					// updates pose2pose for next frame in cost volume.			//  Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = 0
 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
@@ -294,7 +294,7 @@ void Dynamic_slam::predictFrame(){
 };
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				// # load next image to buffer NB load at position [log_2 index]
 																																				// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
@@ -371,7 +371,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 }
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num <<flush;
 	R.copyTo(old_R);																														// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
@@ -1022,7 +1022,7 @@ void Dynamic_slam::estimateSE3(){
 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
 		float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
 		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
-																																			if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::estimateSE3()_chk 1.5" << flush;
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 1.5" << flush;
 																																				cout << endl;
 																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 												// SE3_results / (num_valid_px * img_variance)
 																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.6:, Layer "<<i<<" SE3_results/num_groups = (";
@@ -1053,7 +1053,7 @@ void Dynamic_slam::estimateSE3(){
 																																			} 
 		*/
 		if (iter>0 && Rho_sq_result > old_Rho_sq_result) {																					// If new sample is worse, resample at half the previous increment half "factor".
-			update = -2*old_update;																											if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 2: (iter>0 && Rho_sq_result > old_Rho_sq_result)" 
+			update = -0.5*old_update;																											if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 2: (iter>0 && Rho_sq_result > old_Rho_sq_result)" 
 																																																<< flush;} 
 			update_k2k( update );
 			old_update = update;
@@ -1067,14 +1067,10 @@ void Dynamic_slam::estimateSE3(){
 				break; 																														// halt state. Break out of for loop.
 			}																																// Iterating on final layer.
 		} 																																	// Else : normal SE3 update.
-
 		for (int SE3=0; SE3<6; SE3++) {update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
 
 			cout << "\nupdate : SE3="<<SE3<<",   \tfactor="<<factor<<",  SE3_results[layer][SE3][channel]="<<SE3_results[layer][SE3][channel]<<",  \tSE3_results[layer][SE3][3]="<<SE3_results[layer][SE3][3]<<",  \truncl.img_stats[IMG_VAR+channel]="<<runcl.img_stats[IMG_VAR+channel]<< flush;
 		}
-
-
-
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 5: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;

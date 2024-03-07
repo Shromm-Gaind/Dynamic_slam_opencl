@@ -173,7 +173,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 }
 
 void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 .##################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -219,7 +219,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 	res = clSetKernelArg(reduce_kernel, 2, sizeof(cl_mem), &se3_sum_mem);                                       if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float8*		se3_sum			//2
 	res = clSetKernelArg(reduce_kernel, 3, local_work_size*4*sizeof(float), 	NULL);							if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local    	float8*		local_sum_grads	//3
 	res = clSetKernelArg(reduce_kernel, 4, sizeof(cl_mem), &se3_sum2_mem);                                      if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float8*		se3_sum2,		//4
-
+// TODO implement & use reduce_kernel for 1st 2 layers. 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk5 ."<<flush;}
                                                                                                                                             // directly read higher layers
 	uint num_DoFs = 6;
@@ -244,12 +244,12 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
         uint groups_to_sum 		= se3_sum_mat.at<float>(global_sum_offset, 0);
         uint start_group 		= global_sum_offset + 1;
         uint stop_group 		= start_group + groups_to_sum ;   // -1																		// skip the last group due to odd 7th value.
-																																			if(verbosity>local_verbosity_threshold) {
+																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << "\ni="<<i<<", read_offset_="<<read_offset_<<",  global_sum_offset="<<global_sum_offset<<",  groups_to_sum="<<groups_to_sum<< ",  start_group="<<start_group<<",  stop_group="<<stop_group;
 																																			}
 		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }	}			//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
     }
-																																			if(verbosity>local_verbosity_threshold) {
+																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl << " SE3_results/num_groups = (H, S, V, alpha=num_groups) ";
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 																// results / (num_valid_px * img_variance)
 																																					cout << "\nLayer "<<i<<" SE3_results = (";																	// raw results
@@ -275,7 +275,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 		uint stop_group 			= start_group + groups_to_sum ;   																		// -1
 		for (int j=start_group; j< stop_group; j++){	for (int l=0; l<4; l++){ 	Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		}; 		}																									// sum j groups for this layer of the MipMap.
 	}
-																																			if(verbosity>local_verbosity_threshold ) {
+																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl;
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 																// results / (num_valid_px * img_variance)
 																																					cout << "\nLayer "<<i<<" mm_num_reductions = "<< mm_num_reductions <<",  Rho_sq_results/num_groups = (";
