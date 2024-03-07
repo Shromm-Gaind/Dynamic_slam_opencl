@@ -73,7 +73,7 @@
     "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
     "SE_iter_per_layer":1,
     "SE_iter":10,
-    "SE_factor":0.05,
+    "SE_factor":0.01,
     "SE3_Rho_sq_threshold":   ???? (float) or float arrary..
     "":""
 }

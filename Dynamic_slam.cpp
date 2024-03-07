@@ -1057,11 +1057,11 @@ void Dynamic_slam::estimateSE3(){
 																																																<< flush;} 
 			update_k2k( update );
 			old_update = update;
-			factor *=0.5;
+			factor *=0.5f;
 			continue;
 		} else if ( ( (Rho_sq_result < SE3_Rho_sq_threshold) || (iter%SE_iter_per_layer==0) ) ) {											// If fit better than threshold, OR iter%SE_iter_per_layer==0   : Layer increment.
 			if (layer>SE3_stop_layer) {																										if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 3: (layer>SE3_stop_layer)  layer="<<layer<<", layer--"<< flush;} 
-				layer--;																													// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
+				layer--; //factor *= 0.5f;																													// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
 				Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
 			}else if (Rho_sq_result < SE3_Rho_sq_threshold){																				if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 4: (Rho_sq_result < SE3_Rho_sq_threshold)  layer="<<layer<<", layer--"<< flush;} 
 				break; 																														// halt state. Break out of for loop.
