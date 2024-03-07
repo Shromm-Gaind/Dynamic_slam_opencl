@@ -415,32 +415,34 @@ __kernel void se3_grad(
 	}
 
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 															// TODO apply robustifying norm to Rho, eg Huber norm.
-	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
-
 	for (int i=0; i<6; i++) local_sum_grads[i*local_size + lid] = 0;								// Essential to zero local mem.
+																									// Exclude all out-of-bounds threads:
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
 		rho = img_cur[read_index] - img_new[read_index_new];
 		rho[3] = alpha;
-	}
-	Rho_[read_index] = rho;																			// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
-	float4 rho_sq = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
-	local_sum_rho_sq[lid] = rho_sq;																	// Also compute global Rho^2.
 
-	for (uint i=0; i<6; i++) {																		// for each SE3 DoF
-		float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
-		float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
+		Rho_[read_index] = rho;																		// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
+		float4 rho_sq = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
+		local_sum_rho_sq[lid] = rho_sq;																	// Also compute global Rho^2.
 
-		float4 delta4;
-		delta4.w=alpha;
-		for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
+		for (uint i=0; i<6; i++) {																		// for each SE3 DoF
+			float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
+			float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
 
-		local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
-		SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
+			float4 delta4;
+			delta4.w=alpha;
+			for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
+
+			local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
+			SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
+		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
 	int max_iter = 9;//ceil(log2((float)(group_size)));
-	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?  NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
+																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   /= 2;
 		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
 		if (lid<group_size){
