@@ -336,7 +336,6 @@ void RunCL::img_gradients(){ //getFrame();
 void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose
     int local_verbosity_threshold = 0;
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::load_GT_depth(..)_chk_0:"<<flush;
-    //for (int i=0; i<16; i++){ fp32_k2k[i] = GT_K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold) cout << "\nRunCL::loadFrameData(..)_chk_1:  K2K ("<<i%4 <<","<< i/4<<") = "<< fp32_k2k[i]; }
     cl_event 		writeEvt;
 	cl_int 	 		status;
 	stringstream 	ss;
@@ -387,23 +386,10 @@ void RunCL::convert_depth(uint invert, float factor){
 }
 
 void RunCL::mipmap_depthmap(cl_mem depthmap_){
-	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
-	cl_event 	writeEvt;//, ev;
-	cl_int 		res; //, status;
-	/*
-	//uint 		mipmap[8];
-	float		a = float(0.0625);
-	float		b = float(0.125);
-	float		c = float(0.25);
-	float 		gaussian[9] = {a, b, a, b, c, b, a , b, a };																																//  TODO load gaussian kernel & size from conf.json .
-	if (mm_gaussian_size!=3) {cout<<"Error:RunCL::mipmap_depthmap(..) (mm_gaussian_size!=3). Need to add code to malloc gaussian array. Probably with jsoncpp from 'conf.json' file." <<flush; exit(0); }
+	int local_verbosity_threshold =2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
+	cl_event 	writeEvt;
+	cl_int 		res;
 
-	status = clEnqueueWriteBuffer(uload_queue, gaussian_buf, CL_FALSE, 0, mm_gaussian_size*mm_gaussian_size*sizeof(float), gaussian, 0, NULL, &writeEvt);											// write mipmap_buf
-	if (status != CL_SUCCESS){cout<<"\nstatus = "<<checkerror(status)<<"\n"<<flush; cout << "Error: RunCL::mipmap_depthmap, clEnqueueWriteBuffer, mipmap_buf \n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	
-	//res = clSetKernelArg(mipmap_float_kernel, 2, sizeof(cl_mem), 					 	&gaussian_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant float*		gaussian,		//2
-
-	*/
 	size_t local_size = local_work_size;																																							// set kernel args
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                                      __private	 uint	    layer,		    //0
     res = clSetKernelArg(mipmap_float_kernel, 1, sizeof(cl_mem), 					 	&mipmap_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__constant uint8*		mipmap_params,	//1
@@ -411,7 +397,7 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 	res = clSetKernelArg(mipmap_float_kernel, 3, sizeof(cl_mem), 						&depthmap_);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__global   float*		img,			//4
 	res = clSetKernelArg(mipmap_float_kernel, 4, (local_size+4) *5*sizeof(float), 		NULL);						if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;		//__local    float*		local_img_patch //5
 
-	// //void RunCL::mipmap_call_kernel( cl_kernel kernel_to_call,   cl_command_queue queue_to_call,   uint start, uint stop,   bool layers_sequential )
+	//void RunCL::mipmap_call_kernel( cl_kernel kernel_to_call,   cl_command_queue queue_to_call,   uint start, uint stop,   bool layers_sequential )
 
 	mipmap_call_kernel( mipmap_float_kernel, m_queue, mm_start, mm_stop, true);// TODO Start at first reduction, rehash __kernel void mipmap_linear_flt(..) and call only the num threads required. NB currently uses 4x as many threads as needed.
 
@@ -421,11 +407,9 @@ void RunCL::mipmap_depthmap(cl_mem depthmap_){
 																																				cv::Size new_Image_size = cv::Size(mm_width, mm_height);
 																																				size_t   new_size_bytes = mm_width * mm_height * 4*4;
 																																				ss << "_raw_";
-																																				stringstream ss_path;	ss_path << "dmem";
-																			//void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range )
+																																				stringstream ss_path;	ss_path << "depth_GT";
 																																				DownloadAndSave( depthmap_,   	ss.str(),   paths.at(ss_path.str()),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
 
-																																				//DownloadAndSave( depthmap_, ss.str(), paths.at(ss_path.str()), new_size_bytes, new_Image_size, CV_32FC4, false );
 																																				cout << "\n  (local_size+4) *5*4* sizeof(float) = "<<  (local_size+4) *5*4* sizeof(float) << " ,   (local_size+4) = " <<  (local_size+4) << endl << flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk4 Finished"<<flush;}

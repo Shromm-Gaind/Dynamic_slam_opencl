@@ -230,7 +230,7 @@ __kernel void mipmap_linear_flt4(		// Mipmap layers must be executed sesequentia
 	uint lid 			= get_local_id(0);
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
-																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt4(..), __private	uint	layer=%u", layer);}
+
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -256,8 +256,8 @@ __kernel void mipmap_linear_flt4(		// Mipmap layers must be executed sesequentia
 
 	int in_bounds = global_id_u < mipmap_params_[MiM_PIXELS]/2 ;
 
-	if (in_bounds ==1) {  //  (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0
-		for (int i=0, j=-2; i<5; i++, j++){																// Load local_img_patch
+	if (in_bounds ==1) {
+		for (int i=0, j=-2; i<5; i++, j++){															// Load local_img_patch
 			local_img_patch[lid+2 + i*patch_length] = img[ read_index +j*mm_cols];
 		}
 		////
@@ -272,7 +272,7 @@ __kernel void mipmap_linear_flt4(		// Mipmap layers must be executed sesequentia
 			}
 		}
 		////
-		if ((write_row>write_rows_-3) ||  (write_row < 3)  ){											// Prevents blurring with black space below the image.
+		if ((write_row>write_rows_-3) ||  (write_row < 3)  ){										// Prevents blurring with black space below the image.
 			for (int i=0; i<5; i++){
 				local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
 			}
@@ -298,14 +298,7 @@ __kernel void mipmap_linear_flt4(		// Mipmap layers must be executed sesequentia
 
 	if (write_row>=write_rows_) return;
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
-	/*
-	if (global_id_u == 1) printf("\n\npatch_length=%u,  group_size=%u, mm_cols=%u, mipmap_params_[MiM_PIXELS]=%u", patch_length, group_size, mm_cols, mipmap_params_[MiM_PIXELS] );
-	if (global_id_u < 5) printf("\n\nread_index=%u, write_index=%u, lid=%u, write_cols_=%u,    read_index+0*mm_cols=%u, read_index+1*mm_cols=%u, read_index+2*mm_cols=%u, read_index+3*mm_cols=%u, read_index+4*mm_cols=%u,       "\
-		, read_index, write_index, lid, write_cols_ \
-		, read_index+0*mm_cols, read_index+1*mm_cols, read_index+2*mm_cols, read_index+3*mm_cols, read_index+4*mm_cols \
-	);
-	*/
-	//reduced_pixel[2] = global_id_flt/(float)(mipmap_params[MiM_PIXELS]); // debugging
+
 	reduced_pixel[3] = 1.0f;
 	img[ write_index] = reduced_pixel;
 }
@@ -324,8 +317,6 @@ __kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentiall
 	uint group_size 	= get_local_size(0);
 	uint patch_length	= group_size+4;
 
-//																	if (global_id_u ==0){printf("\n\n__kernel void mipmap_linear_flt(..), __private	uint	layer=%u", layer);}
-
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint write_offset_ 	= mipmap_params_[MiM_WRITE_OFFSET]; 										// = read_offset_ + read_cols_*read_rows for linear MipMap.
@@ -339,17 +330,14 @@ __kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentiall
 
 	uint write_row   	= global_id_u / write_cols_ ;
 	uint write_column 	= fmod(global_id_flt, write_cols_);
-
-	//if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) write_row=%u, write_column=%u \n",write_row, write_column);
-
+//						if (global_id_u==1) printf("\n\n__kernel void mipmap_linear_flt():(global_id_u==1) write_row=%u, write_column=%u \n",write_row, write_column);
 	uint read_row    	= 2*write_row;
 	uint read_column 	= 2*write_column;
 
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column  ;					// NB 4 channels.  + margin
 	uint write_index 	= write_offset_ +  write_row * mm_cols  + write_column ;					// write_cols_, use read_cols_ as multiplier to preserve images  + margin
 
-	//int in_bounds =( (read_index +2*mm_cols) < mipmap_params_[MiM_PIXELS] && (read_index -2*mm_cols)>0 );	// req on RTX GPU
-	int in_bounds = global_id_u < mipmap_params_[MiM_PIXELS]/2 ; // &&  (read_row>0) && (read_row<read_rows_ )   ); //200; //
+	int in_bounds = global_id_u < mipmap_params_[MiM_PIXELS]/2 ;
 
 	if (in_bounds == 1){
 		for (int i=0, j=-2; i<5; i++, j++){															// Load local_img_patch
@@ -366,19 +354,16 @@ __kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentiall
 			}
 		}
 		////
-		if ((write_row>write_rows_-3) ||  (write_row < 3)  ){											// Prevents blurring with black space below the image.
+		if ((write_row>write_rows_-3) ||  (write_row < 3)  ){										// Prevents blurring with black space below the image.
 			for (int i=0; i<5; i++){
 				local_img_patch[lid+2 + i*patch_length] = img[ read_index ];
 			}
 		}
-
-		if (global_id_u==1) printf("\n__kernel void mipmap_linear_flt_():(global_id_u==%u) read_index=%u, write_index=%u, mipmap_params_[MiM_PIXELS]=%u, layer=%u, in_bounds=%u,  lid=%u,  local_img_patch[lid] =%f ",global_id_u, read_index, write_index, mipmap_params_[MiM_PIXELS], layer, in_bounds,  lid,  local_img_patch[lid] );
-
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);																	// No 'if->return' before fence between write & read local mem
-
 	if (in_bounds == 0) return;
+
 	float reduced_pixel = 0;
 	for (int i=0; i<5; i++){
 		for (int j=0; j<5; j++){
@@ -396,9 +381,7 @@ __kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentiall
 	if (write_row>=write_rows_) return;
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;											// num pixels to be written & num threads to really use.
 
-	if (global_id_u==300) printf("\n__kernel void mipmap_linear_flt_():(global_id_u==%u) read_index=%u, write_index=%u, mipmap_params_[MiM_PIXELS]=%u, layer=%u, in_bounds=%u, lid=%u,   local_img_patch[lid]=%f, img[read_index]=%f ",global_id_u, read_index, write_index, mipmap_params_[MiM_PIXELS], layer, in_bounds, lid, local_img_patch[lid], img[read_index] );
-
-	img[write_index] =  local_img_patch[lid]; // write_index // read_index // local_img_patch[lid] ; //0.5; //reduced_pixel;
+	img[write_index] =  reduced_pixel;
 }
 
 __kernel void  img_grad(
