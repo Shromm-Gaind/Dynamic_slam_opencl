@@ -385,12 +385,14 @@ __kernel void mipmap_linear_flt(	// Mipmap layers must be executed sesequentiall
 }
 
 __kernel void  img_grad(
+	//Inputs:
 	__private	uint		layer,			//0
 	__constant	uint8*		mipmap_params,	//1
 	__constant 	uint*		uint_params,	//2
 	__constant 	float*		fp32_params,	//3
 	__global 	float4*		img,			//4
 	__constant 	float2*		SE3_map,		//5
+	//Outputs:
 	__global 	float8*		SE3_grad_map,	//6														// We keep hsv sepate at this stage, so 6*4*2=24, but float16 is the largest type, so 6*float8.
 	__global 	float8*		HSV_grad		//7
 		 )
@@ -413,7 +415,7 @@ __kernel void  img_grad(
 	uint read_index 	= read_offset_  +  read_row  * mm_cols  + read_column ;						// NB 4 channels.  + margin
 
 	/// adapted
-	int upoff			= -(read_row  >1 )*mm_cols;													//-(read_row  != 0)*mm_cols;				// up, down, left, right offsets, by boolean logic.
+	int upoff			= -(read_row  >1 )*mm_cols;													//-(read_row  != 0)*mm_cols;	// up, down, left, right offsets, by boolean logic.
 	int dnoff			=  (read_row  < read_rows_-2) * mm_cols;									// (read_row  < read_rows_-1) * mm_cols;
     int lfoff			= -(read_column >1);														//-(read_column != 0);
 	int rtoff			=  (read_column < read_cols_-2);											// (read_column < mm_cols-1);
@@ -435,17 +437,20 @@ __kernel void  img_grad(
 	uint v    			= global_id_u / read_cols_;													// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
 
-	for (uint i=0; i<3; i++) {
-		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
-		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										//  NB float4 gx, gy => float8
-		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;// * rotation_wt;
-	}
-	for (uint i=3; i<6; i++) {
-		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;   float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
+	for (uint i=0; i<6; i++) {
+		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
+																									// float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										// NB float4 gx, gy => float8
-		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ;
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;// * rotation_wt;					// NB apply inv depth to ST3 (i=0,1,2) in tracking stage.
 	}
-
+/*
+	for (uint i=3; i<6; i++) {
+		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
+																									// float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
+		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										// NB float4 gx, gy => float8
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ;		// inv_depth_map, only available for keyframe. Apply later in tracking.
+	}
+*/
 	float H = img[offset][0] * 2*M_PI_F;
 	float S = img[offset][1];
 	float V = img[offset][2];

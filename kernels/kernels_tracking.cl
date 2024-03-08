@@ -438,6 +438,10 @@ __kernel void se3_grad(
 			local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 		}
+		for (uint i=0; i<3; i++) {
+			SE3_incr_map_[read_index + i * mm_pixels ] *= inv_depth;
+		}
+		if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
 	int max_iter = 9;//ceil(log2((float)(group_size)));
