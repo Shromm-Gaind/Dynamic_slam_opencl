@@ -439,7 +439,9 @@ __kernel void se3_grad(
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 		}
 		for (uint i=0; i<3; i++) {
-			SE3_incr_map_[read_index + i * mm_pixels ] *= inv_depth;
+			SE3_incr_map_[read_index + i * mm_pixels ].x *= inv_depth * 100;
+			SE3_incr_map_[read_index + i * mm_pixels ].y *= inv_depth * 100;
+			SE3_incr_map_[read_index + i * mm_pixels ].z *= inv_depth * 100;
 		}
 		if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}

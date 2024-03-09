@@ -1046,6 +1046,19 @@ void Dynamic_slam::estimateSE3(){
 																																			}
 		uint channel  = 2; 																													// TODO combine Rho HSV channels
 		Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );					// Rho_sq_result[channel] / (num_valid_pixels * image_variance[channel] ) : measure of fit.
+																																			if(verbosity>local_verbosity_threshold) {
+																																				cout << "\nDynamic_slam::estimateSE3()_chk 1.8: "<<
+																																				"\titer="<<iter<<", \tlayer="<<layer<<", \told_Rho_sq_result="<<old_Rho_sq_result<<",  \tRho_sq_result="<<Rho_sq_result <<
+																																				",  \tnext_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<
+																																				",  \tSE3_results["<<layer<<"][SE3]["<<channel<<"]=(\t"<<
+																																				SE3_results[layer][0][channel]<<",\t"<<
+																																				SE3_results[layer][1][channel]<<",\t"<<
+																																				SE3_results[layer][2][channel]<<",\t"<<
+																																				SE3_results[layer][3][channel]<<",\t"<<
+																																				SE3_results[layer][4][channel]<<",\t"<<
+																																				SE3_results[layer][5][channel]<<",\t"<<
+																																				"), \tfactor="<<factor<<flush;
+																																			}
 		/*
 		if (layer >0) { next_layer_Rho_sq_result  = Rho_sq_results[layer+1][channel] / ( Rho_sq_results[layer+1][3]  *  runcl.img_stats[IMG_VAR+channel] );}
 																																			if(verbosity>local_verbosity_threshold) {
@@ -1057,12 +1070,15 @@ void Dynamic_slam::estimateSE3(){
 																																																<< flush;} 
 			update_k2k( update );
 			old_update = update;
+			old_Rho_sq_result = Rho_sq_result;
 			factor *=0.5f;
 			continue;
 		} else if ( ( (Rho_sq_result < SE3_Rho_sq_threshold) || (iter%SE_iter_per_layer==0) ) ) {											// If fit better than threshold, OR iter%SE_iter_per_layer==0   : Layer increment.
 			if (layer>SE3_stop_layer) {																										if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 3: (layer>SE3_stop_layer)  layer="<<layer<<", layer--"<< flush;} 
 				layer--; //factor *= 0.5f;																													// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
 				Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
+
+
 			}else if (Rho_sq_result < SE3_Rho_sq_threshold){																				if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 4: (Rho_sq_result < SE3_Rho_sq_threshold)  layer="<<layer<<", layer--"<< flush;} 
 				break; 																														// halt state. Break out of for loop.
 			}																																// Iterating on final layer.
