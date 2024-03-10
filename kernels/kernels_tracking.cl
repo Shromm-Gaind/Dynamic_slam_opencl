@@ -438,7 +438,7 @@ __kernel void se3_grad(
 			local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 		}
-		for (uint i=0; i<3; i++) {
+		for (uint i=0; i<3; i++) {																	// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			SE3_incr_map_[read_index + i * mm_pixels ].x *= inv_depth * 100;
 			SE3_incr_map_[read_index + i * mm_pixels ].y *= inv_depth * 100;
 			SE3_incr_map_[read_index + i * mm_pixels ].z *= inv_depth * 100;
