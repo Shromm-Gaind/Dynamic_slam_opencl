@@ -346,6 +346,7 @@ __kernel void se3_grad(																			// Based on __kernel void DepthCostVol
 */
 //   old 4 channel se3_grad
 __kernel void se3_grad(
+	// inputs
 	__private	uint	layer,					//0
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
@@ -356,6 +357,7 @@ __kernel void se3_grad(
 	__global 	float8*	SE3_grad_map_cur_frame,	//7		// keyframe
 	__global 	float8*	SE3_grad_map_new_frame,	//8
 	__global	float* 	depth_map,				//9		// NB keyframe GT_depth, now stored as inv_depth
+	// outputs
 	__local		float4*	local_sum_grads,		//10
 	__global	float4*	global_sum_grads,		//11
 	__global 	float4*	SE3_incr_map_,			//12
@@ -435,13 +437,18 @@ __kernel void se3_grad(
 			delta4.w=alpha;
 			for (int j=0; j<3; j++) delta4[j] = rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
 
-			local_sum_grads[i*local_size + lid] = delta4;												// write grads to local mem for summing over the work group.
+			local_sum_grads[i*local_size + lid] = delta4;											// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] = delta4;
 		}
-		for (uint i=0; i<3; i++) {																	// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
+		for (uint i=0; i<3; i++) {	// translation, amplify nearby movement.						// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			SE3_incr_map_[read_index + i * mm_pixels ].x *= inv_depth * 100;
 			SE3_incr_map_[read_index + i * mm_pixels ].y *= inv_depth * 100;
 			SE3_incr_map_[read_index + i * mm_pixels ].z *= inv_depth * 100;
+		}
+		for (uint i=3; i<6; i++) {	// rotation, amplify distant movement.							// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
+			SE3_incr_map_[read_index + i * mm_pixels ].x /= (inv_depth * 100);
+			SE3_incr_map_[read_index + i * mm_pixels ].y /= (inv_depth * 100);
+			SE3_incr_map_[read_index + i * mm_pixels ].z /= (inv_depth * 100);
 		}
 		if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}
@@ -476,7 +483,7 @@ __kernel void se3_grad(
 		if (local_sum_grads[0][3] >0){																// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset] = local_sum_rho_sq[lid];
 			for (int i=0; i<num_DoFs; i++){
-				float4 temp_float4 = local_sum_grads[i*local_size + lid] / local_sum_grads[i*local_size + lid].w ;
+				float4 temp_float4 = local_sum_grads[i*local_size + lid] / local_size; 				//   / local_sum_grads[i*local_size + lid].w ;  Better to divide by local size, preserve information wrt number of valid pixels.
 				global_sum_grads[se3_global_sum_offset + i] = temp_float4 ;							// local_sum_grads
 			}																						// Save to global_sum_grads // Count hits, and divide group by num hits, without using atomics!
 		}else {																						// If no matching pixels in this group, set values to zero.

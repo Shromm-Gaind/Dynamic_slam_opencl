@@ -1014,7 +1014,7 @@ void Dynamic_slam::estimateSE3(){
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0" << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
-	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX,   next_layer_Rho_sq_result=FLT_MAX;
+	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX ,   next_layer_Rho_sq_result=FLT_MAX;
 	uint layer = SE3_start_layer;
 	float factor = SE_factor;
 	for (int iter = 0; iter<SE_iter; iter++){ 																								// TODO step down layers if fits well enough, and out if fits before iteration limit. Set iteration limit param in config.json file.
@@ -1065,17 +1065,17 @@ void Dynamic_slam::estimateSE3(){
 																																				cout << "\niter="<<iter<<", layer="<<layer<<", old_Rho_sq_result="<<old_Rho_sq_result<<",  Rho_sq_result="<<Rho_sq_result <<",  next_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<flush;
 																																			} 
 		*/
-		if (iter>0 && Rho_sq_result > old_Rho_sq_result) {																					// If new sample is worse, resample at half the previous increment half "factor".
+		if (iter>0 && Rho_sq_result>old_Rho_sq_result) {																					// If new sample is worse, resample at half the previous increment half "factor".
 			update = -0.5*old_update;																											if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 2: (iter>0 && Rho_sq_result > old_Rho_sq_result)" 
 																																																<< flush;} 
 			update_k2k( update );
 			old_update = update;
 			old_Rho_sq_result = Rho_sq_result;
-			factor *=0.5f;
+			factor *=0.75f;
 			continue;
 		} else if ( ( (Rho_sq_result < SE3_Rho_sq_threshold) || (iter%SE_iter_per_layer==0) ) ) {											// If fit better than threshold, OR iter%SE_iter_per_layer==0   : Layer increment.
 			if (layer>SE3_stop_layer) {																										if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 3: (layer>SE3_stop_layer)  layer="<<layer<<", layer--"<< flush;} 
-				layer--; //factor *= 0.5f;																													// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
+				layer--; //factor *= 0.5f;																									// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
 				Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
 
 
