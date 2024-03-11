@@ -446,9 +446,9 @@ __kernel void se3_grad(
 			SE3_incr_map_[read_index + i * mm_pixels ].z *= inv_depth * 100;
 		}
 		for (uint i=3; i<6; i++) {	// rotation, amplify distant movement.							// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
-			SE3_incr_map_[read_index + i * mm_pixels ].x /= (inv_depth * 100);
-			SE3_incr_map_[read_index + i * mm_pixels ].y /= (inv_depth * 100);
-			SE3_incr_map_[read_index + i * mm_pixels ].z /= (inv_depth * 100);
+			SE3_incr_map_[read_index + i * mm_pixels ].x /= (inv_depth * 50);
+			SE3_incr_map_[read_index + i * mm_pixels ].y /= (inv_depth * 50);
+			SE3_incr_map_[read_index + i * mm_pixels ].z /= (inv_depth * 50);
 		}
 		if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}
@@ -546,3 +546,39 @@ __kernel void reduce (																				// TODO use this for the second stage 
 		}else se3_sum2[global_sum_offset] = 0;
 	}
 }
+
+
+__kernel void atomic_test1(
+	__private uint num_threads,
+	volatile __global int *var_array
+		)
+{
+	uint gid = get_global_id(0);
+	if (gid>=num_threads) return;
+	int new_var = 1;
+	int result = -1;
+	result = atomic_add(&var_array[0],  new_var );			// int atomic_add(volatile __global int *p,  int val)
+	if (gid == 1) printf("\n__kernel void atomic_test1(..) result = %i",result );
+	if (gid==0)return;
+	var_array[gid]=new_var;
+}
+
+
+__kernel void atomic_test2(
+	__private uint num_threads,
+	volatile __global int *var_array
+		)
+{
+	uint gid = get_global_id(0);
+	if (gid>=num_threads) return;
+	int new_var = 1;
+	int result = -1;
+	atomic_fetch_add_explicit( &var_array[0], new_var, memory_order_relaxed ); //atomic_add(&var_array[0],  new_var );			// int atomic_add(volatile __global int *p,  int val)
+	if (gid == 1) printf("\n__kernel void atomic_test1(..) result = %i",result );
+	if (gid==0)return;
+	var_array[gid]=new_var;
+}
+
+//atomic_fetch_add_explicit(&acnt, 1, memory_order_relaxed);
+
+

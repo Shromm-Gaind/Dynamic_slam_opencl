@@ -40,6 +40,7 @@ public:
 	cl_program			m_program;
 	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_kernel			atomic_test1_kernel;
 	
 	//bool 				frame_bool_idx=0;
 	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
@@ -48,6 +49,7 @@ public:
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;																										// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_imgmem_HSV_grad, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;							// keyframe_gxmem, keyframe_gymem, keyframe_basemem,
 	cl_mem				HSV_grad_mem, dmem_disparity, dmem_disparity_sum;
+	cl_mem				atomic_test1_buf;
 	
 	cv::Mat 			baseImage;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_C8, mm_size_bytes_half4, mm_vol_size_bytes;
@@ -186,6 +188,7 @@ public:
 	void tracking_result(string result);
 	void estimateCalibration();																											// Camera calibration
 	void RelativeVel_Map();																												// RelativeVelMap - placeholder...
+	void atomic_test1();
 
 	/////////////////////////////////////// RunCL_mapping.cpp
 

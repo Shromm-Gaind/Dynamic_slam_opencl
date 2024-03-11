@@ -1,7 +1,7 @@
 {
     // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "verbosity":-1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
-    "tiff":true,//true,//false
+    "tiff":false,//true,//false
     "png":true,
     "out_path":"/home/nick/Programming/OpenCV/MySLAM",                  // /media/hockingsn/Backup/output/Dynamic_slam_opencl
                                                                         // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
@@ -71,9 +71,9 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
-    "SE_iter_per_layer":1,
+    "SE_iter_per_layer":2,
     "SE_iter":10,
-    "SE_factor":0.005
+    "SE_factor":0.00125
     //"SE3_Rho_sq_threshold":   ???? (float) or float arrary..
     //"":""
 }
