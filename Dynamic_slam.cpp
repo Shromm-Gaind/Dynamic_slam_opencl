@@ -434,7 +434,8 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	generate_invK();
 	inv_K_GT = inv_K; 																														// TODO change this when we autocalibrate K.
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush; // K2K
-	K2K_GT = old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;																				// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+	K2K_GT = old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;;
+	//   wrong way around :  old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;																				// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 	
 	pose2pose_GT = old_pose_GT * inv_pose_GT;
 	/*
@@ -444,7 +445,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 		keyframe_inv_K_GT		= generate_invK_(K_GT);				//  inv_old_K_GT;
 	}
 	*/
-	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;
+	keyframe_K2K_GT = K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;  // TODO not currently used
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
 																																				cout << "\truncl.costvol_frame_num = " << runcl.costvol_frame_num << flush;
 																																				
@@ -606,7 +607,7 @@ void Dynamic_slam::use_GT_pose(){
 	
 	pose 		= pose_GT;
 	inv_pose	= inv_pose_GT;
-	K2K 		= K2K_GT;
+	K2K 		= keyframe_K2K_GT; // TODO chk if the other values are correct.
 	pose2pose 	= pose2pose_GT;
 	
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}  
