@@ -31,10 +31,10 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 	ss << save_index;
 	DownloadAndSave(		 	keyframe_depth_mem,   		ss.str(), paths.at("keyframe_depth_mem"),   		mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]); cout<<"\n\nRunCL::transform_depthmap(..)_chk0.1 ."<<flush;
 
-
 	const float zero  = 0;
 	status = clEnqueueFillBuffer (uload_queue, 	depth_mem, &zero,    sizeof(float),  0,     mm_size_bytes_C1, 0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk0.2\n" << endl;exit_(status);}
-	status = clEnqueueWriteBuffer(uload_queue, 	k2kbuf,	   CL_FALSE, 0, 16 * sizeof(float), K2K_arry,         0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk0.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, 	k2kbuf,	   CL_FALSE, 0, 16 * sizeof(float), K2K_arry,         0, NULL, &writeEvt);			if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_depthmap(..)_chk0.3\n" << endl;exit_(status);}
+	clFlush(uload_queue); status = clFinish(uload_queue);
 
 	cl_int res;
 	//     __private	 uint layer, set in mipmap_call_kernel(..) below																																//__private	    uint	    layer,							//0

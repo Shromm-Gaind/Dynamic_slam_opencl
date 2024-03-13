@@ -8,7 +8,10 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
 
-	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::updateDepthCostVol(..)_chk0.5\t" << "save_index_" <<save_index << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,			CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 		0, NULL, &writeEvt);		if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush;
+																																										cout << "Error: RunCL::updateDepthCostVol(..)_chk0.5\t" << "save_index_" <<save_index << endl;exit_(status);}
+	clFlush(uload_queue); status = clFinish(uload_queue);
+	//waitForEventAndRelease( &writeEvt );
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateDepthCostVol(..)_chk0.7 \t" << "save_index_" <<save_index<<flush;}
 	cl_int 				res;
 	//      __private	 uint layer, set in mipmap_call_kernel(..) below                                                                                                                        //__private	    uint	    layer,			//0

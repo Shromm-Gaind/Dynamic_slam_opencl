@@ -563,7 +563,7 @@ __kernel void atomic_test1(
 	var_array[gid]=new_var;
 }
 
-
+/*
 __kernel void atomic_test2(
 	__private uint num_threads,
 	volatile __global int *var_array
@@ -573,12 +573,12 @@ __kernel void atomic_test2(
 	if (gid>=num_threads) return;
 	int new_var = 1;
 	int result = -1;
-	atomic_fetch_add_explicit( &var_array[0], new_var, memory_order_relaxed ); //atomic_add(&var_array[0],  new_var );			// int atomic_add(volatile __global int *p,  int val)
+//	atomic_fetch_add_explicit( &var_array[0], new_var, memory_order_relaxed ); //atomic_add(&var_array[0],  new_var );			// int atomic_add(volatile __global int *p,  int val)
 	if (gid == 1) printf("\n__kernel void atomic_test1(..) result = %i",result );
 	if (gid==0)return;
 	var_array[gid]=new_var;
 }
 
 //atomic_fetch_add_explicit(&acnt, 1, memory_order_relaxed);
-
+*/
 

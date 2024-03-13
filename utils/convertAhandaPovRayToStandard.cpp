@@ -14,7 +14,7 @@ Vec3f upvector;
 void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& cameraMatrix)
 {
     int verbosity = 0;
-    int local_verbosity_threshold = 1;
+    int local_verbosity_threshold =-2;
     																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 0"<<flush;
 	
     char     text_file_name[600];                                               // open .txt file

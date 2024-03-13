@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
 			ds_error = dynamic_slam.nextFrame();
 			frame_count ++;
 		}
-		dynamic_slam.optimize_depth();
-																			if(verbosity_>0) dynamic_slam.runcl.saveCostVols(imagesPerCV);
+		//dynamic_slam.optimize_depth(); // Temporarily suspend mapping
+		//																	if(verbosity_>0) dynamic_slam.runcl.saveCostVols(imagesPerCV);
 		
 		//dynamic_slam.initialize_keyframe_from_tracking();
 		break; // TODO write new depthmap transformation based on bin sort from fluids_v3 & Morphogenesis.
