@@ -410,10 +410,11 @@ __kernel void se3_grad(
 	int  v2			= floor((v2_flt/reduction)+0.5f) ;												// NB this corrects the sparse sampling to the redued scales.
 	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	uint num_DoFs 	= 6;
+	float4 new_px;
 
 	if (global_id_u==1){
-		printf("\nkernel se3_grad(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  int_u2=%i,  int_v2=%i,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
-		,u, v, inv_depth, u_flt, v_flt, u2, v2,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   )  ;
+		printf("\nkernel se3_grad(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  u2_flt=%i,  v2_flt=%i,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
+		,u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   )  ;
 	}
 
 	float4 rho = {0.0f,0.0f,0.0f,0.0f}; 															// TODO apply robustifying norm to Rho, eg Huber norm.
@@ -422,16 +423,17 @@ __kernel void se3_grad(
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 	if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx = 0;
-		rho = img_cur[read_index] - img_new[read_index_new];
+		new_px = bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);	// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
+		rho = img_cur[read_index] - new_px;
 		rho[3] = alpha;
 
 		Rho_[read_index] = rho;																		// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		float4 rho_sq = {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
-		local_sum_rho_sq[lid] = rho_sq;																	// Also compute global Rho^2.
+		local_sum_rho_sq[lid] = rho_sq;																// Also compute global Rho^2.
 
-		for (uint i=0; i<6; i++) {																		// for each SE3 DoF
+		for (uint i=0; i<6; i++) {																	// for each SE3 DoF
 			float8 SE3_grad_cur_px = SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
-			float8 SE3_grad_new_px = SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
+			float8 SE3_grad_new_px =  bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;
 
 			float4 delta4;
 			delta4.w=alpha;

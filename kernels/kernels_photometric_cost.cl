@@ -46,7 +46,7 @@ float8 bilinear (__global float8* img, float u_flt, float v_flt, int cols, int r
 }
 
 
-float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction, int i, int mm_pixels){
+float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int cols, int read_offset_){ 								//, uint reduction, int i, int mm_pixels){
 	float8 	c, c_00, c_01, c_10, c_11;
 	int coff_00, coff_01, coff_10, coff_11;
 	int int_u2 = ceil(u_flt);
@@ -62,4 +62,22 @@ float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int co
 	c = factor_y * (c_11*factor_x  +  c_01*(1-factor_x))   +   (1-factor_y) * (c_10*factor_x  + c_00*(1-factor_x));
 	return c;
 }
+
+float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, int read_offset_){                                   // Used in tracking
+	float4 	c, c_00, c_01, c_10, c_11;										// read_offset_ + v2 * mm_cols  + u2;
+	int coff_00, coff_01, coff_10, coff_11;
+	int int_u2 = ceil(u_flt);
+	int int_v2 = ceil(v_flt);
+																			// compute adjacent pixel indices & sample adjacent pixels
+	c_11 = img[ read_offset_ + int_v2     * cols +  int_u2     ];
+	c_10 = img[ read_offset_ + (int_v2-1) * cols +  int_u2     ];
+	c_01 = img[ read_offset_ + int_v2     * cols + (int_u2 -1) ];
+	c_00 = img[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) ];
+																			// weighting for bi-linear interpolation
+	float factor_x = fmod(u_flt,1);
+	float factor_y = fmod(v_flt,1);
+	c = factor_y * (c_11*factor_x  +  c_01*(1-factor_x))   +   (1-factor_y) * (c_10*factor_x  + c_00*(1-factor_x));
+	return c;
+}
+
 #endif /*KERNEL_PHOTOMETRIC_COST_CL*/

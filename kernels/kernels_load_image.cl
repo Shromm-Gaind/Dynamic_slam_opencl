@@ -448,7 +448,7 @@ __kernel void  img_grad(
 		float2 SE3_px =  SE3_map[read_index + i* mm_pixels];										// SE3_map[read_index + i* uint_params[MM_PIXELS]  ] = partial_gradient;
 																									// float2 partial_gradient={u_flt-u2 , v_flt-v2}; // Find movement of pixel
 		float8 SE3_grad_px = {gx*SE3_px[0]  , gy*SE3_px[1] };										// NB float4 gx, gy => float8
-		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;//* inv_depth ;		// inv_depth_map, only available for keyframe. Apply later in tracking.
+		SE3_grad_map[read_index + i* mm_pixels]  =  SE3_grad_px ;// * inv_depth ;		// inv_depth_map, only available for keyframe. Apply later in tracking.
 	}
 */
 	float H = img[offset][0] * 2*M_PI_F;
