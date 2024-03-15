@@ -43,7 +43,7 @@
 
     "regularizer_outer_iter":30,
     "regularizer_inner_iter":10,
-    "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range. 
+    "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
                                                                         // Also keep layers for for depths across edge boundaries.
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.  
     "max_depth":450.0,                                                  // See values in DTAM_mapping/input/*.json file for each dataset.
@@ -73,7 +73,12 @@
     "SE3_stop_layer":1,
     "SE_iter_per_layer":2,
     "SE_iter":10,
-    "SE_factor":0.00125
-    //"SE3_Rho_sq_threshold":   ???? (float) or float arrary..
-    //"":""
+    "SE_factor":0.01,
+    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
+
+    "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
+    "ST3_delta":0.01,                                                    // NB depends on depth scale, see max & min depth in mapping params.
+    "Artif_pose_err_axis":3,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+    "Artif_pose_err_factor":500,
+    "":""
 }

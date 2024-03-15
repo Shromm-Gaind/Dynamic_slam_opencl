@@ -30,7 +30,7 @@ class Dynamic_slam
     int verbosity;
     bool invert_GT_depth = false;
     int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter;
-    float SE3_Rho_sq_threshold, SE_factor;
+    float SE3_Rho_sq_threshold[5][3], SE_factor;
     
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
