@@ -1115,13 +1115,13 @@ void Dynamic_slam::estimateSE3(){
 																																				<<layer<<", layer--"<< flush;}
 				layer--;
 				Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );			// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
-		}else {																																if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.1:  normal tracking loop"<< flush;}
+		}else {																																if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.2:  normal tracking loop"<< flush;}
 		}
 
 			for (int SE3=0; SE3<6; SE3++) {
 			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
 																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\n\nDynamic_slam::estimateSE3()_chk 2.2: iter="<<iter<<", layer="<<layer
+																																				cout<<"\n\nDynamic_slam::estimateSE3()_chk 2.3: iter="<<iter<<", layer="<<layer
 																																				<<",  \t update.operator()(SE3) = factor * SE3_results["<<layer<<"]["<<SE3<<"]["<<channel
 																																				<<"] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] ) = ("
 																																				<< factor << " * "<< SE3_results[layer][SE3][channel]
@@ -1134,7 +1134,7 @@ void Dynamic_slam::estimateSE3(){
 		}
 		for (int SE3=3; SE3<6; SE3++) { update.operator()(SE3) *= obj["min_depth"].asFloat(); }
 
-		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.3: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
+		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.4: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
 
