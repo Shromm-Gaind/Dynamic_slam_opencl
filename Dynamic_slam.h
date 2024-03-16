@@ -102,7 +102,6 @@ class Dynamic_slam
     void generate_invPose();
     void generate_SE3_k2k( float _SE3_k2k[96] );
     void update_k2k(Matx61f update_);
-    void cout_update(int chk_num, int iter, int layer, Matx61f update, float Rho_sq_result);
     void estimateSO3();
     void estimateSE3();
     void estimateCalibration();

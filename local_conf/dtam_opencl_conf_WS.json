@@ -48,7 +48,7 @@
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
     "max_depth":450.0,                                                  // See values in DTAM_mapping/input/*.json file for each dataset.
     "min_depth":70.0,           //70.0;//3289.0;
-    "occlusionThreshold":0.05,
+    //"occlusionThreshold":0.05,// not currently used.
     "startAt":0,
 
     "initialCost":1.0,          //3.0,
@@ -74,12 +74,11 @@
     "SE_iter_per_layer":1,
     "SE_iter":10,
     "SE_factor":0.01,
-    "SE3_Rho_sq_threshold":[[ , , ],[ , , ],[ , , ],[ , , ],[ , , ],],
-                                                                        // [layer 0-5][channel hsv]
+    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
 
     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
-    "ST3_delta":1.0,                                                    // NB depends on depth scale, see max & min depth in mapping params.
-    "Artif_pose_err_axis":4,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
-    "Artif_pose_err_factor":10,
+    "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+    "Artif_pose_err_axis":5,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+    "Artif_pose_err_factor":5,
     "":""
 }
