@@ -1077,23 +1077,26 @@ void Dynamic_slam::estimateSE3(){
 																																				SE3_results[layer][5][channel]<<",\t"<<
 																																				"), \tfactor="<<factor<<flush;
 																																			}
-
-		/*
-		for (int SE3=0; SE3<6; SE3++) {
-			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
+		if (old_Rho_sq_result < Rho_sq_result) {
+			update -= 2*old_update;
+			update_k2k( update );
+			factor *= 0.5;
+			continue;
 		}
 
+		for (int SE3=0; SE3<6; SE3++) { update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );  }
 		for (int SE3=3; SE3<6; SE3++) { update.operator()(SE3) *= obj["min_depth"].asFloat(); }
-
+																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
+																																			for (int SE3=0; SE3<6; SE3++) { cout << update.operator()(SE3) << ", \t";}
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
-		*/
 
+/*
 		if (Rho_sq_result>old_Rho_sq_result) {																								// If new sample is worse, resample at half the previous increment half "factor".
 			update = -0.5*old_update;																										if(verbosity>local_verbosity_threshold) {
 																																							cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.0: iter="<<iter<<", layer="<<layer
-																																																<<"(Rho_sq_result > old_Rho_sq_result)"
+																																																<<"(Rho_sq_result > old_Rho_sq_result)  "<<  Rho_sq_result<<" > "<<old_Rho_sq_result << "  ,  "
 																																																<<"update = -0.5*old_update = ("
 																																																<< update.operator()(0)<<", "
 																																																<< update.operator()(1)<<", "
@@ -1109,15 +1112,18 @@ void Dynamic_slam::estimateSE3(){
 			factor *=0.75f;
 			continue;
 		}
+
 		if ((Rho_sq_result < SE3_Rho_sq_threshold[layer][channel]) && (layer>SE3_stop_layer)) {												// Layer increment.
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.1: ((Rho_sq_result < SE3_Rho_sq_threshold[layer][channel]) && (layer>SE3_stop_layer))\t  layer="
 																																				<<layer<<", layer--"<< flush;}
 				layer--;
 				Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );			// Read the next layer's Rho_sq_result, until find a layer to sample again OR finish optimization
-		}else {																																if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.2:  normal tracking loop"<< flush;}
 		}
 
+		else {																																if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.2:  normal tracking loop"
+																																																<<",    Rho_sq_result = "<<Rho_sq_result<<",   old_Rho_sq_result = "<<old_Rho_sq_result<< flush;}
+		}
 			for (int SE3=0; SE3<6; SE3++) {
 			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
 																																			if(verbosity>local_verbosity_threshold) {
@@ -1137,7 +1143,7 @@ void Dynamic_slam::estimateSE3(){
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 2.4: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
-
+*/
 		/*
 		float SE3_incr[6];
 		for (int SE3=0; SE3<6; SE3++) {SE3_incr[SE3] = SE3_results[5][SE3][channel] / ( SE3_results[5][SE3][3]  *  runcl.img_stats[IMG_VAR+channel]  );}							// For initial example take layer , channel[0] for each SE3 DoF.
