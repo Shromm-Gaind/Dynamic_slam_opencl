@@ -1081,6 +1081,8 @@ void Dynamic_slam::estimateSE3(){
 			update -= 2*old_update;
 			update_k2k( update );
 			factor *= 0.5;
+																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
+																																			for (int SE3=0; SE3<6; SE3++) { cout << update.operator()(SE3) << ", \t";}
 			continue;
 		}
 
