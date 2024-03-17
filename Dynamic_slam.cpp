@@ -52,7 +52,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 };
 
 void Dynamic_slam::initialize_camera(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = 2;
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 0:" <<flush;}
 	K = K.zeros();																															// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
 	K.operator()(3,3) = 1;
@@ -265,7 +265,7 @@ void Dynamic_slam::artificial_pose_error(){
 }
 
 void Dynamic_slam::predictFrame(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 	//for (int i=0; i<16; i++)  pose2pose.operator()(i/4,i%4) =     ;   
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				cout << "\nOld K2K        		= ";  for (int i=0; i<16; i++) cout << ", \t" << K2K.operator()(i/4,i%4);
@@ -306,7 +306,7 @@ void Dynamic_slam::predictFrame(){
 };
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				// # load next image to buffer NB load at position [log_2 index]
 																																				// See CostVol::updateCost(..) & RunCL::calcCostVol(..) 
@@ -385,7 +385,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 }
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num <<flush;
 	R.copyTo(old_R);																														// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
@@ -607,7 +607,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 }
 
 void Dynamic_slam::use_GT_pose(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose_chk_0,"<<flush;	
 	old_K		= old_K_GT;
 	inv_K		= inv_K_GT;
@@ -788,7 +788,7 @@ void Dynamic_slam::generate_invK(){ 																										// TODO hack this 
 }
 
 void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																				// Generates a set of 6 k2k to be used to compute the SE3 maps for the current camera intrinsic matrix.
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) chk_0" << endl << flush;
 	// SE3 
 	// Rotate 0.01 radians i.e 0.573  degrees
@@ -872,7 +872,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 }
 
 void Dynamic_slam::estimateSO3(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 	const uint DoF = 3;
 	const uint matxDoF = 9;
 	const uint channels = 4;
@@ -970,7 +970,7 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 	K2K 											= old_K * pose2pose * inv_K;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] 	= K2K.operator()(i/4, i%4);   }
 																																				if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 1" << flush;
-																																				cout << "\npose2pose = ";
+																																				cout << "\nDynamic_slam::update_k2k()_chk 1   pose2pose = ";
 																																				for (int i=0; i<16; i++) cout << ", \t" << pose2pose.operator()(i/4,i%4)  ;
 																																				cout << "\n"<<flush;
 																																				
@@ -994,9 +994,9 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 																																					}cout<<")";
 																																				}cout<<flush;
 																																				
-																																				cout << "\nNew pose2pose = ";
+																																				cout << "\nDynamic_slam::update_k2k()_chk 1   New pose2pose = ";
 																																				for (int i=0; i<4; i++){
-																																					cout << "\n(";
+																																					cout << "\t(";
 																																					for (int j=0; j<4; j++){
 																																						cout << ", \t"<< pose2pose.operator()(i,j);
 																																					}cout<<")";
@@ -1025,6 +1025,70 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 																																				*/
 																																			}
 }
+/*
+void Dynamic_slam::halve_update_k2k(Matx61f update_){
+	int local_verbosity_threshold = -2;
+	cv::Matx44f SE3Incr_matx 						= SE3_Matx44f(update_);
+	pose2pose 										= pose2pose *  SE3Incr_matx;
+	K2K 											= old_K * pose2pose * inv_K;
+	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] 	= K2K.operator()(i/4, i%4);   }
+																																				if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::halve_update_k2k()_chk 1" << flush;
+																																				cout << "\npose2pose = ";
+																																				for (int i=0; i<16; i++) cout << ", \t" << pose2pose.operator()(i/4,i%4)  ;
+																																				cout << "\n"<<flush;
+
+																																				cout <<"\nupdate_ = ";
+																																				for (int i=0; i<6; i++){cout << ", \t\t" << update_.operator()(0,i);}
+																																				cout << flush;
+
+																																				cout << "\nSE3Incr_matx = ";
+																																				for (int i=0; i<4; i++){
+																																					cout << "\n(";
+																																					for (int j=0; j<4; j++){
+																																						cout << ", \t"<< SE3Incr_matx.operator()(i,j);
+																																					}cout<<")";
+																																				}cout<<flush;
+
+																																				cout << "\nNew K2K = ";
+																																				for (int i=0; i<4; i++){
+																																					cout << "\n(";
+																																					for (int j=0; j<4; j++){
+																																						cout << ", \t"<< K2K.operator()(i,j);
+																																					}cout<<")";
+																																				}cout<<flush;
+
+																																				cout << "\nNew pose2pose = ";
+																																				for (int i=0; i<4; i++){
+																																					cout << "\n(";
+																																					for (int j=0; j<4; j++){
+																																						cout << ", \t"<< pose2pose.operator()(i,j);
+																																					}cout<<")";
+																																				}cout<<flush;
+
+																																				cout << "\nold_K = ";
+																																				for (int i=0; i<4; i++){
+																																					cout << "\n(";
+																																					for (int j=0; j<4; j++){
+																																						cout << ", \t"<< old_K.operator()(i,j);
+																																					}cout<<")";
+																																				}cout<<flush;
+
+																																				cout << "\ninv_K = ";
+																																				for (int i=0; i<4; i++){
+																																					cout << "\n(";
+																																					for (int j=0; j<4; j++){
+																																						cout << ", \t"<< inv_K.operator()(i,j);
+																																					}cout<<")";
+																																				}cout<<flush;
+																																				/ *
+																																				cout << "\nupdate.operator()(SE3) = "; 	for (int SE3=0; SE3< 6; SE3++) cout << ", \t" << update_.operator()(SE3);
+																																				cout << "\nSE3Incr_matx = "; 			for (int SE3=0; SE3<16; SE3++) cout << ", \t" << SE3Incr_matx.operator()(SE3/4,SE3%4);
+																																				cout << "\nnew pose2pose = "; 			for (int SE3=0; SE3<16; SE3++) cout << ", \t" << pose2pose.operator()(SE3/4,SE3%4);
+																																				cout << "\nnew K2K = "; 				for (int SE3=0; SE3<16; SE3++) cout << ", \t" << K2K.operator()(SE3/4,SE3%4);
+																																				* /
+																																			}
+}
+*/
 
 void Dynamic_slam::estimateSE3(){
 	int local_verbosity_threshold = -2;
@@ -1032,26 +1096,29 @@ void Dynamic_slam::estimateSE3(){
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0" << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
-	float Rho_sq_result=FLT_MAX,   old_Rho_sq_result=FLT_MAX ,   next_layer_Rho_sq_result=FLT_MAX;
-	uint layer = SE3_start_layer;
-	float factor = SE_factor;
+	float Rho_sq_result=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
+	uint layer 		= SE3_start_layer;
+	float factor 	= SE_factor;
+
+	uint channel  	= 2; 																													// TODO combine Rho HSV channels
+
 	for (int iter = 0; iter<SE_iter; iter++){ 																								// TODO step down layers if fits well enough, and out if fits before iteration limit. Set iteration limit param in config.json file.
-																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 1: iter="<<iter<<",  layer="<<layer << flush;}
-		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
-		float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
-		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
-																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 1.5" << flush;
-																																				cout << endl;
-																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 												// SE3_results / (num_valid_px * img_variance)
-																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.6:, Layer "<<i<<" SE3_results/num_groups = (";
-																																					for (int k=0; k<6; k++){
-																																						cout << "\t(";
-																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  ); }
-																																						cout << ", " << SE3_results[i][k][3] << ")";
-																																					}cout << ")";
-																																				}
-																																				cout << endl;
-																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 												// Rho_sq_results / (num_valid_px * img_variance)
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 1.0" << "\t  iter = " << iter << flush; }
+		//////////////////////////////////////
+		/*
+		new algorithm
+		1st sample Rho_sq, until(new_Rho < old Rho)
+			{ reduce the step size 	}
+		2nd measure gradients
+		3rd compute the next step
+		*/
+		float 	Rho_sq_results[8][tracking_num_colour_channels] 	= {{0}};
+		cv::Matx44f oldpose2pose									= pose2pose;
+		int 	iter_ 												= iter;
+		for( ; iter_<SE_iter; iter_++) {																									if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.1" << "\t  iter_ = " << iter_ << flush; }
+			runcl.se3_rho_sq(Rho_sq_results, iter_, runcl.mm_start, runcl.mm_stop);
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.2" << flush;
+																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 					// Rho_sq_results / (num_valid_px * img_variance)
 																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.7:, Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<",  \t\tRho_sq_results/num_groups = (";
 																																					if (Rho_sq_results[i][3] > 0){
 																																						for (int l=0; l<3; l++){  cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  runcl.img_stats[IMG_VAR+l]  );
@@ -1062,30 +1129,64 @@ void Dynamic_slam::estimateSE3(){
 																																					}
 																																				}
 																																			}
-		uint channel  = 2; 																													// TODO combine Rho HSV channels
-		Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );					// Rho_sq_result[channel] / (num_valid_pixels * image_variance[channel] ) : measure of fit.
-																																			if(verbosity>local_verbosity_threshold) {
-																																				cout << "\nDynamic_slam::estimateSE3()_chk 1.8: "<<
-																																				"\titer="<<iter<<", \tlayer="<<layer<<", \told_Rho_sq_result="<<old_Rho_sq_result<<",  \tRho_sq_result="<<Rho_sq_result <<
-																																				",  \tnext_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<
-																																				",  \tSE3_results["<<layer<<"][SE3]["<<channel<<"]=(\t"<<
+			Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );					// Rho_sq_result[channel] / (num_valid_pixels * image_variance[channel] ) : measure of fit.
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.3: "<<
+																																				"  \titer="<<iter<<
+																																				", \tlayer="<<layer<<
+																																				", \told_Rho_sq_result="<<old_Rho_sq_result<<
+																																				", \tRho_sq_result="<<Rho_sq_result <<
+																																				", \tnext_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<
+																																				flush;
+																																				cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.3:  pose2pose = ";
+																																				for (int i=0; i<16; i++) {if (i%4 == 0) cout<<"\t\t "; cout << pose2pose.operator()(i/4,i%4) << ", \t";}
+																																				cout << endl << flush;
+																																			}
+			if (Rho_sq_result < SE3_Rho_sq_threshold[layer][channel]) {
+				layer--;
+				old_Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
+				break;
+			}
+			if (Rho_sq_result < old_Rho_sq_result) {break;}// NB always breaks for 1st iter,												// reduce step size
+			factor 				= factor * 0.5;
+			update 				= update * 0.5;
+			pose2pose 			= oldpose2pose;				// reset previous iteration
+			update_k2k(update);
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.4: "<<
+																																				"  \t (Rho_sq_result >= old_Rho_sq_result)" <<
+																																				flush;
+																																			}
+		}
+
+		//////////////////////////////////////
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.5: iter="<<iter<<",  layer="<<layer << flush;}
+		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
+		//float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
+		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.6.0:" << flush;
+																																				cout << endl;
+																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 							// SE3_results / (num_valid_px * img_variance)
+																																					cout 									<< "\nDynamic_slam::estimateSE3()_chk 1.6.1:"<<
+																																					", Layer "<<i<<" SE3_results/num_groups = (";
+																																					for (int k=0; k<6; k++){
+																																						cout << "\t(";
+																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  ); }
+																																						cout << ", " << SE3_results[i][k][3] << ")";
+																																					}cout << ")";
+																																				}
+																																				cout 										<< "\nDynamic_slam::estimateSE3()_chk 1.6.2"<<
+																																				"  \titer="<<iter<<
+																																				", \tlayer="<<layer<<
+																																				", \tnext_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<
+																																				", \tSE3_results["<<layer<<"][SE3]["<<channel<<"]=(\t"<<
 																																				SE3_results[layer][0][channel]<<",\t"<<
 																																				SE3_results[layer][1][channel]<<",\t"<<
 																																				SE3_results[layer][2][channel]<<",\t"<<
 																																				SE3_results[layer][3][channel]<<",\t"<<
 																																				SE3_results[layer][4][channel]<<",\t"<<
 																																				SE3_results[layer][5][channel]<<",\t"<<
-																																				"), \tfactor="<<factor<<flush;
+																																				"), \tfactor="<<factor<<
+																																				flush;
 																																			}
-		if (old_Rho_sq_result < Rho_sq_result) {
-			update -= 2*old_update;
-			update_k2k( update );
-			factor *= 0.5;
-																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
-																																			for (int SE3=0; SE3<6; SE3++) { cout << update.operator()(SE3) << ", \t";}
-			continue;
-		}
-
 		for (int SE3=0; SE3<6; SE3++) { update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );  }
 		for (int SE3=3; SE3<6; SE3++) { update.operator()(SE3) *= obj["min_depth"].asFloat(); }
 																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
@@ -1261,7 +1362,7 @@ void Dynamic_slam::estimateCalibration(){
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
 	keyframe_pose_GT 		= pose_GT;
 	keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
@@ -1284,7 +1385,7 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 }
 
 void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_tracking()_chk 0" << flush;}
 	keyframe_old_pose		= keyframe_pose;
 	keyframe_old_K			= keyframe_K;
@@ -1328,7 +1429,7 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0,  runcl.dataset_frame_num = "<< runcl.dataset_frame_num << flush;}
 	runcl.initialize_fp32_params();
 	//runcl.QD_count 	= 0; // TODO NB these are reset in Dynamic_slam::nextFrame()

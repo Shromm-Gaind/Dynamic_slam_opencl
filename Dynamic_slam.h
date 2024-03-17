@@ -41,7 +41,7 @@ class Dynamic_slam
     cv::Matx33f SO3_pose2pose;
     cv::Matx31f SO3_pose2pose_algebra;
     
-    cv::Matx44f K, inv_K, pose, inv_pose, K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose, transform[6]  ;
+    cv::Matx44f K, inv_K, pose, inv_pose, K2K, old_K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose, transform[6]  ;
     cv::Matx61f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;
     
     cv::Matx44f K_GT, inv_K_GT, pose_GT, inv_pose_GT, K2K_GT, pose2pose_GT, old_K_GT, inv_old_K_GT, old_pose_GT, inv_old_pose_GT, transform_GT[6]  ; // Ground Truth from the dataset.
