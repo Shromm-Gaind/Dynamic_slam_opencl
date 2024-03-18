@@ -281,6 +281,9 @@ __kernel void se3_Rho_sq(
 		uint group_id 									= get_group_id(0);
 		uint rho_global_sum_offset 						= read_offset_ / local_size ;				// Compute offset for this layer
 		uint num_groups 								= get_num_groups(0);
+		//printf("\nse3_Rho_sq(..): layer=%i, u=%i, v=%i, group_id=%i,  rho_global_sum_offset=%i,  (float)read_offset_/local_size=%f,  local_size=%u, read_offset_=%u,  local_sum_rho_sq[lid]=(%f,%f,%f,%f), local_sum_rho_sq[lid][3]=%f ",
+		//	   layer, u, v, group_id, rho_global_sum_offset, ((float)read_offset_)/((float)local_size),  local_size, read_offset_, local_sum_rho_sq[lid].x, local_sum_rho_sq[lid].y, local_sum_rho_sq[lid].z, local_sum_rho_sq[lid].w, local_sum_rho_sq[lid][3] );
+
 
 		float4 layer_data 								= {num_groups, reduction, 0.0f, 0.0f };		// Write layer data to first entry
 		if (global_id_u == 0) {
@@ -288,7 +291,7 @@ __kernel void se3_Rho_sq(
 		}
 		rho_global_sum_offset 							+= 1 + group_id;
 
-		if (rho[3] >0){																				// Using last channel rho[3], to count valid pixels being summed.
+		if (local_sum_rho_sq[lid][3] >0){															// Using last channel rho[3], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset] 	= local_sum_rho_sq[lid];
 		}else {																						// If no matching pixels in this group, set values to zero.
 			global_sum_rho_sq[rho_global_sum_offset] 	= 0;
@@ -404,13 +407,13 @@ __kernel void se3_grad(
 			SE3_incr_map_[read_index + i * mm_pixels ].y 		*= inv_depth * 100;
 			SE3_incr_map_[read_index + i * mm_pixels ].z 		*= inv_depth * 100;
 		}
-		/*
+
 		for (uint i=3; i<6; i++) {	// rotation, amplify distant movement.							// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			SE3_incr_map_[read_index + i * mm_pixels ].x 		/= (inv_depth * 50);
 			SE3_incr_map_[read_index + i * mm_pixels ].y 		/= (inv_depth * 50);
 			SE3_incr_map_[read_index + i * mm_pixels ].z 		/= (inv_depth * 50);
 		}
-		*/
+
 		//if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction

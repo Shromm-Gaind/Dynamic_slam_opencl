@@ -89,6 +89,20 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], int count, uint start, uint s
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk4 ."<<flush;}
 	cv::Mat rho_sq_sum_mat = cv::Mat::zeros (se3_sum_size, 4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float4 per group, holding HSV, plus entry[3]=pixel count.
 	ReadOutput( rho_sq_sum_mat.data, se3_sum_rho_sq_mem, pix_sum_size_bytes );																//float Rho_sq_reults[8][4] = {{0}};
+																																			if(verbosity>local_verbosity_threshold+2) {
+
+																																				cout << "\n\nRunCL::se3_rho_sq(..)_chk5 ."<<flush;
+																																				cout << "\nrho_sq_sum_mat.size()="<<rho_sq_sum_mat.size()<<flush;
+																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;
+																																				cout << "\n mm_num_reductions = " << mm_num_reductions << endl << flush;
+																																				cout << "\n\nrho_sq_sum_mat.at<float> (i*num_DoFs + j,  k) ,  i=group,  j=SO3 DoF,  i=delta4 (H,S,V, (valid pixels/group_size) )";
+																																				for (int i=0; i< se3_sum_size ; i++){//&& i<30
+																																					cout << "\ngroup ="<<i<<":   ";
+																																					cout << ",     \t(";
+																																					for (int k=0; k<4; k++){	cout << ", \t" << rho_sq_sum_mat.at<float>(i, k); }
+																																					cout << ")";
+																																				}cout << endl << endl;
+																																			}
 
 	for (int i=0; i<=mm_num_reductions+1; i++){
 		uint read_offset_ 			= MipMap[i*8 +MiM_READ_OFFSET];																			// mipmap_params_[MiM_READ_OFFSET];
@@ -96,7 +110,17 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], int count, uint start, uint s
 		uint groups_to_sum 			= rho_sq_sum_mat.at<float>(global_sum_offset, 0);
 		uint start_group 			= global_sum_offset + 1;
 		uint stop_group 			= start_group + groups_to_sum ;   																		// -1
-		for (int j=start_group; j< stop_group; j++){	for (int l=0; l<4; l++){ 	Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		}; 		}																									// sum j groups for this layer of the MipMap.
+																																			/*
+																																			cout << "\nRunCL::se3_rho_sq(..)_chk6 layer = "<<i<<
+																																			", read_offset_="<<read_offset_<<
+																																			", global_sum_offset = "<<global_sum_offset<<
+																																			", groups_to_sum = "<<groups_to_sum<<
+																																			", start_group = "<<start_group<<
+																																			", stop_group = "<<stop_group<< flush;
+																																			*/
+		for (int j=start_group; j< stop_group; j++){	for (int l=0; l<4; l++){ 	Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		};
+			//cout << "\n #group = " << j << ", Value = " << rho_sq_sum_mat.at<float>(j, 2);
+		}																									// sum j groups for this layer of the MipMap.
 	}
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl;
