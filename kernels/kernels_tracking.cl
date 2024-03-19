@@ -246,6 +246,8 @@ __kernel void se3_Rho_sq(
 	uint num_DoFs 		= 6;
 	float4 new_px;
 
+	local_sum_rho_sq[lid] = 0;																		// Essential to zero local mem.
+
 	if (global_id_u==1){
 		printf("\nkernel se3_Rho_sq(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  u2_flt=%f,  v2_flt=%f,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
 		,u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   )  ;
@@ -293,6 +295,7 @@ __kernel void se3_Rho_sq(
 
 		if (local_sum_rho_sq[lid][3] >0){															// Using last channel rho[3], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset] 	= local_sum_rho_sq[lid];
+			printf("\nkernel se3_Rho_sq(..)_2: layer=%i,  group_id=%i,   local_sum_rho_sq[lid]=(%f,%f,%f,%f )", layer, group_id,  local_sum_rho_sq[lid].x, local_sum_rho_sq[lid].y, local_sum_rho_sq[lid].z, local_sum_rho_sq[lid].w );
 		}else {																						// If no matching pixels in this group, set values to zero.
 			global_sum_rho_sq[rho_global_sum_offset] 	= 0;
 		}

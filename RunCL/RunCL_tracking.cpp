@@ -39,8 +39,8 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk.. Finished "<<flush;}
 }
 
-void RunCL::se3_rho_sq(float Rho_sq_results[8][4], int count, uint start, uint stop){
-	int local_verbosity_threshold = -2;
+void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop){
+	int local_verbosity_threshold = -4;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk0 .##################################################################"<<flush;}
 	cl_event writeEvt;
 	cl_int status;
@@ -48,7 +48,7 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], int count, uint start, uint s
 																																				cout << "\nRunCL::se3_rho_sq(..)__chk_0.3: K2K= ";
 																																				for (int i=0; i<16; i++){ cout << ",  "<< fp32_k2k[i];  }	cout << flush;
 																																			}
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk0.4 ,  dataset_frame_num="<<dataset_frame_num<<",   count="<<count<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk0.4 ,  dataset_frame_num="<<dataset_frame_num<<",   count="<<count[0]<<flush;}
 
 	status = clEnqueueWriteBuffer(uload_queue, k2kbuf,	CL_FALSE, 0, 16 * sizeof(float), fp32_k2k, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::se3_rho_sq(..)_chk0.5\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 /*	// Zero the output buffers.
@@ -82,7 +82,7 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], int count, uint start, uint s
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_rho_sq_kernel, m_queue, start, stop );
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk3 ."<<flush;
-																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_se3_rho_sq_";
+																																				stringstream ss;	ss << dataset_frame_num <<"_iter_"<<count[0]<<"_layer"<<count[1]<<"_factor"<<count[2]<<"_se3_rho_sq_";
 																																				stringstream ss_path;
 																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SE3_rho_map_mem"),  mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
 																																			}

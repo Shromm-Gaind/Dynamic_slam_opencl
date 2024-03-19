@@ -1121,10 +1121,28 @@ void Dynamic_slam::estimateSE3(){
 		2nd measure gradients
 		3rd compute the next step
 		*/
-		if (iter%2==0 && iter>0) {layer --; factor *= 0.75;}
+		if (iter%3==0 && iter>0) {layer --; factor *= 0.75;}
 		float 	Rho_sq_results[8][tracking_num_colour_channels] 	= {{0}};
-		runcl.se3_rho_sq(Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
+		const float count[4] = {(float)iter, (float)layer, factor,0};
+
+		runcl.se3_rho_sq(Rho_sq_results, count, runcl.mm_start, runcl.mm_stop);
 		Rho_sq_result = Rho_sq_results[layer][channel] / ( Rho_sq_results[layer][3]  *  runcl.img_stats[IMG_VAR+channel] );
+
+																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.2" << flush;
+																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 					// Rho_sq_results / (num_valid_px * img_variance)
+																																					cout << "\nDynamic_slam::estimateSE3()_chk 1.3:, Layer "<<i<<" mm_num_reductions = "<< runcl.mm_num_reductions <<
+																																					",  \t\tRho_sq_results/num_groups = (";
+																																					if (Rho_sq_results[i][3] > 0){
+																																						for (int l=0; l<3; l++){  cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  runcl.img_stats[IMG_VAR+l]  );
+																																						}
+																																						cout << ", " << Rho_sq_results[i][3]  << ")\t\t";
+																																						for (int l=0; l<3; l++) cout << ", "<<runcl.img_stats[IMG_VAR+l];
+																																					}else{
+																																						for (int l=0; l<3; l++){  cout << ", \t" << 0.0f  ;
+																																						}cout << ", " << Rho_sq_results[i][3] << ")";
+																																					}
+																																				}
+																																			}
 
 		/*
 		cv::Matx44f oldpose2pose									= pose2pose;
@@ -1186,6 +1204,7 @@ void Dynamic_slam::estimateSE3(){
 																																				",  layer="<<layer<< ",\t factor = "<<factor<<",\t Rho_sq_result = "<<Rho_sq_result<< flush;}
 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
 		//float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
+
 		runcl.estimateSE3(SE3_results, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3()_chk 1.6.0:" << flush;
 																																				cout << endl;

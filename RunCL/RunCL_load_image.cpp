@@ -128,7 +128,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 }
 
 void RunCL::img_variance(){
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold =-1;
 
 	// TODO ? create a class for data, holding buffer, CPU data, stats about the data object, functions for write, read, save, display, & set_kernel_arg ?
 
