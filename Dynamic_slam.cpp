@@ -1213,9 +1213,12 @@ void Dynamic_slam::estimateSE3(){
 																																					", Layer "<<i<<" SE3_results/num_groups = (";
 																																					for (int k=0; k<6; k++){
 																																						cout << "\t(";
-																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  runcl.img_stats[IMG_VAR+l]  ); }
-																																						cout << ", " << SE3_results[i][k][3] << ")";
+																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l]  ; }
+																																						cout << ", \t" << SE3_results[i][k][3] << ")";
 																																					}cout << ")";
+																																					cout << "\t\t IMG_VAR = ";
+																																					for (int l=0; l<3; l++) cout << " ,\t " << runcl.img_stats[IMG_VAR+l] ;
+																																					cout << endl << flush;
 																																				}
 																																				cout 										<< "\nDynamic_slam::estimateSE3()_chk 1.6.2"<<
 																																				"  \titer="<<iter<<
@@ -1231,8 +1234,18 @@ void Dynamic_slam::estimateSE3(){
 																																				"), \tfactor="<<factor<<
 																																				flush;
 																																			}
-		for (int SE3=0; SE3<6; SE3++) { update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );  }
-		for (int SE3=3; SE3<6; SE3++) { update.operator()(SE3) *= obj["min_depth"].asFloat(); }
+																																			cout << "\n#### update = ";
+		for (int SE3=0; SE3<6; SE3++) {
+			cout << "("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_results[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
+			cout << " ) ) = \t\t "<< update.operator()(SE3) ;
+		}cout << flush;
+
+		cout << " * min_depth = * "<<obj["min_depth"].asFloat()<<" = ( ";
+		for (int SE3=3; SE3<6; SE3++) {
+			update.operator()(SE3) *= obj["min_depth"].asFloat();
+			cout << update.operator()(SE3) << " , ";
+		}cout << ") "<<endl<<flush;
 																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
 																																			for (int SE3=0; SE3<6; SE3++) { cout << update.operator()(SE3) << ", \t";}
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
