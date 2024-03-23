@@ -206,6 +206,9 @@ void Dynamic_slam::report_GT_pose_error(){
 																																				cout << endl;
 																																				cout << "\npose2pose_GT = "; for (int i=0; i<16; i++) cout << ", " << pose2pose_GT.operator()(i/4,i%4);
 																																				cout << "\npose2pose    = "; for (int i=0; i<16; i++) cout << ", " << pose2pose.operator()(i/4,i%4);
+																																				//
+																																				cout << "\npose2pose_GT_algebra = "; 	for (int i=0; i<6; i++) cout << ", " << pose2pose_GT_algebra.operator()(i);
+																																				cout << "\npose2pose_algebra = "; 		for (int i=0; i<6; i++) cout << ", " << pose2pose_algebra.operator()(i);
 																																				cout << "\npose2pose_error_algebra = "; for (int i=0; i<6; i++) cout << ", " << pose2pose_error_algebra.operator()(i);
 																																				cout << endl;
 																																				cout << flush;
@@ -254,7 +257,18 @@ void Dynamic_slam::artificial_pose_error(){
 																																				cout << "\npose2pose = "; 	for (int i=0; i<16; i++) cout << ", \t" << pose2pose.operator()(i/4,i%4);
 																																				cout << "\nold_K2K = "; 	for (int i=0; i<16; i++) cout << ", \t" << K2K.operator()(i/4,i%4);
 																																			}
-	pose2pose = pose2pose * big_step;																													
+																																			if(verbosity>local_verbosity_threshold){
+																																				Matx61f pose2pose_SE3_Algebra = SE3_Algebra(pose2pose);																				//SE3_Algebra(const Matx44f& SE3_Matx)
+																																				cout << "\nTrue_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  		//[i][0];
+																																			}
+	pose2pose = pose2pose * big_step;
+																																			if(verbosity>local_verbosity_threshold){
+																																				Matx61f pose2pose_SE3_Algebra = SE3_Algebra(pose2pose);																				//SE3_Algebra(const Matx44f& SE3_Matx)
+																																				cout << "\tStart_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  	//[i][0];
+																																				Matx61f big_step_SE3_Algebra = SE3_Algebra(big_step);
+																																				cout << "\tbig_step_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << big_step_SE3_Algebra.operator()(i,0);  			//[i][0];
+																																				cout << endl << flush;
+																																			}
 	K2K = old_K * pose2pose * inv_K;																										// Add error of one step in the 2nd SE3 DoF.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\nnew_K2K = "; for (int i=0; i<16; i++) cout << ", \t" << K2K.operator()(i/4,i%4);}
 	
@@ -1234,18 +1248,19 @@ void Dynamic_slam::estimateSE3(){
 																																				"), \tfactor="<<factor<<
 																																				flush;
 																																			}
-																																			cout << "\n#### update = ";
+																																					cout << "\n#### update = ";
 		for (int SE3=0; SE3<6; SE3++) {
-			cout << "("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_results[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+																																					cout << ", ("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_results[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
 			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / ( SE3_results[layer][SE3][3] * runcl.img_stats[IMG_VAR+channel] );
-			cout << " ) ) = \t\t "<< update.operator()(SE3) ;
-		}cout << flush;
+																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
+		}																																			cout << flush;
 
-		cout << " * min_depth = * "<<obj["min_depth"].asFloat()<<" = ( ";
+																																					cout << "\t * min_depth = * "<<obj["min_depth"].asFloat()<<" = ,(, ";
 		for (int SE3=3; SE3<6; SE3++) {
 			update.operator()(SE3) *= obj["min_depth"].asFloat();
-			cout << update.operator()(SE3) << " , ";
-		}cout << ") "<<endl<<flush;
+																																					cout << update.operator()(SE3) << " , ";
+		}																																			cout << ") "<<endl<<flush;
+
 																																			cout << "\n#### Rho_sq_result = "<<Rho_sq_result<<"\t update =   ";
 																																			for (int SE3=0; SE3<6; SE3++) { cout << update.operator()(SE3) << ", \t";}
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
