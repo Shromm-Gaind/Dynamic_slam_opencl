@@ -31,6 +31,7 @@ class RunCL
 public:
 
 	Json::Value 		obj;
+	cv::Mat 			resultsMat;
 	int					verbosity;
 	bool				tiff, png;
 	std::vector<cl_platform_id> 	m_platform_ids;
@@ -99,7 +100,7 @@ public:
 
 	///////////////////////////////////// RunCL_class.cpp
 
-	RunCL(Json::Value obj_);
+	RunCL(Json::Value obj_, cv::Mat resultsMat_);
 	void testOpencl();
 	void getDeviceInfoOpencl(cl_platform_id platform);
 	int  convertToString(const char *filename, std::string& s);
@@ -183,9 +184,10 @@ public:
 	
 	/////////////////////////////////////// RunCL_tracking.cpp
 	
-	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 					// Tracking
+	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 				// Tracking
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+	void writeToResultsMat(cl_mem buffer , uint column_of_images , uint row_of_images );
 	void tracking_result(string result);
 	void estimateCalibration();																											// Camera calibration
 	void RelativeVel_Map();																												// RelativeVelMap - placeholder...

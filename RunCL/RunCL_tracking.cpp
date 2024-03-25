@@ -39,7 +39,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\nRunCL::precom_param_maps(float SE3_k2k[6*16])_chk.. Finished "<<flush;}
 }
 
-void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop){
+void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop ){
 	int local_verbosity_threshold = -4;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk0 .##################################################################"<<flush;}
 	cl_event writeEvt;
@@ -85,6 +85,9 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																				stringstream ss;	ss << dataset_frame_num <<"_iter_"<<count[0]<<"_layer"<<count[1]<<"_factor"<<count[2]<<"_se3_rho_sq_";
 																																				stringstream ss_path;
 																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SE3_rho_map_mem"),  mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
+																																			}
+																																			if (obj["sample_se3_incr"].asBool() == true){
+																																				writeToResultsMat(SE3_rho_map_mem, count[0], 0 );	// writeToResultsMat(buffer , column of images = iteration, row of images );
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk4 ."<<flush;}
 	cv::Mat rho_sq_sum_mat = cv::Mat::zeros (se3_sum_size, 4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float4 per group, holding HSV, plus entry[3]=pixel count.
@@ -136,6 +139,23 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																					}
 																																				}cout << "\n\nRunCL::se3_rho_sq(..)_finish . ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<flush;
 																																			}
+}
+
+
+void RunCL::writeToResultsMat(cl_mem buffer , uint column_of_images , uint row_of_images ){													// writeToResultsMat(buffer , column of images = iteration, row of images );
+	uint reduction 			= obj["sample_layer"].asUInt();																					// extract patch
+	cv::Mat temp_mat 		= cv::Mat::zeros (mm_Image_size, CV_32FC4);
+	ReadOutput(temp_mat.data, buffer,  image_size_bytes);
+	int rows 				= MipMap[reduction*8 + MiM_READ_ROWS];
+	int cols 				= MipMap[reduction*8 + MiM_READ_COLS];
+	int row_offset 			= mm_margin * reduction;
+	for (int layer = 0; layer < reduction; layer ++)  { row_offset += MipMap[layer*8 + MiM_READ_ROWS]; }
+	int col_offset 			= mm_margin ;
+	cv::Mat temp_mat_sample = temp_mat(Rect(row_offset, col_offset, rows, cols) );    														// cv::Mat::zeros (rows, cols, CV_32FC4);
+
+	int row_offset2			= mm_margin + row_of_images * ( mm_margin + rows );																// paste patch
+	int col_offset2			= mm_margin + column_of_images * ( mm_margin + cols );
+	temp_mat_sample.copyTo(   resultsMat( Rect( row_offset2, col_offset2, rows, cols ) ) );
 }
 
 

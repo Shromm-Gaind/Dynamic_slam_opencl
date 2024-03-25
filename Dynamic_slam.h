@@ -31,7 +31,10 @@ class Dynamic_slam
     bool invert_GT_depth = false;
     int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter;
     float SE3_Rho_sq_threshold[5][3], SE_factor;
-    
+
+    cv::Mat resultsMat;                                           // NB must do initial Mat construction here, before passing pointer to runcl object.
+    void initialize_resultsMat();                                             // used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
+
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
     const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};

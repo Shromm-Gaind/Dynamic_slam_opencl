@@ -10,7 +10,7 @@ Dynamic_slam::~Dynamic_slam(){
 	
 };
 
-Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
+Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_, resultsMat = cv::Mat() ) {
 	int local_verbosity_threshold = 1;
 	obj = obj_;
 	verbosity 					= obj["verbosity"].asInt();
@@ -53,7 +53,16 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_) {
 	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
 	//generate_SE3_k2k( SE3_k2k );																											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 6\n" << flush;
 	//runcl.precom_param_maps( SE3_k2k );																									if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
+	initialize_resultsMat();
 };
+
+void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
+	uint reduction 	= obj["sample_layer"].asUInt();
+	uint SE_iter 	= obj["SE_iter"].asUInt();
+	int rows 		= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
+	int cols 		= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );
+	resultsMat 		= cv::Mat::zeros ( rows, cols , CV_16UC4);
+}
 
 void Dynamic_slam::initialize_camera(){
 	int local_verbosity_threshold = 2;
@@ -1112,6 +1121,9 @@ void Dynamic_slam::estimateSE3(){
 	int local_verbosity_threshold = -2;
 	Matx61f old_update = {0,0,0, 0,0,0}, update = {0,0,0, 0,0,0};																			// SE3 Lie Algebra holding the DoF of SE3.
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
+	if (obj["sample_se3_incr"]==true){
+		initialize_resultsMat();
+	}
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 0 : \t SE_factor = "<<SE_factor<<",\t obj[\"SE_factor\"].asFloat() = "<<obj["SE_factor"].asFloat() << flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 	float Rho_sq_result=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
@@ -1267,6 +1279,33 @@ void Dynamic_slam::estimateSE3(){
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
 
+
+		if (obj["sample_se3_incr"]==true){
+			// Extract sample images from Rho_map and SE3_incr_map - done in RunCL::se3_rho_sq(..) and RunCL::estimate_SE3(..)
+			// Write data into image
+			int row_offset = ;
+			int col_offset = ;
+
+			stringstream ss;
+			ss << "Rho_sq_result = " << Rho_sq_result << "\n";
+			for (int se3 = 0; se3<6; se3++) {
+				for (int layer = 0; layer<obj["num_reductions"].asInt(); layer ++){
+					ss << SE3_results[layer][se3] << "\t";
+				}ss << "\n";
+			}
+
+
+
+			// Writing over the Image
+			Point org(30, 100);
+			putText( /*InputOutputArray*/ image, /*const String &*"Text On Image"*/ ss.cstr() , /*cv::Point*/ org,  FONT_HERSHEY_PLAIN, /*double fontScale*/ 2.1,  /*Scalar color*/ Scalar(0, 0, 255), /*int thickness=1*/ 2, /*int lineType=LINE_8*/ LINE_AA /* , bool bottomLeftOrigin=false */);
+
+			//Rho_sq_result ;
+
+			//SE3_results[8][6] ;
+
+
+		}
 /*
 		if (Rho_sq_result>old_Rho_sq_result) {																								// If new sample is worse, resample at half the previous increment half "factor".
 			update = -0.5*old_update;																										if(verbosity>local_verbosity_threshold) {
@@ -1417,8 +1456,16 @@ void Dynamic_slam::estimateSE3(){
 																																				}cout<<flush;
 																																			}
 	if (runcl.dataset_frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose;
+	if (obj["sample_se3_incr"]==true){
+		// save resultsMat to file;
+
+	}
+
+
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 8  Finished\n" << flush;}
 }
+
+
 
 void Dynamic_slam::estimateCalibration(){
 // # Get 1st & 2nd order gradients wrt calibration parameters. 

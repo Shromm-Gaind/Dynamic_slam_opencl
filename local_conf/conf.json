@@ -80,5 +80,9 @@
     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
     "Artif_pose_err_axis":3,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
     "Artif_pose_err_factor":5,
+    "":"",
+    // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
+    "sample_se3_incr":true,
     "":""
 }
