@@ -10,9 +10,11 @@ Dynamic_slam::~Dynamic_slam(){
 	
 };
 
-Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_, resultsMat = cv::Mat() ) {
-	int local_verbosity_threshold = 1;
+Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_ ) {
+	int local_verbosity_threshold = -2;
 	obj = obj_;
+	//resultsMat = cv::Mat();
+	//runcl.resultsMat = resultsMat;
 	verbosity 					= obj["verbosity"].asInt();
 	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();
 	invert_GT_depth  			= obj["invert_GT_depth"].asBool();
@@ -52,17 +54,20 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_, resultsMat = cv::Mat
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
 	//generate_SE3_k2k( SE3_k2k );																											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 6\n" << flush;
-	//runcl.precom_param_maps( SE3_k2k );																									if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
-	initialize_resultsMat();
+	//runcl.precom_param_maps( SE3_k2k );
+	//initialize_resultsMat();
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
 };
 
 void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
+	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
 	uint reduction 	= obj["sample_layer"].asUInt();
-	uint SE_iter 	= obj["SE_iter"].asUInt();
+	uint SE_iter 	= obj["SE_iter"].asUInt();																								if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 2" << flush;
 	int rows 		= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
-	int cols 		= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );
-	resultsMat 		= cv::Mat::zeros ( rows, cols , CV_16UC4);
-}
+	int cols 		= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 3: rows = "<<rows<<", cols = "<<cols<< flush;
+	runcl.resultsMat = cv::Mat::zeros ( rows, cols , CV_32FC4);																				if(verbosity>local_verbosity_threshold) cout << ",  runcl.resultsMat.size() = "<< runcl.resultsMat.size() << flush;
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk  finished\n" << flush;
+}//   Dynamic_slam::initialize_resultsMat()_chk 3: rows = 882, cols = 1660,  runcl.resultsMat.size() = [1660 x 882]
 
 void Dynamic_slam::initialize_camera(){
 	int local_verbosity_threshold = 2;
@@ -1283,8 +1288,10 @@ void Dynamic_slam::estimateSE3(){
 		if (obj["sample_se3_incr"]==true){
 			// Extract sample images from Rho_map and SE3_incr_map - done in RunCL::se3_rho_sq(..) and RunCL::estimate_SE3(..)
 			// Write data into image
-			int row_offset = ;
-			int col_offset = ;
+			uint reduction 			= obj["sample_layer"].asUInt();
+			int cols 				= runcl.MipMap[reduction*8 + MiM_READ_COLS];
+			int row_offset 			= 2* runcl.mm_margin ;
+			int col_offset 			= 2* runcl.mm_margin + iter * (runcl.mm_margin + cols  );
 
 			stringstream ss;
 			ss << "Rho_sq_result = " << Rho_sq_result << "\n";
@@ -1294,16 +1301,17 @@ void Dynamic_slam::estimateSE3(){
 				}ss << "\n";
 			}
 
-
-
 			// Writing over the Image
-			Point org(30, 100);
-			putText( /*InputOutputArray*/ image, /*const String &*"Text On Image"*/ ss.cstr() , /*cv::Point*/ org,  FONT_HERSHEY_PLAIN, /*double fontScale*/ 2.1,  /*Scalar color*/ Scalar(0, 0, 255), /*int thickness=1*/ 2, /*int lineType=LINE_8*/ LINE_AA /* , bool bottomLeftOrigin=false */);
+			Point org(row_offset, col_offset);
+			putText( /*InputOutputArray*/ runcl.resultsMat, /*const String &*"Text On Image"*/ ss.str() , /*cv::Point*/ org,  FONT_HERSHEY_PLAIN, /*double fontScale*/ 2.1,  /*Scalar color*/ Scalar(0, 0, 255), /*int thickness=1*/ 2, /*int lineType=LINE_8*/ LINE_AA /* , bool bottomLeftOrigin=false */);
 
-			//Rho_sq_result ;
+			runcl.resultsMat.convertTo(resultsMat, CV_8UC4);
+			// show inage
+			cv::imshow("resultsMat", runcl.resultsMat);
+			cv::waitKey(-1);
 
-			//SE3_results[8][6] ;
-
+			// save image
+			//runcl.SaveMat(resultsMat, CV_16FC4,  folder_tiff,  show,  max_range, "resultsMat", count);
 
 		}
 /*

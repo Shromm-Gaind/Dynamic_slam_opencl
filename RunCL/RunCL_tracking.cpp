@@ -81,11 +81,13 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_rho_sq_kernel, m_queue, start, stop );
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk3 ."<<flush;
+
+																																			 if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num <<"_iter_"<<count[0]<<"_layer"<<count[1]<<"_factor"<<count[2]<<"_se3_rho_sq_";
 																																				stringstream ss_path;
-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SE3_rho_map_mem"),  mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
+																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at("SE3_rho_map_mem"),  mm_size_bytes_C4, mm_Image_size, CV_32FC4, true, -1, 1 );
 																																			}
+
 																																			if (obj["sample_se3_incr"].asBool() == true){
 																																				writeToResultsMat(SE3_rho_map_mem, count[0], 0 );	// writeToResultsMat(buffer , column of images = iteration, row of images );
 																																			}
@@ -93,7 +95,8 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 	cv::Mat rho_sq_sum_mat = cv::Mat::zeros (se3_sum_size, 4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float4 per group, holding HSV, plus entry[3]=pixel count.
 	ReadOutput( rho_sq_sum_mat.data, se3_sum_rho_sq_mem, pix_sum_size_bytes );																//float Rho_sq_reults[8][4] = {{0}};
 																																			if(verbosity>local_verbosity_threshold+2) {
-
+// DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes, exception_tiff);
+// ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 																																				cout << "\n\nRunCL::se3_rho_sq(..)_chk5 ."<<flush;
 																																				cout << "\nrho_sq_sum_mat.size()="<<rho_sq_sum_mat.size()<<flush;
 																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;
@@ -141,21 +144,35 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																			}
 }
 
-
+// TODO   Move writeToResultsMat(..) into DownloadAndSave_3Channel_volume   AND pass back a Mat from DownloadAndSave_3Channel   // Question : why is reading the buffer twice such a problem ?  // why is it crashing ?
 void RunCL::writeToResultsMat(cl_mem buffer , uint column_of_images , uint row_of_images ){													// writeToResultsMat(buffer , column of images = iteration, row of images );
+	int local_verbosity_threshold = -2;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk0"<<flush;}
 	uint reduction 			= obj["sample_layer"].asUInt();																					// extract patch
-	cv::Mat temp_mat 		= cv::Mat::zeros (mm_Image_size, CV_32FC4);
-	ReadOutput(temp_mat.data, buffer,  image_size_bytes);
-	int rows 				= MipMap[reduction*8 + MiM_READ_ROWS];
-	int cols 				= MipMap[reduction*8 + MiM_READ_COLS];
-	int row_offset 			= mm_margin * reduction;
-	for (int layer = 0; layer < reduction; layer ++)  { row_offset += MipMap[layer*8 + MiM_READ_ROWS]; }
-	int col_offset 			= mm_margin ;
-	cv::Mat temp_mat_sample = temp_mat(Rect(row_offset, col_offset, rows, cols) );    														// cv::Mat::zeros (rows, cols, CV_32FC4);
+	Mat temp_mat 			= Mat::zeros (mm_Image_size, CV_32FC4);																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk1"<<flush;}
+	ReadOutput(temp_mat.data, buffer,  image_size_bytes);																					if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk2"<<flush;}
 
-	int row_offset2			= mm_margin + row_of_images * ( mm_margin + rows );																// paste patch
-	int col_offset2			= mm_margin + column_of_images * ( mm_margin + cols );
-	temp_mat_sample.copyTo(   resultsMat( Rect( row_offset2, col_offset2, rows, cols ) ) );
+	cv::imshow("temp_mat", temp_mat);
+	cv::waitKey(-1);
+
+	int pach_rows 			= MipMap[reduction*8 + MiM_READ_ROWS];
+	int patch_cols 			= MipMap[reduction*8 + MiM_READ_COLS];
+	int row_offset 			= mm_margin * reduction;																						if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk3"<<flush;}
+	for (int layer = 0; layer < reduction; layer ++)  { row_offset += MipMap[layer*8 + MiM_READ_ROWS]; }									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk4"<<flush;}
+	int col_offset 			= mm_margin ;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk5"<<flush;}
+	int row_offset2			= mm_margin + row_of_images * ( mm_margin + pach_rows );																// paste patch
+	int col_offset2			= mm_margin + column_of_images * ( mm_margin + patch_cols );													if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk5.1"<<flush;}
+
+	for (int col = 0; col < patch_cols ; col++ ) {
+		for (int row = 0; row < pach_rows ; row ++) {
+			resultsMat.at<Vec4f>(row+row_offset2 , col+col_offset2) = temp_mat.at<Vec4f>(row+row_offset , col+col_offset);
+		}
+	}																																		if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk finished"<<flush;}
+
+
+	cv::imshow("resultsMat", resultsMat);
+	cv::waitKey(-1);
 }
 
 
@@ -387,6 +404,11 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 																																			}
 		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }	}			//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
     }
+
+																																		//	if (obj["sample_se3_incr"].asBool() == true){
+																																		//		writeToResultsMat(SE3_rho_map_mem, count[0], 0 );	// writeToResultsMat(buffer , column of images = iteration, row of images );
+																																		//	}
+
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl << " SE3_results/num_groups = (H, S, V, alpha=num_groups) ";
 																																				for (int i=0; i<=mm_num_reductions+1; i++){ 																// results / (num_valid_px * img_variance)

@@ -100,7 +100,7 @@ public:
 
 	///////////////////////////////////// RunCL_class.cpp
 
-	RunCL(Json::Value obj_, cv::Mat resultsMat_);
+	RunCL(Json::Value obj_);
 	void testOpencl();
 	void getDeviceInfoOpencl(cl_platform_id platform);
 	int  convertToString(const char *filename, std::string& s);
