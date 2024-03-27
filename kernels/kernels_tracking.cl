@@ -321,8 +321,10 @@ __kernel void se3_grad(
 	__local		float4*	local_sum_grads,		//11
 	__global	float4*	global_sum_grads,		//12
 	__global 	float4*	SE3_incr_map_			//13
+/*
 	//__local		float4*	local_sum_rho_sq,		//14	1 DoF, float4 channels
 	//__global 	float4*	global_sum_rho_sq			//15
+*/
 	)
  {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint  global_id_u 	= get_global_id(0);
@@ -377,23 +379,24 @@ __kernel void se3_grad(
 	}
 
 	float4 rho 													= Rho_[read_index]; // {0.0f,0.0f,0.0f,0.0f};
-
+/*
 	//if (lid==0){printf("\nkernel se3_grad_b(..): layer=%i,  u=%i,  v=%i,  rho=(%f,%f,%f,%f)",layer , u, v, rho.x, rho.y, rho.z, rho.w  );}
-
+*/
 	for (int i=0; i<6; i++) local_sum_grads[i*local_size + lid] = 0;								// Essential to zero local mem.
 																									// Exclude all out-of-bounds threads:
 	float intersection 											= rho.w;	//= (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 
 	if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx 												= 0;								// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
-		new_px 													= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);
+/*
+		//new_px 												= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);
 		//rho 													= img_cur[read_index] - new_px;
 		//rho[3] 												= alpha;
 
 		//Rho_[read_index] 										= rho;								// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		//float4 rho_sq 											= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 		//local_sum_rho_sq[lid] 									= rho_sq;							// Also compute global Rho^2.
-
+*/
 		for (uint i=0; i<6; i++) {																	// for each SE3 DoF
 			float8 SE3_grad_cur_px 								= SE3_grad_map_cur_frame[read_index     + i * mm_pixels ] ;
 			float8 SE3_grad_new_px 								= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + i * mm_pixels ] ;

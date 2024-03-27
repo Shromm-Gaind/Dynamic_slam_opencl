@@ -299,8 +299,8 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_2Channel_volume()_finished"<<flush;
 }
 
-void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/){
-	int local_verbosity_threshold = 1;
+void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, cv::Mat *bufImg, float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/){
+	int local_verbosity_threshold = 1;																										// bufImg will hold a pointer to the version written to .png
 	bool old_tiff = tiff;
 	if (exception_tiff == true) tiff = exception_tiff;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
@@ -336,8 +336,11 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 		if(show){
 			cv::Mat temp;
 			temp_mat.convertTo(temp, CV_8U, 256);																								// NB need CV_U8 for imshow(..)
+			cv::namedWindow( ss.str() , 0 );
 			cv::imshow( ss.str(), temp);
-			cv::waitKey(100);
+			cv::waitKey(-1);
+			cout << "\nDownloadAndSave_3Channel:  temp.size()= "<< temp.size() << ", temp_mat.size()= "<< temp_mat.size() << ", temp_mat.type()= "<< temp_mat.type() <<"  "<< checkCVtype(temp_mat.type()) << flush;
+			destroyWindow( ss.str() );
 		}
 		boost::filesystem::path folder_png = folder_tiff;
 		folder_png  += "/png/";
@@ -367,6 +370,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 			temp_mat *=256;
 			temp_mat.convertTo(outMat, CV_8U);
+
 			if (type_mat == CV_32FC4){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_5, "<<flush;
 				std::vector<cv::Mat> matChannels;
@@ -376,10 +380,12 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			}
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_6,  folder_png.string()="<< folder_png.string() <<flush;
 			if(png==true)  cv::imwrite(folder_png.string(), (outMat) );																					// Has "Grayscale 16-bit gamma integer"
+			outMat.copyTo(*bufImg);
 		}else if (type_mat == CV_8UC3){
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_7, "<<flush;
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
 			if(png==true)  cv::imwrite(folder_png.string(),  temp_mat );
+			temp_mat.copyTo(*bufImg);
 		}else if (type_mat == CV_16FC3) {																									// This demonstrates that <cv::float16_t> != <cl_half> and the read/write up/download of these types needs more debugging. NB Cannot use <cv::float16_t>  to prepare  <cl_half> data to the GPU.
 			/*
 			//cout << "\n Writing CV_16FC3 to .tiff & .png .\n"<< flush;
@@ -392,24 +398,40 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat2 );
 
 			temp_mat2.convertTo(outMat, CV_8UC3);
+
+
 			if(png==true) cv::imwrite(folder_png.string(), (outMat) );
+			outMat.copyTo(*bufImg);
 		}else {cout << "\n\nError RunCL::DownloadAndSave_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
+
+		cout << "\n\nDownloadAndSave_3Channel  bufImg->type() = "<<bufImg->type()<<"\t "<< checkCVtype(bufImg->type())  <<" \n" << flush;
 
 	tiff = old_tiff;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_9, finished "<<flush;
 }
 
-void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers,  bool exception_tiff /*=false*/){
+void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers,  bool exception_tiff /*=false*/, float iter, bool display){
 	int local_verbosity_threshold = 1;
 																																			if(verbosity> local_verbosity_threshold) {
-																																				cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   count="<<count<<", filename = ["<<folder.filename().string()<<"]"<<flush;
-																																				cout<<"\n folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<type_mat<<"\t show="<<show<<"\t max_range="<<max_range<<"\t vol_layers="<<vol_layers<<"\t exception_tiff="<<exception_tiff<<flush;
+																																				cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   \tcount=\""<<count<<"\", \tfilename = ["<<folder.filename().string()<<"]"<<flush;
+																																				cout<<"\t folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<type_mat<<
+																																				"\t show="<<show<<"\t max_range="<<max_range<<"\t vol_layers="<<vol_layers<<"\t exception_tiff="<<exception_tiff<<"\t iter="<<iter<<"\t display="<<display<<flush;
 																																			}
+	cv::Mat bufImg;
+	int row_of_images = 0;  if ( vol_layers > 1) row_of_images=1;
 	for (uint i=0; i<vol_layers; i++) {
 		stringstream ss;	ss << count << i;
-		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes, exception_tiff);
+		DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, &bufImg, max_range, i*image_size_bytes, exception_tiff);
+		cout << "\n\nDownloadAndSave_3Channel_volume_chk_1 (display==true)   bufImg.type() = "<<bufImg.type()<<"\t "<< checkCVtype(bufImg.type()) <<"\t row_of_images+i="<<row_of_images+i<<"\t  iter="<<iter<<"   \n" << flush;
+		if (display){
+			cv::namedWindow( "RunCL::DownloadAndSave_3Channel_volume: bufImg" , 0 );
+			cv::imshow( "RunCL::DownloadAndSave_3Channel_volume: bufImg" , bufImg  );
+			cv::waitKey(-1);
+			destroyWindow( "RunCL::DownloadAndSave_3Channel_volume: bufImg" );
+		}
+		writeToResultsMat(&bufImg , iter , row_of_images+i );																				// add patch from bufImg to resultsMat
 	}
-																																			if(verbosity> local_verbosity_threshold){cout << "\nDownloadAndSave_3Channel_volume_chk_1  finished" << flush;}
+																																			if(verbosity> local_verbosity_threshold){cout << "\nDownloadAndSave_3Channel_volume_chk_2  finished" << flush;}
 }
 
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){

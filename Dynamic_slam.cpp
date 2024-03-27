@@ -65,7 +65,7 @@ void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it 
 	uint SE_iter 	= obj["SE_iter"].asUInt();																								if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 2" << flush;
 	int rows 		= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
 	int cols 		= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );											if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 3: rows = "<<rows<<", cols = "<<cols<< flush;
-	runcl.resultsMat = cv::Mat::zeros ( rows, cols , CV_32FC4);																				if(verbosity>local_verbosity_threshold) cout << ",  runcl.resultsMat.size() = "<< runcl.resultsMat.size() << flush;
+	runcl.resultsMat = cv::Mat::zeros ( rows, cols , CV_8UC4);																				if(verbosity>local_verbosity_threshold) cout << ",  runcl.resultsMat.size() = "<< runcl.resultsMat.size() << flush;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk  finished\n" << flush;
 }//   Dynamic_slam::initialize_resultsMat()_chk 3: rows = 882, cols = 1660,  runcl.resultsMat.size() = [1660 x 882]
 
@@ -1292,28 +1292,37 @@ void Dynamic_slam::estimateSE3(){
 			int cols 				= runcl.MipMap[reduction*8 + MiM_READ_COLS];
 			int row_offset 			= 2* runcl.mm_margin ;
 			int col_offset 			= 2* runcl.mm_margin + iter * (runcl.mm_margin + cols  );
-
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6.1" << flush;}
 			stringstream ss;
-			ss << "Rho_sq_result = " << Rho_sq_result << "\n";
+			ss << "Rho_sq_result = " << Rho_sq_result << "\t";
 			for (int se3 = 0; se3<6; se3++) {
 				for (int layer = 0; layer<obj["num_reductions"].asInt(); layer ++){
-					ss << SE3_results[layer][se3] << "\t";
-				}ss << "\n";
+					ss << SE3_results[layer][se3][2] << "\t";
+				}ss << "\t";
 			}
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6.2: \t"<< ss.str() << endl << flush;}
 
 			// Writing over the Image
-			Point org(row_offset, col_offset);
-			putText( /*InputOutputArray*/ runcl.resultsMat, /*const String &*"Text On Image"*/ ss.str() , /*cv::Point*/ org,  FONT_HERSHEY_PLAIN, /*double fontScale*/ 2.1,  /*Scalar color*/ Scalar(0, 0, 255), /*int thickness=1*/ 2, /*int lineType=LINE_8*/ LINE_AA /* , bool bottomLeftOrigin=false */);
-
-			runcl.resultsMat.convertTo(resultsMat, CV_8UC4);
+			//Point org(row_offset, col_offset);
+			//putText( /*InputOutputArray*/ runcl.resultsMat, /*const String &*"Text On Image"*/ ss.str() , /*cv::Point*/ org,  FONT_HERSHEY_PLAIN, /*double fontScale*/ 0.1,  /*Scalar color*/ Scalar(0, 0, 255), /*int thickness=1*/ 0.1, /*int lineType=LINE_8*/ LINE_AA /* , bool bottomLeftOrigin=false */);
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6.3" << flush;}
+			/*
 			// show inage
-			cv::imshow("resultsMat", runcl.resultsMat);
+			cv::namedWindow( "Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat" , 0 );
+			cv::imshow("Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat" , runcl.resultsMat);
 			cv::waitKey(-1);
-
+			destroyWindow( "Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat"  );
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3()_chk 6.4" << flush;}
+			*/
 			// save image
 			//runcl.SaveMat(resultsMat, CV_16FC4,  folder_tiff,  show,  max_range, "resultsMat", count);
 
 		}
+
+
+
+
+
 /*
 		if (Rho_sq_result>old_Rho_sq_result) {																								// If new sample is worse, resample at half the previous increment half "factor".
 			update = -0.5*old_update;																										if(verbosity>local_verbosity_threshold) {
@@ -1445,6 +1454,11 @@ void Dynamic_slam::estimateSE3(){
 		// # Pass prediction to lower layers. Does it fit better ?
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 	}
+	// show inage
+		cv::namedWindow( "Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat" , 0 );
+		cv::imshow("Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat" , runcl.resultsMat);
+		cv::waitKey(-1);
+		destroyWindow( "Dynamic_slam::estimateSE3()_chk 6: writeToResultsMat"  );
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::estimateSE3()_chk 7\n" << flush;
 																																				cout << "\nruncl.frame_num = "<<runcl.dataset_frame_num;
 																																				cout << "\npose2pose_accumulated = ";
