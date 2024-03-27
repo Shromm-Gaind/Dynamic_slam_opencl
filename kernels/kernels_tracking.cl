@@ -403,8 +403,12 @@ __kernel void se3_grad(
 
 			float4 delta4;
 			delta4.w											= alpha;
-			for (int j=0; j<3; j++) delta4[j] 					= rho[j] * (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
-
+			for (int j=0; j<3; j++) {
+				float SE3_grad =  (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4])
+				delta4[j] = 0;
+				float thresh = 0.00001;
+				if (SE3_grad > thresh)  delta4[j] 				= rho[j] / SE3_grad;				// Take step large enough to correct Rho, if there is non-zero gradient.
+			}
 			local_sum_grads[i*local_size + lid] 				= delta4;							// write grads to local mem for summing over the work group.
 			SE3_incr_map_[read_index + i * mm_pixels ] 			= delta4;
 		}
