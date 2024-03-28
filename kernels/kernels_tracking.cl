@@ -404,7 +404,7 @@ __kernel void se3_grad(
 			float4 delta4;
 			delta4.w											= alpha;
 			for (int j=0; j<3; j++) {
-				float SE3_grad =  (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4])
+				float SE3_grad =  (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
 				delta4[j] = 0;
 				float thresh = 0.00001;
 				if (SE3_grad > thresh)  delta4[j] 				= rho[j] / SE3_grad;				// Take step large enough to correct Rho, if there is non-zero gradient.
