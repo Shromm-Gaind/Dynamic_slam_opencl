@@ -1166,7 +1166,7 @@ void Dynamic_slam::estimateSE3(){
 																																					if (Rho_sq_results[i][3] > 0){
 																																						for (int l=0; l<3; l++){  cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  runcl.img_stats[IMG_VAR+l]  );
 																																						}
-																																						cout << ", " << Rho_sq_results[i][3]  << ")\t\t";
+																																						cout << ", " << Rho_sq_results[i][3]  << ")\t\tIMG_VAR = ";
 																																						for (int l=0; l<3; l++) cout << ", "<<runcl.img_stats[IMG_VAR+l];
 																																					}else{
 																																						for (int l=0; l<3; l++){  cout << ", \t" << 0.0f  ;
