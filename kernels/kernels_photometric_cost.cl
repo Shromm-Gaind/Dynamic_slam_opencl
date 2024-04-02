@@ -80,4 +80,20 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 	return c;
 }
 
+float bilinear_grad_weight (__global float8* HSV_grad, int read_index, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction){
+
+	float8 HSV_grad_ 	= HSV_grad[read_index];
+	value_grad_u		= HSV_grad_[6];
+	value_grad_v		= HSV_grad_[7];
+
+	float8 HSV_grad2_ 	= bilinear (HSV_grad, u2_flt, v2_flt, cols, read_offset_, reduction);
+	value_grad2_u		= HSV_grad2_[6];
+	value_grad2_v		= HSV_grad2_[7];
+
+	weight =    pown((value_grad_u - value_grad2_u), 2) + pown((value_grad_v - value_grad2_v), 2)
+
+}
+
+
+
 #endif /*KERNEL_PHOTOMETRIC_COST_CL*/
