@@ -18,4 +18,8 @@ float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int co
 
 float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, int read_offset_);                                   // Used in tracking
 
+void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_cur_frame, int read_index, __global float8* SE3_grad_map_new_frame, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction, uint mm_pixels, float alpha );
+
+float bilinear_grad_weight (__global float8* HSV_grad, int read_index, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction);
+
 #endif /*KERNELS_H*/

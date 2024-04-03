@@ -80,20 +80,71 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 	return c;
 }
 
-float bilinear_grad_weight (__global float8* HSV_grad, int read_index, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction){
+void bilinear_SE3_grad_weight (float weights[6], __global float8* SE3_grad_map_cur_frame, int read_index, __global float8* SE3_grad_map_new_frame, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction, uint mm_pixels, float alpha/*, int channel*/ ){
 
-	float8 HSV_grad_ 	= HSV_grad[read_index];
-	value_grad_u		= HSV_grad_[6];
-	value_grad_v		= HSV_grad_[7];
+	// NB for each se3_dim:  weight = 1/ (SE3_grad_map_cur_frame - SE3_grad_map_new_frame)
+	float8 	c, c_00, c_01, c_10, c_11;
 
-	float8 HSV_grad2_ 	= bilinear (HSV_grad, u2_flt, v2_flt, cols, read_offset_, reduction);
-	value_grad2_u		= HSV_grad2_[6];
-	value_grad2_v		= HSV_grad2_[7];
+	int int_u2 					= ceil(u2_flt);
+	int int_v2 					= ceil(v2_flt);
 
-	weight =    pown((value_grad_u - value_grad2_u), 2) + pown((value_grad_v - value_grad2_v), 2)
+	int coff_00					= (int_v2-1) * cols + (int_u2 -1) ;
+	int coff_01					= int_v2     * cols + (int_u2 -1) ;
+	int coff_10					= (int_v2-1) * cols +  int_u2 ;
+	int coff_11					= int_v2     * cols +  int_u2 ;
 
+	float factor_x 				= fmod(u2_flt,1);
+	float factor_y 				= fmod(v2_flt,1);
+	float n_factor_x			= 1-factor_x;
+	float n_factor_y			= 1-factor_y;
+
+	for (int se3_dim = 0; se3_dim<6; se3_dim++){
+
+		int dim_offset 			= se3_dim * mm_pixels;
+		float8 SE3_grad_cur_ 	= SE3_grad_map_cur_frame[read_index + dim_offset];
+
+		int dim_read_offset 	= dim_offset + read_offset_;
+		c_11 					= SE3_grad_map_new_frame[ dim_read_offset + coff_11 ];
+		c_10 					= SE3_grad_map_new_frame[ dim_read_offset + coff_10 ];
+		c_01 					= SE3_grad_map_new_frame[ dim_read_offset + coff_01 ];
+		c_00 					= SE3_grad_map_new_frame[ dim_read_offset + coff_00 ];
+		float8 SE3_grad_new_ 	= factor_y * (c_11*factor_x  +  c_01*n_factor_x)   +   n_factor_y * (c_10*factor_x  + c_00*n_factor_x);
+
+		for (int chan = 0; chan < 3; chan++){
+		//int chan = channel;
+			weights[se3_dim][chan]		= SE3_grad_cur_[chan] + SE3_grad_cur_[chan + 4] -  SE3_grad_new_[chan] - SE3_grad_new_[chan + 4];
+			if (weights[se3_dim][chan] !=0) 	weights[se3_dim][chan] 		= 1/weights[se3_dim][chan];
+			else 								weights[se3_dim][chan] 		= 0;
+		}
+		weights[se3_dim].w		= alpha;
+	}
 }
 
+/*
+float bilinear_grad_weight (__global float8* SE3_grad_map_cur_frame, __global float8* SE3_grad_map_new_frame, int read_index, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction){
+
+	float8 HSV_grad_ 		= HSV_grad[read_index];
+	float value_grad_u		= HSV_grad_[6];
+	float value_grad_v		= HSV_grad_[7];
+
+	float8 HSV_grad2_ 		= bilinear (HSV_grad, u2_flt, v2_flt, cols, read_offset_, reduction);
+	float value_grad2_u		= HSV_grad2_[6];
+	float value_grad2_v		= HSV_grad2_[7];
+
+	float weight 			= sqrt(  pown((value_grad_u - value_grad2_u), 2) + pown((value_grad_v - value_grad2_v), 2) );
+	if (weight > 2/FLT_MAX) return 1/weight;
+	else return 0;
+}
+*/
+
+/*
+float4 compute_se3_incr (float rho, float weight,    ){
 
 
+		float8 HSV_grad_ 					= HSV_grad[read_index];
+		float8 SE3_grad_map_cur_frame_		= SE3_grad_map_cur_frame[read_index];
+		se3_incr 							= weight * rho / (SE3_grad_map_cur_frame_ * value_grad);	//
+
+}
+*/
 #endif /*KERNEL_PHOTOMETRIC_COST_CL*/

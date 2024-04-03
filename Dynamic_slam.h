@@ -108,6 +108,7 @@ class Dynamic_slam
     void update_k2k(Matx61f update_);
     void estimateSO3();
     void estimateSE3();
+    void estimateSE3_LK();
     void estimateCalibration();
     
     void initialize_keyframe_from_GT();

@@ -41,12 +41,12 @@ public:
 	cl_program			m_program;
 	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, se3_rho_sq_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
-	cl_kernel			atomic_test1_kernel;
+	cl_kernel			se3_lk_grad_kernel, atomic_test1_kernel;
 	
 	//bool 				frame_bool_idx=0;
 	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
 	cl_mem				cdatabuf, cdatabuf_8chan, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
-	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem;	// param_map_mem,  
+	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem, SE3_weight_map_mem;	// param_map_mem,
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;																										// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_imgmem_HSV_grad, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;							// keyframe_gxmem, keyframe_gymem, keyframe_basemem,
 	cl_mem				HSV_grad_mem, dmem_disparity, dmem_disparity_sum;
@@ -109,8 +109,9 @@ public:
 	void createKernels();
 
 	int  waitForEventAndRelease(cl_event *event);
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential=false);						// Call kernels on mipmap: start,stop allow running specific layers.
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop ); } // , true
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size);						// Call kernels on mipmap: start,stop allow running specific layers.
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, false, local_work_size); }
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, false, local_work_size); } // , true
 
 	void initialize_fp32_params();
 	void initialize();																													// Setting up buffers & mipmap parameters
@@ -191,6 +192,12 @@ public:
 	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 				// Tracking
 	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
 	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+	void estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop);
+
+	void read_Rho_sq(float Rho_sq_results[8][4]);
+	void read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour_channels]);
+	void read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels]);
+
 	void writeToResultsMat(cv::Mat *bufImg  , uint column_of_images , uint row_of_images );
 	void tracking_result(string result);
 	void estimateCalibration();																											// Camera calibration

@@ -74,8 +74,9 @@ void RunCL::createFolders(){
 	std::vector<std::string> names = {"imgmem", "imgmem_blurred", "keyframe_imgmem", "keyframe_imgmem_HSV_grad", "gxmem", "gymem", "g1mem", "keyframe_g1mem", \
 										"SE3_grad_map_mem", "keyframe_SE3_grad_map_mem", \
 										"SE3_map_mem", \
+										"SE3_weight_map_mem",\
 										"SE3_incr_map_mem", "SE3_rho_map_mem", \
-										"SO3_incr_map_mem", "SO3_rho_map_mem", \
+										/*"SO3_incr_map_mem", "SO3_rho_map_mem", \*/
 										\
 										"basemem", "keyframe_basemem", "depth_mem", "keyframe_depth_mem", \
 										"key_frame_depth_map_src", "depth_GT", \
