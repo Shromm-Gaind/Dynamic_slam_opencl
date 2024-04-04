@@ -480,8 +480,9 @@ void RunCL::initialize(){
 
 																																			// Summation buffer sizes
 	se3_sum_size 		= 1 + ceil( (float)(MipMap[(mm_num_reductions+1)*8 + MiM_READ_OFFSET]) / (float)local_work_size ) ;					// i.e. num workgroups used = MiM_READ_OFFSET for 1 layer more than used / local_work_size,   will give one row of vector per group.
+	se3_sum_size *= 2;  																													// *2 incr num grps for reduced groupsize
 	uint num_DoFs		= 6 ; 																												// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
-	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 4 * num_DoFs;																		if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
+	se3_sum_size_bytes	= se3_sum_size * sizeof(float) * 4 * num_DoFs ;																		if(verbosity>local_verbosity_threshold) cout <<"\n\n se3_sum_size="<< se3_sum_size<<",    se3_sum_size_bytes="<<se3_sum_size_bytes<<flush;
 	se3_sum2_size_bytes = 2 * mm_num_reductions * sizeof(float) * 4 * num_DoFs;																// NB the data returned is 6xfloat4 per group, holding one float4 per 6DoF of SE3, where alpha channel=pixel count.
 	se3_sum2_size_bytes = ((se3_sum2_size_bytes%32) + 1) * 32;																				// Needed for Nvidia, to ensure memory allocations are multiples of 32bytes.
 
@@ -497,15 +498,16 @@ void RunCL::initialize(){
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<", layers_sequential="<<layers_sequential<<" )_chk0"<<flush;
+																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<
+																																				", layers_sequential="<<layers_sequential<<",  local_work_size="<<local_work_size<<" )_chk0"<<flush;
 																																				//cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<< ",  start="<<start<<",  stop="<<stop <<flush;
 																																			}
 	cl_event						ev;
 	cl_int							res, status;
 	for(uint reduction = start; reduction <= stop; reduction++) {
-																																			if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk1,  reduction="<<reduction<<",  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<mipmap_call_kernel<<flush; }
+																																			if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk1,  reduction="<<reduction<<",  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
 		//if (reduction>=start && reduction<stop){																							// compute num threads to launch & num_pixels in reduction
 																																			//if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk2 :  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
 			res 	= clSetKernelArg(kernel_to_call, 0, sizeof(int), &reduction);							if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;
@@ -587,6 +589,8 @@ void RunCL::allocatemem(){
 	se3_sum_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum_size_bytes,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 32= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	se3_sum2_mem		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum2_size_bytes,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 33= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
+	se3_weight_sum_mem	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, se3_sum_size_bytes,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 32= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+
 	SE3_rho_map_mem		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 2*mm_size_bytes_C4,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 34= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	se3_sum_rho_sq_mem	= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, pix_sum_size_bytes,  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 35= "<<checkerror(res)<<"\n"<<flush;exit_(res);}  // TODO what size should this be ?
 
@@ -648,7 +652,7 @@ void RunCL::allocatemem(){
 
 	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 			&zero, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, img_sum_buf, 			&zero, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.10\n"<< endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
-	status = clEnqueueFillBuffer(uload_queue, se3_sum_mem, 			&zero, sizeof(float),   0, se3_sum_size_bytes,		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	//status = clEnqueueFillBuffer(uload_queue, se3_sum_mem, 			&zero, sizeof(float),   0, se3_sum_size_bytes,		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.6\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 
 	status = clEnqueueFillBuffer(uload_queue, HSV_grad_mem, 		&zero, sizeof(float),   0, mm_size_bytes_C8, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, dmem_disparity, 		&zero, sizeof(float),   0, mm_size_bytes_C4, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
@@ -749,6 +753,8 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 	status = clReleaseMemObject(gaussian_buf);					if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.16"<<flush;
 	status = clReleaseMemObject(se3_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.17"<<flush;
 	status = clReleaseMemObject(se3_sum2_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum2_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(se3_weight_sum_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_weight_sum_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+
 	status = clReleaseMemObject(SE3_rho_map_mem	);				if (status != CL_SUCCESS)	{ cout << "\nSE3_rho_map_mem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19"<<flush;
 	status = clReleaseMemObject(se3_sum_rho_sq_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_sum_rho_sq_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19.5"<<flush;
 	status = clReleaseMemObject(img_stats_buf);					if (status != CL_SUCCESS)	{ cout << "\nimg_stats_buf                  status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.20"<<flush;

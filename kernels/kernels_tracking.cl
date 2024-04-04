@@ -477,7 +477,7 @@ __kernel void se3_grad(
 __kernel void se3_LK_grad(
 	// inputs
 	__private	uint	layer,					//0
-	__private	uint	channel,				//1 ############
+														//__private	uint	channel,				//1 ############
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
 	__constant  float*  fp32_params,			//3
@@ -497,20 +497,23 @@ __kernel void se3_LK_grad(
 	__global 	float4*	global_sum_rho_sq,		//12
 
 	__global	float4* weights_map,			//13
-	__local		float*	local_sum_weight,		//14	6 DoF, float 1 channels
-	__global 	float*	global_sum_weight,		//15
+	__local		float4*	local_sum_weight,		//14	6 DoF, float 1 channels
+	__global 	float4*	global_sum_weight,		//15
 
 	__global 	float4*	SE3_incr_map_,			//16
-	__local		float*	local_sum_grads,		//17	6 DoF, float 1 channels
-	__global	float*	global_sum_grads		//18
+	__local		float4*	local_sum_grads,		//17	6 DoF, float 1 channels
+	__global	float4*	global_sum_grads,		//18
+
+	__private	uint 	wg_divisor				//19
 	)
  {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint  global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint  lid 			= get_local_id(0);
 																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_1"   ); }
-	uint local_size 	= get_local_size(0);
+	uint local_size 	= get_local_size(0); // / wg_divisor;
 	uint group_size 	= local_size;
+	uint num_groups		= get_num_groups(0); //size_t get_num_groups (uint dimindx)
 	uint work_dim 		= get_work_dim();
 	uint global_size	= get_global_size(0);
 	float16 k2k_pvt		= k2k[0];
@@ -539,40 +542,48 @@ __kernel void se3_LK_grad(
 	float vh2 			= k2k_pvt[4]*u_flt 	+ k2k_pvt[5]*v_flt 	+ k2k_pvt[6]*1 	+ k2k_pvt[7]*inv_depth;
 	float wh2 			= k2k_pvt[8]*u_flt 	+ k2k_pvt[9]*v_flt 	+ k2k_pvt[10]*1	+ k2k_pvt[11]*inv_depth;
 	//float h/z  		= k2k_pvt[12]*u_flt	+ k2k_pvt[13]*v_flt + k2k_pvt[14]*1; // +k2k_pvt[15]/z
+
 	float u2_flt		= uh2/wh2;
 	float v2_flt		= vh2/wh2;
-
+	int  u2				= floor((u2_flt/reduction)+0.5f) ;																// nearest neighbour interpolation
+	int  v2				= floor((v2_flt/reduction)+0.5f) ;																// NB this corrects the sparse sampling to the redued scales.
 	uint num_DoFs 		= 6;
 	float4 new_px;
+
 	float4 rho 			= {0.0f,0.0f,0.0f,0.0f};
 	float weight;
 	float8 se3_incr;
-																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_2"   ); }
+																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, alpha=%f", \
+																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, alpha    ); }
+																	if((u==read_cols_-1) && (v== read_rows_-1 )){ printf("\n__kernel void se3_LK_grad (u==read_cols_-1) && (v== read_rows_-1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, num_groups=%u, alpha=%f", \
+																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, num_groups, alpha   ); }
 
 	for (int i=0; i<6; i++) {																							// Essential to zero local mem.
 		local_sum_rho_sq[i*local_size + lid] 	= 0;
 		local_sum_weight[i*local_size + lid] 	= 0;
 		local_sum_grads[i*local_size + lid] 	= 0;
 	}
-																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_3"   ); }
+																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_3  "   ); }
 
 																														// Exclude all out-of-bounds threads:
-	float intersection 	= (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2_flt>2) && (u2_flt<=read_cols_-2) && (v2_flt>2) && (v2_flt<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels) ;
 
 	if (  intersection  ) {																								// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx 					= 0;																				// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
-		new_px 						= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);
+		new_px 						= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_); //   /reduction
 		rho 						= img_cur[read_index] - new_px;
-		rho[3] 						= alpha;
+		rho.w 						= 1.0f; ///alpha;
 
 		Rho_[read_index] 			= rho;																				// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		float4 rho_sq 				= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 		local_sum_rho_sq[lid] 		= rho_sq;																			// Also compute global Rho^2.
 
-		float weights[6]; // float4
-		bilinear_SE3_grad_weight( weights, SE3_grad_map_cur_frame, read_index,  SE3_grad_map_new_frame,  u2_flt,  v2_flt,  mm_cols,  read_offset_,  reduction,  mm_pixels,  alpha, channel );
+		float4 weights[6]; // float4
+
+		bilinear_SE3_grad_weight( weights, SE3_grad_map_cur_frame, read_index,  SE3_grad_map_new_frame,  u2_flt,  v2_flt,  mm_cols,  read_offset_,  reduction,  mm_pixels,  alpha ); // , channel
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{
+			weights[se3_dim].w										= alpha;
 			local_sum_weight[ se3_dim*local_size + lid ]     		=  weights[se3_dim];
 		}
 
@@ -580,19 +591,21 @@ __kernel void se3_LK_grad(
 			float8 SE3_grad_cur_px 									= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
 			float8 SE3_grad_new_px 									= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
 
-			//float4 delta4;
-			//delta4.w												= alpha;
-			float delta;
-			//for (int chan=0; chan<3; chan++) {
-			int chan = channel;
+			float4 delta4;
+
+			//float delta;
+			for (int chan=0; chan<3; chan++) {
+			//int chan = channel;
 				float SE3_grad 										= ( SE3_grad_cur_px[chan] + SE3_grad_cur_px[chan+4] + SE3_grad_new_px[chan] + SE3_grad_new_px[chan+4] ) / 4;
-				delta		 										= weights[se3_dim] * rho[chan] / SE3_grad;
-			//}
-			local_sum_grads[se3_dim*local_size + lid] 				= delta;
+				delta4		 										= weights[se3_dim] * rho[chan] / SE3_grad;
+			}
+			delta4.w												= alpha;
+			local_sum_grads[se3_dim*local_size + lid] 				= delta4;
 		}
 
 		for (uint se3_dim=0; se3_dim<3; se3_dim++) {	// translation, amplify nearby movement.						// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			local_sum_grads[se3_dim*local_size + lid] 				*= inv_depth;
+			local_sum_grads[se3_dim*local_size + lid].w				= alpha;
 			/*
 			local_sum_grads[se3_dim*local_size + lid].x 			*= inv_depth;// * 100;
 			local_sum_grads[se3_dim*local_size + lid].y 			*= inv_depth;// * 100;
@@ -607,12 +620,14 @@ __kernel void se3_LK_grad(
 		}
 */
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {
+			weights_map[read_index + se3_dim * mm_pixels ]			= local_sum_weight[ se3_dim*local_size + lid ];
 			SE3_incr_map_[read_index + se3_dim * mm_pixels ] 		= local_sum_grads[se3_dim*local_size + lid];
+			SE3_incr_map_[read_index + se3_dim * mm_pixels ].w		= 1.0f;
 		}
 	}
 
-																		if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4"   ); }
-
+																		if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
+																		if((u==read_cols_-1) && (v== read_rows_-1 )) { printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
 
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
 	int max_iter 												= 9;								//ceil(log2((float)(group_size)));
@@ -636,19 +651,20 @@ __kernel void se3_LK_grad(
 		uint group_id 											= get_group_id(0);
 		uint rho_global_sum_offset 								= read_offset_ / local_size ;					// Compute offset for this layer,   NB interger rounding !
 		uint se3_global_sum_offset 								= rho_global_sum_offset *num_DoFs;				// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
+		rho_global_sum_offset 									+= group_id;
+		se3_global_sum_offset 									+= group_id*num_DoFs;
 																																												//printf("\nkernel se3_grad_c(..): layer=%i,  group_id=%i,  read_offset_/local_size=%f,  local_size=%u, read_offset_=%u ", layer, group_id, ((float)read_offset_)/((float)local_size),  local_size, read_offset_);
 		if (global_id_u == 0) {
 			uint num_groups 									= get_num_groups(0);
-			float4 layer_data 									= {num_groups, reduction, 0.0f, 0.0f };			// Write layer data to first entry
-			global_sum_rho_sq [rho_global_sum_offset]			= layer_data;
-			global_sum_weight [se3_global_sum_offset] 			= layer_data;
-			global_sum_grads  [se3_global_sum_offset] 			= layer_data;
-
+			float4 layer_data 									= {num_groups, reduction, rho_global_sum_offset, se3_global_sum_offset };			// Write layer data to first entry
+			global_sum_rho_sq [layer]							= layer_data;
+			global_sum_weight [layer*num_DoFs] 					= layer_data;
+			global_sum_grads  [layer*num_DoFs] 					= layer_data;
+/*
 			//printf("\nkernel se3_grad_d(..)_2: layer=%i,  group_id=%i,  se3_global_sum_offset=%i,  layer_data=(%f,%f,%f,%f),    u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  u2_flt=%f,  v2_flt=%f,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f),\t rho=(%f,%f,%f,%f), local_sum_grads=(%f,%f,%f,%f)"\
 			//	,layer, group_id, se3_global_sum_offset,  layer_data.x, layer_data.y, layer_data.z, layer_data.w,  u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15], rho.x, rho.y, rho.z, rho.w, local_sum_grads[0][0],local_sum_grads[0][1],local_sum_grads[0][2],local_sum_grads[0][3]   )  ;
+*/
 		}
-		rho_global_sum_offset									+= num_DoFs+ group_id;
-		se3_global_sum_offset 									+= num_DoFs+ group_id*num_DoFs;
 
 		if (local_sum_grads[0][3] >0){																// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset]			= local_sum_rho_sq[lid];

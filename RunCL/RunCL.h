@@ -47,7 +47,7 @@ public:
 	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
 	cl_mem				cdatabuf, cdatabuf_8chan, hdatabuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem, SE3_weight_map_mem;	// param_map_mem,
-	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem;																										// reduce_param_buf;
+	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem, se3_weight_sum_mem;																										// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_imgmem_HSV_grad, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;							// keyframe_gxmem, keyframe_gymem, keyframe_basemem,
 	cl_mem				HSV_grad_mem, dmem_disparity, dmem_disparity_sum;
 	cl_mem				atomic_test1_buf;
@@ -110,8 +110,12 @@ public:
 
 	int  waitForEventAndRelease(cl_event *event);
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size);						// Call kernels on mipmap: start,stop allow running specific layers.
-	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, false, local_work_size); }
+
+	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential=false){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, layers_sequential, local_work_size); }
+
 	void mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call){ mipmap_call_kernel( kernel_to_call,  queue_to_call, mm_start, mm_stop, false, local_work_size); } // , true
+
+	// 	mipmap_call_kernel( 	depth_cost_vol_kernel, 		m_queue, 	start, 	stop );
 
 	void initialize_fp32_params();
 	void initialize();																													// Setting up buffers & mipmap parameters
