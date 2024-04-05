@@ -30,11 +30,11 @@
     // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     "MipMap_margin":1,          //4
-    "num_reductions":6,         //4                                     // Layers-1 of image pyramid in MipMap
+    "num_reductions":5,         //4                                     // Layers-1 of image pyramid in MipMap
     // gaussian_size 3                                                  // Box blurr size. Actually using 5x5 box in the code.
 
-    "imagesPerCV":2,            //10,//20,//4,//30//4//7
-    "max_frame_count":2,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
+    "imagesPerCV":1,            //10,//20,//4,//30//4//7
+    "max_frame_count":1,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
     "max_opt_count":5,          //5,//60,
     "max_inner_opt_count":10,   //10,
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
@@ -71,8 +71,8 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
-    "SE_iter_per_layer":2,
-    "SE_iter":10,
+    "SE_iter_per_layer":1,
+    "SE_iter":1,//10,
     "SE_factor":0.04,
     "SE3_Rho_sq_threshold":[[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,  [0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02]  ], // [layer 0-5][channel hsv]
 

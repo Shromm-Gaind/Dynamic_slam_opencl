@@ -407,7 +407,7 @@ __kernel void se3_grad(
 			for (int j=0; j<3; j++) {
 				float SE3_grad =  (SE3_grad_cur_px[j] + SE3_grad_cur_px[j+4] + SE3_grad_new_px[j] + SE3_grad_new_px[j+4]);
 				delta4[j] = 0;
-				float thresh = 0.01;
+				float thresh = 0.01f;
 				if (SE3_grad > thresh)  delta4[j] 				= rho[j] / SE3_grad;				// Take step large enough to correct Rho, if there is non-zero gradient.
 			}
 			local_sum_grads[i*local_size + lid] 				= delta4;							// write grads to local mem for summing over the work group.
@@ -550,18 +550,19 @@ __kernel void se3_LK_grad(
 	uint num_DoFs 		= 6;
 	float4 new_px;
 
-	float4 rho 			= {0.0f,0.0f,0.0f,0.0f};
+	float4 zero_v4f		= {0.0f,0.0f,0.0f,0.0f};
+	float4 rho 			= zero_v4f;
 	float weight;
 	float8 se3_incr;
-																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, alpha=%f", \
+																	//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, alpha=%f", \
 																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, alpha    ); }
-																	if((u==read_cols_-1) && (v== read_rows_-1 )){ printf("\n__kernel void se3_LK_grad (u==read_cols_-1) && (v== read_rows_-1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, num_groups=%u, alpha=%f", \
+																	//if((u==read_cols_-1) && (v== read_rows_-1 )){ printf("\n__kernel void se3_LK_grad (u==read_cols_-1) && (v== read_rows_-1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, num_groups=%u, alpha=%f", \
 																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, num_groups, alpha   ); }
 
 	for (int i=0; i<6; i++) {																							// Essential to zero local mem.
-		local_sum_rho_sq[i*local_size + lid] 	= 0;
-		local_sum_weight[i*local_size + lid] 	= 0;
-		local_sum_grads[i*local_size + lid] 	= 0;
+		local_sum_rho_sq[i*local_size + lid] 	= zero_v4f;
+		local_sum_weight[i*local_size + lid] 	= zero_v4f;
+		local_sum_grads [i*local_size + lid] 	= zero_v4f;
 	}
 																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_3  "   ); }
 
@@ -574,33 +575,40 @@ __kernel void se3_LK_grad(
 		rho 						= img_cur[read_index] - new_px;
 		rho.w 						= 1.0f; ///alpha;
 
+		float rho_a4[4];
+		vstore4(rho ,0, rho_a4);
+
+
 		Rho_[read_index] 			= rho;																				// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		float4 rho_sq 				= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 		local_sum_rho_sq[lid] 		= rho_sq;																			// Also compute global Rho^2.
 
-		float4 weights[6]; // float4
+		float4 weights_v4[6] 		= {{0,0,0,0}}; // float4
 
-		bilinear_SE3_grad_weight( weights, SE3_grad_map_cur_frame, read_index,  SE3_grad_map_new_frame,  u2_flt,  v2_flt,  mm_cols,  read_offset_,  reduction,  mm_pixels,  alpha ); // , channel
+		bilinear_SE3_grad_weight( weights_v4, SE3_grad_map_cur_frame, read_index,  SE3_grad_map_new_frame,  u2_flt,  v2_flt,  mm_cols,  read_offset_,  reduction,  mm_pixels,  alpha ); // , channel
 
-		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{
-			weights[se3_dim].w										= alpha;
-			local_sum_weight[ se3_dim*local_size + lid ]     		=  weights[se3_dim];
-		}
+		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																	// for each SE3 DoF
-			float8 SE3_grad_cur_px 									= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
-			float8 SE3_grad_new_px 									= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+			float8 SE3_grad_cur_px_v8 									= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
+			float8 SE3_grad_new_px_v8 									= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+			float SE3_grad_cur_px[8];
+			float SE3_grad_new_px[8];
+			vstore8(SE3_grad_cur_px_v8, 0, SE3_grad_cur_px);
+			vstore8(SE3_grad_new_px_v8, 0, SE3_grad_new_px);
 
-			float4 delta4;
+			float weights_a4[4];
+			vstore4(weights_v4[se3_dim], 0, weights_a4);
 
-			//float delta;
+			float delta_a4[4];
 			for (int chan=0; chan<3; chan++) {
-			//int chan = channel;
 				float SE3_grad 										= ( SE3_grad_cur_px[chan] + SE3_grad_cur_px[chan+4] + SE3_grad_new_px[chan] + SE3_grad_new_px[chan+4] ) / 4;
-				delta4		 										= weights[se3_dim] * rho[chan] / SE3_grad;
+				delta_a4[chan]		 								= weights_a4[chan] * rho_a4[chan] / SE3_grad;
+				if (!isnormal(delta_a4[chan])) 	delta_a4[chan] 		= 0;
 			}
-			delta4.w												= alpha;
-			local_sum_grads[se3_dim*local_size + lid] 				= delta4;
+			float4 delta_v4 = {delta_a4[0]	,delta_a4[1], delta_a4[2], alpha  };
+			local_sum_grads[se3_dim*local_size + lid] 				= delta_v4;
+
 		}
 
 		for (uint se3_dim=0; se3_dim<3; se3_dim++) {	// translation, amplify nearby movement.						// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
@@ -620,31 +628,58 @@ __kernel void se3_LK_grad(
 		}
 */
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {
-			weights_map[read_index + se3_dim * mm_pixels ]			= local_sum_weight[ se3_dim*local_size + lid ];
+			weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
 			SE3_incr_map_[read_index + se3_dim * mm_pixels ] 		= local_sum_grads[se3_dim*local_size + lid];
 			SE3_incr_map_[read_index + se3_dim * mm_pixels ].w		= 1.0f;
 		}
 	}
 
-																		if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
-																		if((u==read_cols_-1) && (v== read_rows_-1 )) { printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
+	// temp barrier for debugging, otherwise results are zero.
+	barrier(CLK_LOCAL_MEM_FENCE);
+	//if (true) {
+		uint group_id 											= get_group_id(0);
+		if (group_id == 25){
+			float4 dof4 = local_sum_weight[ 4*local_size + lid ] ;
+			float4 dof5 = local_sum_weight[ 5*local_size + lid ] ;
+			printf ("\n__Kernel se3_LK_grad chk before parallel sum: \tdof4=%f, \tdof5=%f", dof4.w, dof5.w  );
+		}
+	//}
+																		//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
+																		//if((u==read_cols_-1) && (v== read_rows_-1 )) { printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
 
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
 	int max_iter 												= 9;								//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
 																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   											/= 2;
-		barrier(CLK_LOCAL_MEM_FENCE);																// No 'if->return' before fence between write & read local mem
-		if (lid<group_size){
-			for (int i=0; i<num_DoFs; i++){															// local_sum_grads
+		for (int i=0; i<num_DoFs; i++){																// local_sum_grads
+			barrier(CLK_LOCAL_MEM_FENCE);															// No 'if->return' before fence between write & read local mem
+			if (lid<group_size){
 				local_sum_rho_sq[i*local_size + lid] 			+= local_sum_rho_sq[i*local_size + lid + group_size];
+
+				local_sum_grads [i*local_size + lid] 			+= local_sum_grads [i*local_size + lid + group_size];
 				local_sum_weight[i*local_size + lid] 			+= local_sum_weight[i*local_size + lid + group_size];
-				local_sum_grads[i*local_size + lid] 			+= local_sum_grads[i*local_size + lid + group_size];
 			}
 		}
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
-																		if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_5"   ); }
+	barrier(CLK_LOCAL_MEM_FENCE);									//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_5"   ); }
+	/*
+	for (uint se3_dim=0; se3_dim<6; se3_dim++) {
+		weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
+	}
+	*/
+	if (lid==0) {  // debug chk
+		uint group_id 											= get_group_id(0);
+		if (group_id == 25){
+			float4 dof4 = local_sum_weight[ 4*local_size + lid ] ;
+			float4 dof5 = local_sum_weight[ 5*local_size + lid ] ;
+
+			float4 dof4_g = local_sum_grads[ 4*local_size + lid ] ;
+			float4 dof5_g = local_sum_grads[ 5*local_size + lid ] ;
+
+			printf ("\n#\n__Kernel se3_LK_grad chk AFTER parallel sum: \tdof4=%f, \tdof5=%f, dof4_g=%f, dof5_g=%f  \n#", dof4.w, dof5.w, dof4_g.w, dof5_g.w  );
+		}
+	}
 
 
 	if (lid==0) {
@@ -653,7 +688,7 @@ __kernel void se3_LK_grad(
 		uint se3_global_sum_offset 								= rho_global_sum_offset *num_DoFs;				// 6 DoF of float4 channels, + 1 DoF to compute global Rho.
 		rho_global_sum_offset 									+= group_id;
 		se3_global_sum_offset 									+= group_id*num_DoFs;
-																																												//printf("\nkernel se3_grad_c(..): layer=%i,  group_id=%i,  read_offset_/local_size=%f,  local_size=%u, read_offset_=%u ", layer, group_id, ((float)read_offset_)/((float)local_size),  local_size, read_offset_);
+																												//printf("\nkernel se3_grad_c(..): layer=%i,  group_id=%i,  read_offset_/local_size=%f,  local_size=%u, read_offset_=%u ", layer, group_id, ((float)read_offset_)/((float)local_size),  local_size, read_offset_);
 		if (global_id_u == 0) {
 			uint num_groups 									= get_num_groups(0);
 			float4 layer_data 									= {num_groups, reduction, rho_global_sum_offset, se3_global_sum_offset };			// Write layer data to first entry
@@ -665,7 +700,6 @@ __kernel void se3_LK_grad(
 			//	,layer, group_id, se3_global_sum_offset,  layer_data.x, layer_data.y, layer_data.z, layer_data.w,  u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15], rho.x, rho.y, rho.z, rho.w, local_sum_grads[0][0],local_sum_grads[0][1],local_sum_grads[0][2],local_sum_grads[0][3]   )  ;
 */
 		}
-
 		if (local_sum_grads[0][3] >0){																// Using last channel local_sum_pix[0][7], to count valid pixels being summed.
 			global_sum_rho_sq[rho_global_sum_offset]			= local_sum_rho_sq[lid];
 			for (int i=0; i<num_DoFs; i++){

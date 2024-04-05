@@ -1521,12 +1521,12 @@ void Dynamic_slam::estimateSE3_LK(){
 		runcl.estimateSE3_LK(SE3_results, SE3_weights, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\nDynamic_slam::estimateSE3_LK()_chk 1.6.0:" << flush;
 																																				cout << endl;
-																																				for (int i=0; i<=runcl.mm_num_reductions+1; i++){ 							// SE3_results / (num_valid_px * img_variance)
-																																					cout 									<< "\nDynamic_slam::estimateSE3_LK()_chk 1.6.1:"<<
-																																					", Layer "<<i<<" SE3_results/num_groups = (";
+																																				for (int i=runcl.mm_start; i<=runcl.mm_stop; i++){ 							// SE3_results / (num_valid_px * img_variance)
+																																					cout 									<< "\n\nDynamic_slam::estimateSE3_LK()_chk 1.6.1:"<<
+																																					", Layer "<<i<<" SE3_results/SE3_weights = (";
 																																					for (int k=0; k<6; k++){
-																																						cout << "\t(";
-																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l]  ; }
+																																						cout << "\n(";
+																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / SE3_weights [i][k][l]  ; }
 																																						cout << ", \t" << SE3_results[i][k][3] << ")";
 																																					}cout << ")";
 																																					cout << "\t\t IMG_VAR = ";

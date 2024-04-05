@@ -82,7 +82,7 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 
 void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_cur_frame, int read_index,
 							   __global float8* SE3_grad_map_new_frame, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction, uint mm_pixels, float alpha/*, int channel*/ ){
-
+// TODO  problem some results are NaN
 	// NB for each se3_dim:  weight = 1/ (SE3_grad_map_cur_frame - SE3_grad_map_new_frame)
 	float8 	c, c_00, c_01, c_10, c_11;
 
@@ -102,21 +102,25 @@ void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_
 	for (int se3_dim = 0; se3_dim<6; se3_dim++){
 
 		int dim_offset 			= se3_dim * mm_pixels;
-		float8 SE3_grad_cur_ 	= SE3_grad_map_cur_frame[read_index + dim_offset];
+		float8 SE3_grad_cur_v8 	= SE3_grad_map_cur_frame[read_index + dim_offset];
+		float SE3_grad_cur_[8];
+		vstore8(SE3_grad_cur_v8,0,SE3_grad_cur_);
 
 		int dim_read_offset 	= dim_offset + read_offset_;
 		c_11 					= SE3_grad_map_new_frame[ dim_read_offset + coff_11 ];
 		c_10 					= SE3_grad_map_new_frame[ dim_read_offset + coff_10 ];
 		c_01 					= SE3_grad_map_new_frame[ dim_read_offset + coff_01 ];
 		c_00 					= SE3_grad_map_new_frame[ dim_read_offset + coff_00 ];
-		float8 SE3_grad_new_ 	= factor_y * (c_11*factor_x  +  c_01*n_factor_x)   +   n_factor_y * (c_10*factor_x  + c_00*n_factor_x);
+
+		float8 SE3_grad_new_v8 	= factor_y * (c_11*factor_x  +  c_01*n_factor_x)   +   n_factor_y * (c_10*factor_x  + c_00*n_factor_x);
+		float SE3_grad_new_[8];
+		vstore8(SE3_grad_new_v8, 0, SE3_grad_new_);			// vstore4(int_vec, 0, int_array);
 
 		float weights_[4];
-		for (int chan = 0; chan < 3; chan++){
-		//int chan = channel;
+		for (int chan = 0; chan < 3; chan++){	//int chan = channel;
 			weights_[chan]									= SE3_grad_cur_[chan] + SE3_grad_cur_[chan + 4] -  SE3_grad_new_[chan] - SE3_grad_new_[chan + 4];
-			if (weights_[chan] !=0) 	weights_[chan] 		= 1/weights_[chan];
-			else 						weights_[chan] 		= 0;
+			weights_[chan] 									= 1/weights_[chan];
+			if (!isnormal(weights_[chan])) 	weights_[chan] 	= 0;
 		}
 		weights_[3]		= alpha;
 
