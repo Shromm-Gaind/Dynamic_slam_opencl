@@ -506,7 +506,7 @@ __kernel void se3_LK_grad(
 
 	__private	uint 	wg_divisor				//19
 	)
- {																									// find gradient wrt SE3 find global sum for each of the 6 DoF
+ {																														// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint  global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint  lid 			= get_local_id(0);
@@ -554,11 +554,12 @@ __kernel void se3_LK_grad(
 	float4 rho 			= zero_v4f;
 	float weight;
 	float8 se3_incr;
+/*
 																	//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, alpha=%f", \
 																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, alpha    ); }
 																	//if((u==read_cols_-1) && (v== read_rows_-1 )){ printf("\n__kernel void se3_LK_grad (u==read_cols_-1) && (v== read_rows_-1 )  chk_2,  local_size=%u,  reduction=%u,  layer=%u, read_offset_=%u, read_cols_=%u, read_rows_=%u, layer_pixels=%u, read_index=%u, num_groups=%u, alpha=%f", \
 																		local_size, reduction, layer, read_offset_, read_cols_, read_rows_, layer_pixels, read_index, num_groups, alpha   ); }
-
+*/
 	for (int i=0; i<6; i++) {																							// Essential to zero local mem.
 		local_sum_rho_sq[i*local_size + lid] 	= zero_v4f;
 		local_sum_weight[i*local_size + lid] 	= zero_v4f;
@@ -578,7 +579,6 @@ __kernel void se3_LK_grad(
 		float rho_a4[4];
 		vstore4(rho ,0, rho_a4);
 
-
 		Rho_[read_index] 			= rho;																				// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		float4 rho_sq 				= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 		local_sum_rho_sq[lid] 		= rho_sq;																			// Also compute global Rho^2.
@@ -589,6 +589,7 @@ __kernel void se3_LK_grad(
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
 
+		//float multiplier = inv_depth;
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																	// for each SE3 DoF
 			float8 SE3_grad_cur_px_v8 									= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
 			float8 SE3_grad_new_px_v8 									= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
@@ -606,20 +607,24 @@ __kernel void se3_LK_grad(
 				delta_a4[chan]		 								= weights_a4[chan] * rho_a4[chan] / SE3_grad;
 				if (!isnormal(delta_a4[chan])) 	delta_a4[chan] 		= 0;
 			}
-			float4 delta_v4 = {delta_a4[0]	,delta_a4[1], delta_a4[2], alpha  };
+
+			//if (se3_dim>=3){ 						multiplier 		= depth;}											// TODO investigate what multiplier should be used & when
+			//for (int chan=0; chan<3; chan++){		delta_a4[0] 	*= multiplier;   }									// Applies depth or inv depth multiplier.....
+
+			float4 									delta_v4 		= {delta_a4[0]	,delta_a4[1], delta_a4[2], alpha  };
 			local_sum_grads[se3_dim*local_size + lid] 				= delta_v4;
-
 		}
-
+/*
 		for (uint se3_dim=0; se3_dim<3; se3_dim++) {	// translation, amplify nearby movement.						// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			local_sum_grads[se3_dim*local_size + lid] 				*= inv_depth;
 			local_sum_grads[se3_dim*local_size + lid].w				= alpha;
-			/*
+			/ *
 			local_sum_grads[se3_dim*local_size + lid].x 			*= inv_depth;// * 100;
 			local_sum_grads[se3_dim*local_size + lid].y 			*= inv_depth;// * 100;
 			local_sum_grads[se3_dim*local_size + lid].z 			*= inv_depth;// * 100;
-			*/
+			* /
 		}
+*/
 /*
 		for (uint se3_dim=3; se3_dim<6; se3_dim++) {	// rotation, amplify distant movement.							// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
 			local_sum_grads[se3_dim*local_size + lid].x 			/= (inv_depth * 50);
@@ -627,49 +632,17 @@ __kernel void se3_LK_grad(
 			local_sum_grads[se3_dim*local_size + lid].z 			/= (inv_depth * 50);
 		}
 */
+		float4 temp_v4f;
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {
 			weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
-			SE3_incr_map_[read_index + se3_dim * mm_pixels ] 		= local_sum_grads[se3_dim*local_size + lid];
-			SE3_incr_map_[read_index + se3_dim * mm_pixels ].w		= 1.0f;
+			SE3_incr_map_[read_index + se3_dim * mm_pixels ]  		= local_sum_grads[se3_dim*local_size + lid];
 		}
 	}
-
+/*
 	// temp barrier for debugging, otherwise results are zero.
 	barrier(CLK_LOCAL_MEM_FENCE);
 	//if (true) {
-		uint group_id 											= get_group_id(0);
-		if (group_id == 25){
-			float4 dof4 = local_sum_weight[ 4*local_size + lid ] ;
-			float4 dof5 = local_sum_weight[ 5*local_size + lid ] ;
-			printf ("\n__Kernel se3_LK_grad chk before parallel sum: \tdof4=%f, \tdof5=%f", dof4.w, dof5.w  );
-		}
-	//}
-																		//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
-																		//if((u==read_cols_-1) && (v== read_rows_-1 )) { printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
-
-	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
-	int max_iter 												= 9;								//ceil(log2((float)(group_size)));
-	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
-																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
-		group_size   											/= 2;
-		for (int i=0; i<num_DoFs; i++){																// local_sum_grads
-			barrier(CLK_LOCAL_MEM_FENCE);															// No 'if->return' before fence between write & read local mem
-			if (lid<group_size){
-				local_sum_rho_sq[i*local_size + lid] 			+= local_sum_rho_sq[i*local_size + lid + group_size];
-
-				local_sum_grads [i*local_size + lid] 			+= local_sum_grads [i*local_size + lid + group_size];
-				local_sum_weight[i*local_size + lid] 			+= local_sum_weight[i*local_size + lid + group_size];
-			}
-		}
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);									//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_5"   ); }
-	/*
-	for (uint se3_dim=0; se3_dim<6; se3_dim++) {
-		weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
-	}
-	*/
-	if (lid==0) {  // debug chk
-		uint group_id 											= get_group_id(0);
+		uint group_id 												= get_group_id(0);
 		if (group_id == 25){
 			float4 dof4 = local_sum_weight[ 4*local_size + lid ] ;
 			float4 dof5 = local_sum_weight[ 5*local_size + lid ] ;
@@ -677,10 +650,56 @@ __kernel void se3_LK_grad(
 			float4 dof4_g = local_sum_grads[ 4*local_size + lid ] ;
 			float4 dof5_g = local_sum_grads[ 5*local_size + lid ] ;
 
-			printf ("\n#\n__Kernel se3_LK_grad chk AFTER parallel sum: \tdof4=%f, \tdof5=%f, dof4_g=%f, dof5_g=%f  \n#", dof4.w, dof5.w, dof4_g.w, dof5_g.w  );
+			printf ("\n__Kernel se3_LK_grad chk BEFORE parallel sum: layer=%u, \tlid=%u, \tdof4=%f, \tdof5=%f, \tdof4_g=%f, \tdof5_g=%f  ", layer, lid, dof4.w, dof5.w, dof4_g.w, dof5_g.w  );
+		}
+	//}
+																		//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
+																		//if((u==read_cols_-1) && (v== read_rows_-1 )) { printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_4,  alpha=%f", alpha   ); }
+*/
+	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
+	int max_iter 												= 9;								//ceil(log2((float)(group_size)));
+	barrier(CLK_LOCAL_MEM_FENCE);
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
+		barrier(CLK_LOCAL_MEM_FENCE);																// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   											/= 2;
+		for (int i=0; i<num_DoFs; i++){																// local_sum_grads
+			if (lid<group_size){																	// No 'if->return' before fence between write & read local mem
+				local_sum_weight[i*local_size + lid] 			+= local_sum_weight[i*local_size + lid + group_size];
+				local_sum_grads [i*local_size + lid] 			+= local_sum_grads [i*local_size + lid + group_size];
+			}
 		}
 	}
+	group_size = local_size;
+	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
+		barrier(CLK_LOCAL_MEM_FENCE);																// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
+		group_size   											/= 2;
+		if (lid<group_size){
+			local_sum_rho_sq[ lid] 			+= local_sum_rho_sq[ lid + group_size];
+		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);									//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_5"   ); }
+	/*
+	for (uint se3_dim=0; se3_dim<6; se3_dim++) {
+		weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
+	}
 
+	//if (lid==0) {  // debug chk
+		//uint group_id 											= get_group_id(0);
+	*/
+/*
+		if (group_id == 25){
+			float4 dof4 = local_sum_weight[ 4*local_size + lid ] ;
+			float4 dof5 = local_sum_weight[ 5*local_size + lid ] ;
+
+			float4 dof4_g = local_sum_grads[ 4*local_size + lid ] ;
+			float4 dof5_g = local_sum_grads[ 5*local_size + lid ] ;
+
+			float4 rho_chk = local_sum_rho_sq[ lid];
+
+			printf ("\n__Kernel se3_LK_grad chk AFTER parallel sum: layer=%u, \tlid=%u, \tdof4=%f, \tdof5=%f, \tdof4_g=%f, \tdof5_g=%f, \trho_chk=%f  ", layer, lid, dof4.w, dof5.w, dof4_g.w, dof5_g.w, rho_chk.w  );
+		}
+	//}
+*/
 
 	if (lid==0) {
 		uint group_id 											= get_group_id(0);
