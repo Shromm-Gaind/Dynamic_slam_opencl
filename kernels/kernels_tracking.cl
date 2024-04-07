@@ -537,7 +537,7 @@ __kernel void se3_LK_grad(
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	float alpha			= img_cur[read_index].w;
 
-	float inv_depth 	= depth_map[read_index]; 																		//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept  //depth_index
+	float inv_depth 	= 1/depth_map[read_index]; 																		//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept  //depth_index
 	float uh2 			= k2k_pvt[0]*u_flt 	+ k2k_pvt[1]*v_flt 	+ k2k_pvt[2]*1 	+ k2k_pvt[3]*inv_depth;
 	float vh2 			= k2k_pvt[4]*u_flt 	+ k2k_pvt[5]*v_flt 	+ k2k_pvt[6]*1 	+ k2k_pvt[7]*inv_depth;
 	float wh2 			= k2k_pvt[8]*u_flt 	+ k2k_pvt[9]*v_flt 	+ k2k_pvt[10]*1	+ k2k_pvt[11]*inv_depth;
@@ -582,37 +582,55 @@ __kernel void se3_LK_grad(
 		Rho_[read_index] 			= rho;																				// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
 		float4 rho_sq 				= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
 		local_sum_rho_sq[lid] 		= rho_sq;																			// Also compute global Rho^2.
-
+		/*
 		float4 weights_v4[6] 		= {{0,0,0,0}}; // float4
 
 		bilinear_SE3_grad_weight( weights_v4, SE3_grad_map_cur_frame, read_index,  SE3_grad_map_new_frame,  u2_flt,  v2_flt,  mm_cols,  read_offset_,  reduction,  mm_pixels,  alpha ); // , channel
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
+		*/
+		float multiplier = inv_depth;
+		float depth = 0;
+		if (isnormal(inv_depth)) depth 	= 1/inv_depth;
 
-		//float multiplier = inv_depth;
-		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																	// for each SE3 DoF
-			float8 SE3_grad_cur_px_v8 									= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
-			float8 SE3_grad_new_px_v8 									= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																																	// for each SE3 DoF
+			float8 grad_v8 											= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
+			grad_v8 												+= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);								// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+			float4 grad_v4 											= grad_v8.hi + grad_v8.lo;
+			float4 incr_v4 											= grad_v4 * rho;
+			if (se3_dim>=3){incr_v4 								*= inv_depth;}
+			incr_v4.w 												= 1.0f;
+			local_sum_grads[se3_dim*local_size + lid] 				= incr_v4;											// pixelwise increment for this SE3 DoF
+			grad_v4 												*= grad_v4;
+			grad_v4.w												= 1.0f;
+			local_sum_weight[se3_dim*local_size + lid] 				= grad_v4;											// save the SE3_grad^2, to use as divisor for this SE3 DoF, after summing.
+
+			/*
 			float SE3_grad_cur_px[8];
 			float SE3_grad_new_px[8];
 			vstore8(SE3_grad_cur_px_v8, 0, SE3_grad_cur_px);
 			vstore8(SE3_grad_new_px_v8, 0, SE3_grad_new_px);
 
-			float weights_a4[4];
-			vstore4(weights_v4[se3_dim], 0, weights_a4);
+
+			//float weights_a4[4];
+			//vstore4(weights_v4[se3_dim], 0, weights_a4);
 
 			float delta_a4[4];
+
 			for (int chan=0; chan<3; chan++) {
 				float SE3_grad 										= ( SE3_grad_cur_px[chan] + SE3_grad_cur_px[chan+4] + SE3_grad_new_px[chan] + SE3_grad_new_px[chan+4] ) / 4;
 				delta_a4[chan]		 								= weights_a4[chan] * rho_a4[chan] / SE3_grad;
 				if (!isnormal(delta_a4[chan])) 	delta_a4[chan] 		= 0;
 			}
 
-			//if (se3_dim>=3){ 						multiplier 		= depth;}											// TODO investigate what multiplier should be used & when
-			//for (int chan=0; chan<3; chan++){		delta_a4[0] 	*= multiplier;   }									// Applies depth or inv depth multiplier.....
+
+			if (se3_dim>=3){ 						multiplier 		= depth;}											// TODO investigate what multiplier should be used & when
+			for (int chan=0; chan<3; chan++){		delta_a4[0] 	*= multiplier;   }									// Applies depth or inv depth multiplier.....
 
 			float4 									delta_v4 		= {delta_a4[0]	,delta_a4[1], delta_a4[2], alpha  };
+
 			local_sum_grads[se3_dim*local_size + lid] 				= delta_v4;
+			*/
 		}
 /*
 		for (uint se3_dim=0; se3_dim<3; se3_dim++) {	// translation, amplify nearby movement.						// NB SE3_incr_map_[ ].w = alpha for the image within the mipmap.
@@ -634,7 +652,7 @@ __kernel void se3_LK_grad(
 */
 		float4 temp_v4f;
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {
-			weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];
+			weights_map  [read_index + se3_dim * mm_pixels ]		= local_sum_weight[ se3_dim*local_size + lid ];		// Save maps of SE3_grad^2 and pixelwise increment, for each SE3 DoF, for debugging.
 			SE3_incr_map_[read_index + se3_dim * mm_pixels ]  		= local_sum_grads[se3_dim*local_size + lid];
 		}
 	}
