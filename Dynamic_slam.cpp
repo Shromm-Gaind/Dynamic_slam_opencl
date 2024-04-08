@@ -1496,7 +1496,10 @@ void Dynamic_slam::estimateSE3_LK(){
 	if (obj["sample_se3_incr"]==true){
 		initialize_resultsMat();
 	}
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3_LK()_chk 0 : \t SE_factor = "<<SE_factor<<",\t obj[\"SE_factor\"].asFloat() = "<<obj["SE_factor"].asFloat() << flush;}
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3_LK()_chk 0 : \t SE_factor = "<<SE_factor<<
+																																				",\t obj[\"SE_factor\"].asFloat() = "<<obj["SE_factor"].asFloat() <<
+																																				",\t SE_iter = " << SE_iter <<
+																																				flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
 	float Rho_sq_result=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
 	uint layer 		= SE3_start_layer;
@@ -1523,10 +1526,10 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				cout << endl;
 																																				for (int i=runcl.mm_start; i<=runcl.mm_stop; i++){ 							// SE3_results / (num_valid_px * img_variance)
 																																					cout 									<< "\n\nDynamic_slam::estimateSE3_LK()_chk 1.6.1:"<<
-																																					", Layer "<<i<<" SE3_results/SE3_weights = (";
+																																					", Layer "<<i<<" SE3_results = (";   //   /SE3_weights
 																																					for (int k=0; k<6; k++){
 																																						cout << "\n(";
-																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l] / SE3_weights [i][k][l]  ; }
+																																						for (int l=0; l<3; l++){ cout << ", \t" << SE3_results[i][k][l]   ; }  //   / SE3_weights [i][k][l]
 																																						cout << ", \t" << SE3_results[i][k][3] << ")";
 																																					}cout << ")";
 																																					cout << "\t\t IMG_VAR = ";
@@ -1549,16 +1552,16 @@ void Dynamic_slam::estimateSE3_LK(){
 																																			}
 																																					cout << "\n#### update = ";
 		for (int SE3=0; SE3<6; SE3++) {
-																																					cout << ", ("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_results[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+																																					cout << ", \n("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
 			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / SE3_weights[layer][SE3][channel] ;							// apply se3_dim weights and global factor.
 
 																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
 		}																																			cout << flush;
 																																					cout << "\t * min_depth = * "<<obj["min_depth"].asFloat()<<" = ,(, ";
-		for (int SE3=3; SE3<6; SE3++) {
-			update.operator()(SE3) *= obj["min_depth"].asFloat(); 																			// scales translation to world coords
-																																					cout << update.operator()(SE3) << " , ";
-		}																																			cout << ") "<<endl<<flush;
+		//for (int SE3=3; SE3<6; SE3++) {
+		//	update.operator()(SE3) *= obj["min_depth"].asFloat(); 																			// scales translation to world coords
+		//																																			cout << update.operator()(SE3) << " , ";
+		//}																																			cout << ") "<<endl<<flush;
 
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3_LK()_chk 6: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
@@ -1567,18 +1570,18 @@ void Dynamic_slam::estimateSE3_LK(){
 		if (obj["sample_se3_incr"]==true){
 																																			// Extract sample images from Rho_map and SE3_incr_map - done in RunCL::se3_rho_sq(..) and RunCL::estimate_SE3(..)
 																																			// Write data into image
-			uint reduction 			= obj["sample_layer"].asUInt();
-			int cols 				= runcl.MipMap[reduction*8 + MiM_READ_COLS];
-			int row_offset 			= 2* runcl.mm_margin ;
-			int col_offset 			= 2* runcl.mm_margin + iter * (runcl.mm_margin + cols  );
+																																			//uint reduction 			= obj["sample_layer"].asUInt();
+																																			//int cols 				= runcl.MipMap[reduction*8 + MiM_READ_COLS];
+																																			//int row_offset 			= 2* runcl.mm_margin ;
+																																			// int col_offset 			= 2* runcl.mm_margin + iter * (runcl.mm_margin + cols  );
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3_LK()_chk 6.1" << flush;}
-			stringstream ss;
-			ss << "Rho_sq_result = " << Rho_sq_result << "\t";
-			for (int se3 = 0; se3<6; se3++) {
-				for (int layer = 0; layer<obj["num_reductions"].asInt(); layer ++){
-					ss << SE3_results[layer][se3][2] << "\t";
-				}ss << "\t";
-			}
+																																			stringstream ss;
+																																			ss << "Rho_sq_result = " << Rho_sq_result << "\nSE3_results[layer][se3][chan=2 'value'] :";
+																																			for (int se3 = 0; se3<6; se3++) { ss<< "\nse3 dof = "<< se3 << " : ";
+																																				for (int layer = 0; layer<obj["num_reductions"].asInt(); layer ++){
+																																					ss << SE3_results[layer][se3][2] << "  \t";
+																																				}ss << "\t";
+																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n Dynamic_slam::estimateSE3_LK()_chk 6.2: \t"<< ss.str() << endl << flush;}
 		}
 		// # Predict dammped least squares step of SE3 for whole image + residual of translation for relative velocity map.

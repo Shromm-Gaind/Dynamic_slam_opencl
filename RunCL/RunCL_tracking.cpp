@@ -551,37 +551,37 @@ void RunCL::read_Rho_sq( float Rho_sq_results[8][4] ){
 																																				}cout << endl << endl;
 																																			}
 
-	for (int i=mm_start; i<=mm_stop; i++){
-		uint groups_to_sum 			= rho_sq_sum_mat.at<float>(i, 0);
-		uint start_group 			= rho_sq_sum_mat.at<float>(i, 2);  //global_sum_offset;
+	for (int layer=mm_start; layer<=mm_stop; layer++){
+		uint groups_to_sum 			= rho_sq_sum_mat.at<float>(layer, 0);
+		uint start_group 			= rho_sq_sum_mat.at<float>(layer, 2);  //global_sum_offset;
 		uint stop_group 			= start_group + groups_to_sum ;   																		// -1
 																																			if(verbosity>local_verbosity_threshold+2) {
-																																				cout << "\nRunCL::read_Rho_sq(..)_chk6 layer = "<<i<<
+																																				cout << "\nRunCL::read_Rho_sq(..)_chk6 layer = "<<layer<<
 																																				", groups_to_sum = "<<groups_to_sum<<
 																																				", start_group = "<<start_group<<
 																																				", stop_group = "<<stop_group<< flush;
 																																			}
-		for (int j=start_group; j< stop_group; j++){	for (int l=0; l<4; l++){ 	Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		};
+		for (int group=start_group; group< stop_group; group++){	for (int chan=0; chan<4; chan++){ 	Rho_sq_results[layer][chan] += rho_sq_sum_mat.at<float>(group, chan);		};
 		}																									// sum j groups for this layer of the MipMap.
 	}
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << "\n\nRunCL::read_Rho_sq(..)_chk7 ."<<flush;
-																																				for (int i=0; i<=mm_num_reductions+1; i++){ 														// results / (num_valid_px * img_variance)
-																																					cout << "\nLayer "<<i<<" mm_num_reductions = "<< mm_num_reductions <<",  Rho_sq_results/num_groups = (";
-																																					if (Rho_sq_results[i][3] > 0){
-																																						for (int l=0; l<3; l++){	cout << ", \t" << Rho_sq_results[i][l] / ( Rho_sq_results[i][3]  *  img_stats[IMG_VAR+l]  );
+																																				for (int layer=0; layer<=mm_num_reductions+1; layer++){ 														// results / (num_valid_px * img_variance)
+																																					cout << "\nLayer "<<layer<<" mm_num_reductions = "<< mm_num_reductions <<",  Rho_sq_results/num_groups = (";
+																																					if (Rho_sq_results[layer][3] > 0){
+																																						for (int chan=0; chan<3; chan++){	cout << ",   \t" << Rho_sq_results[layer][chan] / ( Rho_sq_results[layer][3]  *  img_stats[IMG_VAR+chan]  );
 																																						}
-																																						cout << ", \t" << Rho_sq_results[i][3] << ")";
+																																						cout << ", \t" << Rho_sq_results[layer][3] << ")";
 																																					}
-																																					else{	for (int l=0; l<3; l++){	cout << ", \t" << 0.0f;		}
-																																						cout << ", \t" << Rho_sq_results[i][3] << ")";
+																																					else{	for (int chan=0; chan<3; chan++){	cout << ", \t" << 0.0f;		}
+																																						cout << ", \t" << Rho_sq_results[layer][3] << ")";
 																																					}
 																																				}cout << "\nRunCL::read_Rho_sq(..)_finish . ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<flush;
 																																			}
 	}
 
 void RunCL::read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour_channels]){
-	int local_verbosity_threshold = -4;
+	int local_verbosity_threshold = -3;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::read_se3_weights(..)_chk1 ."<<flush;}
                                                                                                                                             // directly read higher layers
 	uint num_DoFs = 6;
@@ -599,7 +599,7 @@ void RunCL::read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour
 																																					}cout << flush;
 																																				}cout << endl << endl;
 																																			}
-	for (int i=mm_start; i<=mm_stop; i++){
+	for (int layer=mm_start; layer<=mm_stop; layer++){
         /*
 		uint read_offset_ 		= MipMap[i*8 + MiM_READ_OFFSET];																			// mipmap_params_[MiM_READ_OFFSET];
         uint global_sum_offset 	= read_offset_ / local_work_size ;
@@ -607,29 +607,32 @@ void RunCL::read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour
         uint start_group 		= global_sum_offset + 1;
         uint stop_group 		= start_group + groups_to_sum ;   // -1																		// skip the last group due to odd 7th value.
         */
-        uint groups_to_sum 			= se3_sum_mat.at<float>(i, 0);
-		uint start_group 			= se3_sum_mat.at<float>(i, 2);
+        uint groups_to_sum 			= se3_sum_mat.at<float>(layer, 0);
+		uint start_group 			= se3_sum_mat.at<float>(layer, 2);
 		uint stop_group 			= start_group + groups_to_sum;
 																																			if(verbosity>local_verbosity_threshold+1) {
-																																				cout << "\ni="<<i<<
+																																				cout << "\ni="<<layer<<
 																																				",  groups_to_sum="<<groups_to_sum<<
 																																				",  start_group="<<start_group<<
 																																				",  stop_group="<<stop_group;
 																																			}
-		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_weights_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }	}	//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
+		for (int group=start_group; group< stop_group  ; group++){	for (int dof=0; dof<num_DoFs; dof++){ 	for (int chan=0; chan<4; chan++){	SE3_weights_results[layer][dof][chan] += se3_sum_mat.at<float>(group, dof*4 + chan);	} }	}	//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
     }
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl << " SE3_weights_results/num_groups = (H, S, V, alpha=num_groups) ";
-																																				for (int i=mm_start; i<=mm_stop; i++){ 																// results / (num_valid_px * img_variance)
-																																					cout << "\nLayer "<<i<<" SE3_weights_results = (";												// raw results
-																																					for (int k=0; k<num_DoFs; k++){
-																																						cout << "\n(";  for (int l=0; l<4; l++){	cout << ", \t" << SE3_weights_results[i][k][l] ;	}cout << ")";
+																																				for (int layer=mm_start; layer<=mm_stop; layer++){ 																// results / (num_valid_px * img_variance)
+																																					cout << "\nLayer "<<layer<<" SE3_weights_results = (";												// raw results
+																																					for (int dof=0; dof<num_DoFs; dof++){
+																																						cout << "\nse3 dof="<<dof<<" : (";  for (int chan=0; chan<4; chan++){	cout << ",   \t" << SE3_weights_results[layer][dof][chan] ;	}cout << ")";
 																																					}cout << ")";
 																																					///
+																																					/*
 																																					cout << "\nLayer "<<i<<" SE3_weights_results/num_groups = (";
 																																					for (int k=0; k<num_DoFs; k++){
 																																						cout << "\nDoF="<<k<<" ("; for (int l=0; l<3; l++){	cout << ", \t" << SE3_weights_results[i][k][l] / ( SE3_weights_results[i][k][3]  *  img_stats[IMG_VAR+l]  ); } cout << ", " << SE3_weights_results[i][k][3] << ")";
 																																					}cout << ")";																					// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																					*/
+
 																																				}cout << "\nRunCL::read_se3_weights(..)_finish . ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<flush;
 																																			}
 	}
@@ -653,30 +656,32 @@ void RunCL::read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels])
 																																					}cout << flush;
 																																				}cout << endl << endl;
 																																			}
-	for (int i=mm_start; i<=mm_stop; i++){
-		uint groups_to_sum 			= se3_sum_mat.at<float>(i, 0);
-		uint start_group 			= se3_sum_mat.at<float>(i, 2);
+	for (int layer=mm_start; layer<=mm_stop; layer++){
+		uint groups_to_sum 			= se3_sum_mat.at<float>(layer, 0);
+		uint start_group 			= se3_sum_mat.at<float>(layer, 2);
         uint stop_group 			= start_group + groups_to_sum;
 																																			if(verbosity>local_verbosity_threshold+1) {
-																																				cout << "\ni="<<i<<
+																																				cout << "\ni="<<layer<<
 																																				",  groups_to_sum="<<groups_to_sum<<
 																																				",  start_group="<<start_group<<
 																																				",  stop_group="<<stop_group;
 																																			}
-		for (int j=start_group; j< stop_group  ; j++){	for (int k=0; k<num_DoFs; k++){ 	for (int l=0; l<4; l++){	SE3_results[i][k][l] += se3_sum_mat.at<float>(j, k*4 + l);	} }	}	//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
+		for (int group=start_group; group< stop_group  ; group++){	for (int dof=0; dof<num_DoFs; dof++){ 	for (int chan=0; chan<4; chan++){	SE3_results[layer][dof][chan] += se3_sum_mat.at<float>(group, dof*4 + chan);	} }	}	//l =4 =num channels	// sum j groups for this layer of the MipMap. // se3_sum_mat.at<float>(j, k);
     }
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl << " SE3_results/num_groups = (H, S, V, alpha=num_groups) ";
-																																				for (int i=mm_start; i<=mm_stop; i++){ 																// results / (num_valid_px * img_variance)
-																																					cout << "\nLayer "<<i<<" SE3_results = (";														// raw results
-																																					for (int k=0; k<num_DoFs; k++){
-																																						cout << "\n(";  for (int l=0; l<4; l++){	cout << ", \t" << SE3_results[i][k][l] ;	}cout << ")";
+																																				for (int layer=mm_start; layer<=mm_stop; layer++){ 																// results / (num_valid_px * img_variance)
+																																					cout << "\nLayer "<<layer<<" SE3_results = (";														// raw results
+																																					for (int dof=0; dof<num_DoFs; dof++){
+																																						cout << "\nse3 dof="<<dof<<" : (";  for (int chan=0; chan<4; chan++){	cout << ", \t" << SE3_results[layer][dof][chan] ;	}cout << ")";
 																																					}cout << ")";
 																																					///
+																																					/*
 																																					cout << "\nLayer "<<i<<" SE3_results/num_groups = (";
 																																					for (int k=0; k<num_DoFs; k++){
 																																						cout << "\nDoF="<<k<<" ("; for (int l=0; l<3; l++){	cout << ", \t" << SE3_results[i][k][l] / ( SE3_results[i][k][3]  *  img_stats[IMG_VAR+l]  ); } cout << ", " << SE3_results[i][k][3] << ")";
 																																					}cout << ")";																					// << "{"<< img_stats[i*4 +IMG_VAR+l] <<"}"
+																																					*/
 																																				}cout << "\nRunCL::read_se3_incr(..)_finish . ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"<<flush;
 																																			}
 }

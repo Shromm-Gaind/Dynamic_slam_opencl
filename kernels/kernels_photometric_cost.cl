@@ -56,6 +56,10 @@ float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int co
 	c_10 = img[ read_offset_ + (int_v2-1) * cols +  int_u2     ];
 	c_01 = img[ read_offset_ + int_v2     * cols + (int_u2 -1) ];
 	c_00 = img[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) ];
+
+	uint  global_id_u 	= get_global_id(0);
+	if(global_id_u == 10000  ){ printf("\n__bilinear_SE3_grad (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
+
 																			// weighting for bi-linear interpolation
 	float factor_x = fmod(u_flt,1);
 	float factor_y = fmod(v_flt,1);
@@ -73,6 +77,10 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 	c_10 = img[ read_offset_ + (int_v2-1) * cols +  int_u2     ];
 	c_01 = img[ read_offset_ + int_v2     * cols + (int_u2 -1) ];
 	c_00 = img[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) ];
+
+	uint  global_id_u 	= get_global_id(0);
+	if(global_id_u == 10000  ){ printf("\n__bilinear_flt4 (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
+
 																			// weighting for bi-linear interpolation
 	float factor_x = fmod(u_flt,1);
 	float factor_y = fmod(v_flt,1);
@@ -80,8 +88,20 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 	return c;
 }
 
-void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_cur_frame, int read_index,
-							   __global float8* SE3_grad_map_new_frame, float u2_flt, float v2_flt, int cols, int read_offset_, uint reduction, uint mm_pixels, float alpha/*, int channel*/ ){
+void bilinear_SE3_grad_weight (float4 weights[6],
+							   __global float8* 	SE3_grad_map_cur_frame,
+							   int 					read_index,
+							   __global float8* 	SE3_grad_map_new_frame,
+							   float 				u2_flt,
+							   float 				v2_flt,
+							   int 					cols,
+							   int 					read_offset_,
+							   uint 				reduction,
+							   uint 				mm_pixels,
+							   float 				alpha
+							   /*, int channel*/ ){
+
+
 // TODO  problem some results are NaN
 	// NB for each se3_dim:  weight = 1/ (SE3_grad_map_cur_frame - SE3_grad_map_new_frame)
 	float8 	c, c_00, c_01, c_10, c_11;
@@ -89,10 +109,14 @@ void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_
 	int int_u2 					= ceil(u2_flt);
 	int int_v2 					= ceil(v2_flt);
 
-	int coff_00					= (int_v2-1) * cols + (int_u2 -1) ;
-	int coff_01					= int_v2     * cols + (int_u2 -1) ;
-	int coff_10					= (int_v2-1) * cols +  int_u2 ;
-	int coff_11					= int_v2     * cols +  int_u2 ;
+	int coff_00					= read_offset_ + (int_v2-1) * cols + (int_u2 -1) ;
+	int coff_01					= read_offset_ + int_v2     * cols + (int_u2 -1) ;
+	int coff_10					= read_offset_ + (int_v2-1) * cols +  int_u2 ;
+	int coff_11					= read_offset_ + int_v2     * cols +  int_u2 ;
+
+	uint  global_id_u 	= get_global_id(0);
+	if(global_id_u == 1000  ){ printf("\n__bilinear_SE3_grad_weight (global_id_u == 1000 )  chk_1  , coff_00=%u",  coff_00   ); }
+
 
 	float factor_x 				= fmod(u2_flt,1);
 	float factor_y 				= fmod(v2_flt,1);
@@ -106,11 +130,10 @@ void bilinear_SE3_grad_weight (float4 weights[6], __global float8* SE3_grad_map_
 		float SE3_grad_cur_[8];
 		vstore8(SE3_grad_cur_v8,0,SE3_grad_cur_);
 
-		int dim_read_offset 	= dim_offset + read_offset_;
-		c_11 					= SE3_grad_map_new_frame[ dim_read_offset + coff_11 ];
-		c_10 					= SE3_grad_map_new_frame[ dim_read_offset + coff_10 ];
-		c_01 					= SE3_grad_map_new_frame[ dim_read_offset + coff_01 ];
-		c_00 					= SE3_grad_map_new_frame[ dim_read_offset + coff_00 ];
+		c_11 					= SE3_grad_map_new_frame[ dim_offset + coff_11 ];
+		c_10 					= SE3_grad_map_new_frame[ dim_offset + coff_10 ];
+		c_01 					= SE3_grad_map_new_frame[ dim_offset + coff_01 ];
+		c_00 					= SE3_grad_map_new_frame[ dim_offset + coff_00 ];
 
 		float8 SE3_grad_new_v8 	= factor_y * (c_11*factor_x  +  c_01*n_factor_x)   +   n_factor_y * (c_10*factor_x  + c_00*n_factor_x);
 		float SE3_grad_new_[8];

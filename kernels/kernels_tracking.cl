@@ -510,7 +510,7 @@ __kernel void se3_LK_grad(
 	uint  global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
 	uint  lid 			= get_local_id(0);
-																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_1"   ); }
+																														//if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_1"   ); }
 	uint local_size 	= get_local_size(0); // / wg_divisor;
 	uint group_size 	= local_size;
 	uint num_groups		= get_num_groups(0); //size_t get_num_groups (uint dimindx)
@@ -523,6 +523,9 @@ __kernel void se3_LK_grad(
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
 	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
+
+	uint8 mipmap_params_0 = mipmap_params[0];
+	uint read_offset_0 	= mipmap_params_0[MiM_READ_OFFSET];
 
 	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];
@@ -565,17 +568,16 @@ __kernel void se3_LK_grad(
 		local_sum_weight[i*local_size + lid] 	= zero_v4f;
 		local_sum_grads [i*local_size + lid] 	= zero_v4f;
 	}
-																	if(global_id_u == 1  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 1 )  chk_3  "   ); }
 
-																														// Exclude all out-of-bounds threads:
+	////////////////////////////////////////////////////////////////////////////////////////							// Exclude all out-of-bounds threads:
 	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels) ;
 
 	if (  intersection  ) {																								// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx 					= 0;																				// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
+																										if(global_id_u == 10000  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 10000 )  chk_3  , read_offset_=%u",  read_offset_   ); }
 		new_px 						= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_); //   /reduction
 		rho 						= img_cur[read_index] - new_px;
 		rho.w 						= 1.0f; ///alpha;
-
 		float rho_a4[4];
 		vstore4(rho ,0, rho_a4);
 
@@ -589,18 +591,19 @@ __kernel void se3_LK_grad(
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
 		*/
-		float multiplier = inv_depth;
-		float depth = 0;
-		if (isnormal(inv_depth)) depth 	= 1/inv_depth;
-
+		float multiplier = 1/(inv_depth *70*6);						// de-weight foreground for rotation, & de-weight backgroud for translation.
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																																	// for each SE3 DoF
-			float8 grad_v8 											= SE3_grad_map_cur_frame[read_index     + se3_dim * mm_pixels ] ;
-			grad_v8 												+= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_);								// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+			float8 grad_v8 											= SE3_grad_map_cur_frame[read_index + (se3_dim * mm_pixels) ] ;
+			grad_v8 												+= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_0 + (se3_dim * mm_pixels)  );	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
 			float4 grad_v4 											= grad_v8.hi + grad_v8.lo;
 			float4 incr_v4 											= grad_v4 * rho;
-			if (se3_dim>=3){incr_v4 								*= inv_depth;}
+
+			if (se3_dim>=3){multiplier 								= inv_depth *70 ;}  // NB multiply pixel inv_depth by min depth in scene.  Office scene depth is in cm from approx 90 to 450cm.
+			incr_v4													*= multiplier;
+
 			incr_v4.w 												= 1.0f;
 			local_sum_grads[se3_dim*local_size + lid] 				= incr_v4;											// pixelwise increment for this SE3 DoF
+
 			grad_v4 												*= grad_v4;
 			grad_v4.w												= 1.0f;
 			local_sum_weight[se3_dim*local_size + lid] 				= grad_v4;											// save the SE3_grad^2, to use as divisor for this SE3 DoF, after summing.
@@ -718,7 +721,7 @@ __kernel void se3_LK_grad(
 		}
 	//}
 */
-
+	////////////////////////////////////////////////////////////////////////////////////////		// Export result
 	if (lid==0) {
 		uint group_id 											= get_group_id(0);
 		uint rho_global_sum_offset 								= read_offset_ / local_size ;					// Compute offset for this layer,   NB interger rounding !

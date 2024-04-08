@@ -71,9 +71,9 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
-    "SE_iter_per_layer":1,
-    "SE_iter":1,//10,
-    "SE_factor":0.04,
+    "SE_iter_per_layer":10,
+    "SE_iter":10,//1 //10
+    "SE_factor":1.5,
     "SE3_Rho_sq_threshold":[[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,  [0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02]  ], // [layer 0-5][channel hsv]
 
     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
