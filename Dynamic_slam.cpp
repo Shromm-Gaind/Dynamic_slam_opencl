@@ -1515,7 +1515,7 @@ void Dynamic_slam::estimateSE3_LK(){
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3_LK_LK()_chk 1.0" << "\t  iter = " << iter <<
 																																				",\t layer = "<<layer<< ",\t factor = "<<factor<<flush;  }
 		//////////////////////////////////////
-		if (iter%3==0 && iter>0) {layer --; factor *= 0.75;}
+		if (iter%3==0 && iter>0 && layer>0) {layer --; factor *= 0.75;}
 
 		float SE3_weights[8][6][tracking_num_colour_channels] = {{{0}}};
 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
@@ -1540,24 +1540,32 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				"  \titer="<<iter<<
 																																				", \tlayer="<<layer<<
 																																				", \tnext_layer_Rho_sq_result="<< next_layer_Rho_sq_result <<
-																																				", \tSE3_results["<<layer<<"][SE3]["<<channel<<"]=(\t"<<
-																																				SE3_results[layer][0][channel]<<",\t"<<
-																																				SE3_results[layer][1][channel]<<",\t"<<
-																																				SE3_results[layer][2][channel]<<",\t"<<
-																																				SE3_results[layer][3][channel]<<",\t"<<
-																																				SE3_results[layer][4][channel]<<",\t"<<
-																																				SE3_results[layer][5][channel]<<",\t"<<
-																																				"), \tfactor="<<factor<<
+																																				", \tSE3_results["<<layer<<"][SE3]["<<channel<<"]=(\t"<< flush;
+																																				/*
+																																				cout << "\n Pointers:  &SE3_results="<<&SE3_results<<  flush;
+																																				cout << ",  &SE3_results["<<layer<<"]="<<&SE3_results[layer]<< flush;
+																																				cout << ",  &SE3_results[layer][0]="<<&SE3_results[layer][0]<< flush;
+																																				cout << ",  &SE3_results[layer][0]["<<channel<<"]="<<&SE3_results[layer][0][channel]<< flush;
+																																				*/
+																																				if (isnormal(SE3_results[layer][0][channel])) cout << SE3_results[layer][0][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				if (isnormal(SE3_results[layer][1][channel])) cout << SE3_results[layer][1][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				if (isnormal(SE3_results[layer][2][channel])) cout << SE3_results[layer][2][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				if (isnormal(SE3_results[layer][3][channel])) cout << SE3_results[layer][3][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				if (isnormal(SE3_results[layer][4][channel])) cout << SE3_results[layer][4][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				if (isnormal(SE3_results[layer][5][channel])) cout << SE3_results[layer][5][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
+																																				cout << "), \tfactor="<<factor<<
 																																				flush;
 																																			}
 																																					cout << "\n#### update = ";
+		float update_dof_weights[6] 	= { 1, 1, 1, -180, -180, -40 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
 		for (int SE3=0; SE3<6; SE3++) {
-																																					cout << ", \n("<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
-			update.operator()(SE3) = factor * SE3_results[layer][SE3][channel] / SE3_weights[layer][SE3][channel] ;							// apply se3_dim weights and global factor.
+																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / SE3_weights[layer][SE3][channel] ;							// apply se3_dim weights and global factor.
 
 																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
 		}																																			cout << flush;
-																																					cout << "\t * min_depth = * "<<obj["min_depth"].asFloat()<<" = ,(, ";
+																																					//cout << "\t * min_depth = * "<<obj["min_depth"].asFloat()<<" = ,(, ";
 		//for (int SE3=3; SE3<6; SE3++) {
 		//	update.operator()(SE3) *= obj["min_depth"].asFloat(); 																			// scales translation to world coords
 		//																																			cout << update.operator()(SE3) << " , ";

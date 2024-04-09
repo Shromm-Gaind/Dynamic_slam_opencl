@@ -591,7 +591,7 @@ __kernel void se3_LK_grad(
 
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
 		*/
-		float multiplier = 1/(inv_depth *70*6);						// de-weight foreground for rotation, & de-weight backgroud for translation.
+		float multiplier = 1/(inv_depth *70*5);						// de-weight foreground for rotation, & de-weight backgroud for translation.
 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																																	// for each SE3 DoF
 			float8 grad_v8 											= SE3_grad_map_cur_frame[read_index + (se3_dim * mm_pixels) ] ;
 			grad_v8 												+= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_0 + (se3_dim * mm_pixels)  );	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
@@ -746,7 +746,8 @@ __kernel void se3_LK_grad(
 				float4 temp_weights_float4 						= local_sum_weight[i*local_size + lid] / local_size;
 				global_sum_weight[se3_global_sum_offset + i] 	= temp_weights_float4 ;
 
-				float4 temp_float4 								= local_sum_grads[i*local_size + lid] / local_size; 	//   / local_sum_grads[i*local_size + lid].w ;  Better to divide by local size, preserve information wrt number of valid pixels.
+				float4 temp_float4 								= local_sum_grads[i*local_size + lid] / local_size; 	//   / local_sum_grads[i*local_size + lid].w ;
+																														// Better to divide by local size, preserve information wrt number of valid pixels.
 				global_sum_grads[se3_global_sum_offset + i] 	= temp_float4 ;						// local_sum_grads
 
 				//printf("\nkernel se3_grad_d(..)_2: layer=%i,  group_id=%i,   local_sum_grads[i*local_size + lid]=(%f,%f,%f,%f )", layer, group_id,   temp_float4.x,temp_float4.y,temp_float4.z,temp_float4.w );
