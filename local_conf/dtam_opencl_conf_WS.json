@@ -23,9 +23,10 @@
                                                                         // /home/hockingsn/Programming/computer_vision_data/
                                                                         // /home/nick/programming/ComputerVision/DataSets
 
-    "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",
+    "data_file": "ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop", // ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve
+                                                                        // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
     "data_file_increment":1,
-    "data_file_offset":475,       //475;//10;//46;//462;//380;//0;
+    "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
 
     // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -72,14 +73,15 @@
     "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
     "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
     "SE_iter_per_layer":1,
-    "SE_iter":3,//2,//10
+    "SE_iter":20,//2,//10
     "SE_factor":0.04,
     "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
 
     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
-    "Artif_pose_err_axis":3,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
-    "Artif_pose_err_factor":5,//5,                                      // 0 = do not apply
+    "Artif_pose_err_axis":0,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+    "Artif_pose_err_factor":2
+    ,//5,                                      // 0 = do not apply
     "":"",
     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.

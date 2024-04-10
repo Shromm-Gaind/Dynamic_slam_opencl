@@ -1557,11 +1557,11 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				flush;
 																																			}
 																																					cout << "\n#### update = ";
-		float update_dof_weights[6] 	= { 1, 1, 1, -180, -180, -40 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+		float update_dof_weights[6] 	= { 0.1, 0.1, 0.1, -4, -4, -4 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
 		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
 		for (int SE3=0; SE3<6; SE3++) {
 																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
-			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / SE3_weights[layer][SE3][channel] ;							// apply se3_dim weights and global factor.
+			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / (SE3_weights[layer][SE3][channel] * runcl.img_stats[IMG_VAR+channel] ) ;							// apply se3_dim weights and global factor.
 
 																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
 		}																																			cout << flush;
