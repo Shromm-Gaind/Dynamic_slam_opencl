@@ -150,7 +150,7 @@ int Dynamic_slam::nextFrame() {
 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	use_GT_pose();
 	getFrame();
-	if(obj["Artif_pose_err_factor"].asFloat() != 0.0 ) artificial_pose_error();
+	if(obj["Artif_pose_err_factor"].asFloat() != 0.0 ) artificial_pose_error(); else cout << "\nArtif_pose_err_factor = "<<obj["Artif_pose_err_factor"].asFloat() << flush;
 //	estimateSO3();
 	//artificial_pose_error();
 	//estimateSE3(); 					// own thread ? num iter ?
@@ -1501,21 +1501,25 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				",\t SE_iter = " << SE_iter <<
 																																				flush;}
 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
-	float Rho_sq_result=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
-	uint layer 		= SE3_start_layer;
-	float factor 	= obj["SE_factor"].asFloat(); //SE_factor;
+	float Rho_sq_result	=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
+	uint  layer 						= SE3_start_layer;
+	float factor 						= obj["SE_factor"].asFloat();					//0.04
+	float factor_layer_multiplier 		= obj["SE_factor_layer_multiplier"].asFloat();  //0.75
+	int   iter_per_layer 				= obj["SE_iter_per_layer"].asInt();				//1
 
-	uint channel  	= 2; 																													// TODO combine Rho HSV channels
+	uint channel  		= 2; 																												// TODO combine Rho HSV channels
 
 	cout <<  "\nDynamic_slam::estimateSE3_LK(): (Rho_sq_result < SE3_Rho_sq_threshold[layer][channel])=("<<Rho_sq_result<<" < "<<SE3_Rho_sq_threshold[layer][channel]<<")  ";
 	for (int i=0; i<5; i++){ cout << " ( ";   for (int j=0; j<3; j++) {	cout << ", ["<<i<<"]["<<j<<"]" << SE3_Rho_sq_threshold[i][j]; }		cout << " ) "; }
 	cout << ",\t layer = "<<layer<< ",\t factor = "<<factor << endl << flush;
 
+
+
 	for (int iter = 0; iter<SE_iter; iter++){ 																								// TODO step down layers if fits well enough, and out if fits before iteration limit. Set iteration limit param in config.json file.
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3_LK_LK()_chk 1.0" << "\t  iter = " << iter <<
 																																				",\t layer = "<<layer<< ",\t factor = "<<factor<<flush;  }
 		//////////////////////////////////////
-		if (iter%3==0 && iter>0 && layer>0) {layer --; factor *= 0.75;}
+		if (iter%iter_per_layer==0 && iter>0 ) {if (layer>0) layer --; factor *= factor_layer_multiplier;}
 
 		float SE3_weights[8][6][tracking_num_colour_channels] = {{{0}}};
 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
@@ -1557,7 +1561,7 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				flush;
 																																			}
 																																					cout << "\n#### update = ";
-		float update_dof_weights[6] 	= { 0.1, 0.1, 0.1, -4, -4, -4 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+		float update_dof_weights[6] 	= { 0.4, 0.4, 0.4, -4, -4, -4 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
 		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
 		for (int SE3=0; SE3<6; SE3++) {
 																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;

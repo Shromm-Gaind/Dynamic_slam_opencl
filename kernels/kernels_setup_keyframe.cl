@@ -36,6 +36,34 @@ __kernel void convert_depth(
 	}
 }
 
+
+__kernel void mean_inv_depth(
+
+
+			  )
+{
+
+
+
+
+}
+
+
+__kernel void normalize_inv_depth(
+
+
+
+			  )
+{
+
+
+
+
+
+
+}
+
+
 __kernel void transform_depthmap(
 	__private	uint	mipmap_layer,			//0
 	__constant 	uint8*	mipmap_params,			//1

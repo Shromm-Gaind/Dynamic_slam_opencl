@@ -354,7 +354,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
 	waitForEventAndRelease( &writeEvt );
 																																		if(verbosity>local_verbosity_threshold+1)
 																																			{ DownloadAndSave( depth_mem_GT,   	ss.str(),   paths.at("depth_GT"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. depth_mem_GT ..)\n"<<flush;}
-	float factor = 1;//256;
+	float factor = obj["min_depth"].asFloat(); // 1;//256;  // normalize depthmap as per conf.json file. Adjust for dataset.
 	convert_depth( invert, factor);
 	ss << "__1";
 																																		if(verbosity>local_verbosity_threshold+1)

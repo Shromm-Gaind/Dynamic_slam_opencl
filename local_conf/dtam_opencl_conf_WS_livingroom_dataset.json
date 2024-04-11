@@ -23,7 +23,7 @@
                                                                         // /home/hockingsn/Programming/computer_vision_data/
                                                                         // /home/nick/programming/ComputerVision/DataSets
 
-    "data_file": "ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",  // ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop //
+    "data_file": "ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop", // ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve
                                                                         // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
     "data_file_increment":1,
     "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
@@ -47,8 +47,8 @@
     "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
                                                                         // Also keep layers for for depths across edge boundaries.
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
-    "max_depth":485,// office dataset   //6.0 //livingroom dataset                                //  450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
-    "min_depth":82.0,// office dataset  //1.0 //livingroom dataset                                // 70.0;//3289.0;
+    "max_depth":6.0,//livingroom dataset                                // 485 office dataset   // 450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
+    "min_depth":1.0,//livingroom dataset                                // 82.0 office dataset  //70.0;//3289.0;
     //"occlusionThreshold":0.05,// not currently used.
     "startAt":0,
 

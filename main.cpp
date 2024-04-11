@@ -12,12 +12,12 @@ using namespace cv;
 using namespace std;
 int main(int argc, char *argv[])
 {
-	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit; }
+	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit(1); }
 	ifstream ifs(argv[1]);
     Json::Reader reader;
     Json::Value obj;
     bool b = reader.parse(ifs, obj);
-	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
+	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
 	int verbosity_ 		= obj["verbosity"].asInt() ;						// -1= none, 0=errors only, 1=basic, 2=lots.
 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;
 	int max_frame_count = obj["max_frame_count"].asUInt();	
