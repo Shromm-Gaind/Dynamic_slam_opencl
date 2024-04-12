@@ -28,7 +28,7 @@ __kernel void convert_depth(
 	if (global_id_u    >= mipmap_params[MiM_PIXELS]) return;
 	float depth 		= depth_mem[global_id_u]/factor;
 
-	//if (global_id_u == 0)printf("\n__kernel void convert_depth(..) invert=%u, factor=%f ", invert, factor );
+	if (global_id_u == 0)printf("\n__kernel void convert_depth(..) invert=%u, factor=%f, depth_mem[global_id_u]=%f,  depth=%f,  1/depth=%f   ", invert, factor, depth_mem[global_id_u], depth, 1/depth  );
 
 	if (!(depth==0)){
 		if ( invert==true ) depth_mem_GT[read_index] =  1/depth;

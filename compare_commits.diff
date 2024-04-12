@@ -1,0 +1,444 @@
+diff --git a/Dynamic_slam.cpp b/Dynamic_slam.cpp
+index ed3a0c2..a14a78c 100644
+--- a/Dynamic_slam.cpp
++++ b/Dynamic_slam.cpp
+@@ -150,7 +150,7 @@ int Dynamic_slam::nextFrame() {
+ 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
+ 	use_GT_pose();
+ 	getFrame();
+-	if(obj["Artif_pose_err_factor"].asFloat() != 0.0 ) artificial_pose_error(); else cout << "\nArtif_pose_err_factor = "<<obj["Artif_pose_err_factor"].asFloat() << flush;
++	if(obj["Artif_pose_err_factor"].asFloat() != 0.0 ) artificial_pose_error();
+ //	estimateSO3();
+ 	//artificial_pose_error();
+ 	//estimateSE3(); 					// own thread ? num iter ?
+@@ -1501,25 +1501,21 @@ void Dynamic_slam::estimateSE3_LK(){
+ 																																				",\t SE_iter = " << SE_iter <<
+ 																																				flush;}
+ 																																			// # Get 1st & 2nd order gradients of SE3 wrt updated pose. (Translation requires depth map, middle depth initally.)
+-	float Rho_sq_result	=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
+-	uint  layer 						= SE3_start_layer;
+-	float factor 						= obj["SE_factor"].asFloat();					//0.04
+-	float factor_layer_multiplier 		= obj["SE_factor_layer_multiplier"].asFloat();  //0.75
+-	int   iter_per_layer 				= obj["SE_iter_per_layer"].asInt();				//1
++	float Rho_sq_result=FLT_MAX*0.99,   old_Rho_sq_result=FLT_MAX*0.99 ,   next_layer_Rho_sq_result=FLT_MAX*0.99;
++	uint layer 		= SE3_start_layer;
++	float factor 	= obj["SE_factor"].asFloat(); //SE_factor;
+ 
+-	uint channel  		= 2; 																												// TODO combine Rho HSV channels
++	uint channel  	= 2; 																													// TODO combine Rho HSV channels
+ 
+ 	cout <<  "\nDynamic_slam::estimateSE3_LK(): (Rho_sq_result < SE3_Rho_sq_threshold[layer][channel])=("<<Rho_sq_result<<" < "<<SE3_Rho_sq_threshold[layer][channel]<<")  ";
+ 	for (int i=0; i<5; i++){ cout << " ( ";   for (int j=0; j<3; j++) {	cout << ", ["<<i<<"]["<<j<<"]" << SE3_Rho_sq_threshold[i][j]; }		cout << " ) "; }
+ 	cout << ",\t layer = "<<layer<< ",\t factor = "<<factor << endl << flush;
+ 
+-
+-
+ 	for (int iter = 0; iter<SE_iter; iter++){ 																								// TODO step down layers if fits well enough, and out if fits before iteration limit. Set iteration limit param in config.json file.
+ 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3_LK_LK()_chk 1.0" << "\t  iter = " << iter <<
+ 																																				",\t layer = "<<layer<< ",\t factor = "<<factor<<flush;  }
+ 		//////////////////////////////////////
+-		if (iter%iter_per_layer==0 && iter>0 ) {if (layer>0) layer --; factor *= factor_layer_multiplier;}
++		if (iter%3==0 && iter>0 && layer>0) {layer --; factor *= 0.75;}
+ 
+ 		float SE3_weights[8][6][tracking_num_colour_channels] = {{{0}}};
+ 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
+@@ -1561,11 +1557,11 @@ void Dynamic_slam::estimateSE3_LK(){
+ 																																				flush;
+ 																																			}
+ 																																					cout << "\n#### update = ";
+-		float update_dof_weights[6] 	= { 0.4, 0.4, 0.4, -4, -4, -4 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
++		float update_dof_weights[6] 	= { 1, 1, 1, -180, -180, -40 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+ 		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
+ 		for (int SE3=0; SE3<6; SE3++) {
+ 																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+-			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / (SE3_weights[layer][SE3][channel] * runcl.img_stats[IMG_VAR+channel] ) ;							// apply se3_dim weights and global factor.
++			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / SE3_weights[layer][SE3][channel] ;							// apply se3_dim weights and global factor.
+ 
+ 																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
+ 		}																																			cout << flush;
+diff --git a/RunCL/RunCL_DownloadAndSave.cpp b/RunCL/RunCL_DownloadAndSave.cpp
+index bcdcf93..831f2c1 100644
+--- a/RunCL/RunCL_DownloadAndSave.cpp
++++ b/RunCL/RunCL_DownloadAndSave.cpp
+@@ -301,7 +301,7 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
+ }
+ 
+ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, cv::Mat *bufImg, float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/){
+-	int local_verbosity_threshold = -2;																										// bufImg will hold a pointer to the version written to .png
++	int local_verbosity_threshold = 2;																										// bufImg will hold a pointer to the version written to .png
+ 	bool old_tiff = tiff;
+ 	if (exception_tiff == true) tiff = exception_tiff;
+ 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
+@@ -409,7 +409,7 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
+ }
+ 
+ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers,  bool exception_tiff /*=false*/, float iter, bool display){
+-	int local_verbosity_threshold =-2;
++	int local_verbosity_threshold =2;
+ 																																			if(verbosity> local_verbosity_threshold) {
+ 																																				cout<<"\n\nDownloadAndSave_3Channel_volume_chk_0   \tcount=\""<<count<<"\", \tfilename = ["<<folder.filename().string()<<"]"<<flush;
+ 																																				cout<<"\t folder="<<folder.string()<<",\t image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<type_mat<<
+diff --git a/RunCL/RunCL_load_image.cpp b/RunCL/RunCL_load_image.cpp
+index 8268313..c8e614c 100644
+--- a/RunCL/RunCL_load_image.cpp
++++ b/RunCL/RunCL_load_image.cpp
+@@ -354,7 +354,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
+ 	waitForEventAndRelease( &writeEvt );
+ 																																		if(verbosity>local_verbosity_threshold+1)
+ 																																			{ DownloadAndSave( depth_mem_GT,   	ss.str(),   paths.at("depth_GT"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. depth_mem_GT ..)\n"<<flush;}
+-	float factor = obj["min_depth"].asFloat(); // 1;//256;  // normalize depthmap as per conf.json file. Adjust for dataset.
++	float factor = 1;//256;
+ 	convert_depth( invert, factor);
+ 	ss << "__1";
+ 																																		if(verbosity>local_verbosity_threshold+1)
+diff --git a/RunCL/RunCL_tracking.cpp b/RunCL/RunCL_tracking.cpp
+index acb6351..9b09d07 100644
+--- a/RunCL/RunCL_tracking.cpp
++++ b/RunCL/RunCL_tracking.cpp
+@@ -520,9 +520,9 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
+ 																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSE3_LK_";
+                                                                                                                                                 stringstream ss_path;
+ 																																				bool display = false; 	//obj["sample_se3_incr"].asBool();
+-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, true,  -1, 1, false, count, display );
+-																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, false, count, display );
+-																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, false, count, display );
++																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, true,  -1, 1, 0, count, display );
++																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
++																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
+ 																																			}
+ 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk5 ."<<flush;}
+ 	read_Rho_sq(Rho_sq_results);
+diff --git a/kernels/kernels_setup_keyframe.cl b/kernels/kernels_setup_keyframe.cl
+index 4f08af1..2f67bc1 100644
+--- a/kernels/kernels_setup_keyframe.cl
++++ b/kernels/kernels_setup_keyframe.cl
+@@ -36,34 +36,6 @@ __kernel void convert_depth(
+ 	}
+ }
+ 
+-
+-__kernel void mean_inv_depth(
+-
+-
+-			  )
+-{
+-
+-
+-
+-
+-}
+-
+-
+-__kernel void normalize_inv_depth(
+-
+-
+-
+-			  )
+-{
+-
+-
+-
+-
+-
+-
+-}
+-
+-
+ __kernel void transform_depthmap(
+ 	__private	uint	mipmap_layer,			//0
+ 	__constant 	uint8*	mipmap_params,			//1
+diff --git a/kernels/kernels_tracking.cl b/kernels/kernels_tracking.cl
+index ff2a0fc..267df85 100644
+--- a/kernels/kernels_tracking.cl
++++ b/kernels/kernels_tracking.cl
+@@ -591,14 +591,14 @@ __kernel void se3_LK_grad(
+ 
+ 		for (uint se3_dim=0; se3_dim<6; se3_dim++) 	{ local_sum_weight[ se3_dim*local_size + lid ]     		=  weights_v4[se3_dim]; }
+ 		*/
+-		float multiplier = 1/((inv_depth + 0.01) *5); 	// NB beware if inf depth, i.e. subnormal inv_depth, then div by zero error !					// de-weight foreground for rotation, & de-weight backgroud for translation.
++		float multiplier = 1/(inv_depth *70*5);						// de-weight foreground for rotation, & de-weight backgroud for translation.
+ 		for (uint se3_dim=0; se3_dim<6; se3_dim++) {																																	// for each SE3 DoF
+ 			float8 grad_v8 											= SE3_grad_map_cur_frame[read_index + (se3_dim * mm_pixels) ] ;
+ 			grad_v8 												+= bilinear_SE3_grad (SE3_grad_map_new_frame, u2_flt, v2_flt, mm_cols, read_offset_0 + (se3_dim * mm_pixels)  );	// SE3_grad_map_new_frame[read_index_new + se3_dim * mm_pixels ] ;
+ 			float4 grad_v4 											= grad_v8.hi + grad_v8.lo;
+ 			float4 incr_v4 											= grad_v4 * rho;
+ 
+-			if (se3_dim>=3){multiplier 								= inv_depth ;}  // NB multiply pixel inv_depth by min depth in scene.  Office scene depth is in cm from approx 90 to 450cm.
++			if (se3_dim>=3){multiplier 								= inv_depth *70 ;}  // NB multiply pixel inv_depth by min depth in scene.  Office scene depth is in cm from approx 90 to 450cm.
+ 			incr_v4													*= multiplier;
+ 
+ 			incr_v4.w 												= 1.0f;
+diff --git a/local_conf/conf.json b/local_conf/conf.json
+index f5b987c..6611669 100644
+--- a/local_conf/conf.json
++++ b/local_conf/conf.json
+@@ -78,7 +78,7 @@
+ 
+     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
+     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+-    "Artif_pose_err_axis":1,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
++    "Artif_pose_err_axis":0,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+     "Artif_pose_err_factor":5,
+     "":"",
+     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+diff --git a/local_conf/dtam_opencl_conf_WS.json b/local_conf/dtam_opencl_conf_WS.json
+index 497db2e..1deebe2 100644
+--- a/local_conf/dtam_opencl_conf_WS.json
++++ b/local_conf/dtam_opencl_conf_WS.json
+@@ -23,10 +23,9 @@
+                                                                         // /home/hockingsn/Programming/computer_vision_data/
+                                                                         // /home/nick/programming/ComputerVision/DataSets
+ 
+-    "data_file": "ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",  // ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop //
+-                                                                        // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
++    "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",
+     "data_file_increment":1,
+-    "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
++    "data_file_offset":475,       //475;//10;//46;//462;//380;//0;
+ 
+     // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+@@ -47,8 +46,8 @@
+     "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
+                                                                         // Also keep layers for for depths across edge boundaries.
+     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
+-    "max_depth":485,// office dataset   //6.0 //livingroom dataset                                //  450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
+-    "min_depth":82.0,// office dataset  //1.0 //livingroom dataset                                // 70.0;//3289.0;
++    "max_depth":450.0,                                                  // See values in DTAM_mapping/input/*.json file for each dataset.
++    "min_depth":70.0,           //70.0;//3289.0;
+     //"occlusionThreshold":0.05,// not currently used.
+     "startAt":0,
+ 
+@@ -72,16 +71,15 @@
+     "SE3_LM_B":0.1,
+     "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
+     "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
+-    "SE_iter_per_layer":5,
+-    "SE_iter":20,//2 //10//20
+-    "SE_factor":0.03,
+-    "SE_factor_layer_multiplier":0.75,
++    "SE_iter_per_layer":1,
++    "SE_iter":3,//2,//10
++    "SE_factor":0.04,
+     "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
+ 
+     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
+     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+-    "Artif_pose_err_axis":5,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+-    "Artif_pose_err_factor":-50,  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                           // 0 = do not apply
++    "Artif_pose_err_axis":3,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
++    "Artif_pose_err_factor":5,//5,                                      // 0 = do not apply
+     "":"",
+     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
+diff --git a/local_conf/dtam_opencl_conf_WS_livingroom_dataset.json b/local_conf/dtam_opencl_conf_WS_livingroom_dataset.json
+deleted file mode 100644
+index 06e518d..0000000
+--- a/local_conf/dtam_opencl_conf_WS_livingroom_dataset.json
++++ /dev/null
+@@ -1,90 +0,0 @@
+-{
+-    // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "verbosity":-1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
+-    "tiff":false,//true,//
+-    "png":true,
+-    "out_path":"/home/nick/programming/ComputerVision/MyCode",          // /media/hockingsn/Backup/output/Dynamic_slam_opencl
+-                                                                        // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
+-
+-    // Setup openCL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "kernel_folder":"/home/nick/programming/ComputerVision/MyCode/Dynamic_slam_opencl/kernels/",
+-    "kernel_files":["kernels_macros.h", "kernels.h", "kernels_photometric_cost.cl", "kernels_load_image.cl", "kernels_tracking.cl", "kernels_mapping.cl", "kernels_setup_keyframe.cl"],
+-                                                                        // array of kernel filenames
+-
+-    "kernel_build_options": "-I/home/nick/programming/ComputerVision/MyCode/Dynamic_slam_opencl/kernels/",
+-
+-    "opencl_platform":0,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices
+-    "opencl_device":0,
+-
+-    // Input data ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "data_path":"/home/nick/Programming/ComputerVision/DataSets/",      // /media/hockingsn/Backup/DoNotDelete/DataSets/computer_vision_data/
+-                                                                        // /home/hockingsn/Programming/DataSets/computer_vision_data/
+-                                                                        // /home/hockingsn/Programming/computer_vision_data/
+-                                                                        // /home/nick/programming/ComputerVision/DataSets
+-
+-    "data_file": "ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop", // ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve
+-                                                                        // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
+-    "data_file_increment":1,
+-    "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
+-
+-    // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "MipMap_margin":1,          //4
+-    "num_reductions":5,         //4                                     // Layers-1 of image pyramid in MipMap
+-    "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
+-
+-    "imagesPerCV":1,            //10,//20,//4,//30//4//7
+-    "max_frame_count":1,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
+-    "max_opt_count":5,          //5,//60,
+-    "max_inner_opt_count":10,   //10,
+-    "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
+-
+-    // Mapping parameters - DTAM ////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "regularizer_outer_iter":30,
+-    "regularizer_inner_iter":10,
+-    "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
+-                                                                        // Also keep layers for for depths across edge boundaries.
+-    "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
+-    "max_depth":6.0,//livingroom dataset                                // 485 office dataset   // 450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
+-    "min_depth":1.0,//livingroom dataset                                // 82.0 office dataset  //70.0;//3289.0;
+-    //"occlusionThreshold":0.05,// not currently used.
+-    "startAt":0,
+-
+-    "initialCost":1.0,          //3.0,
+-    "initialWeight":0.0000001,  // 0.00006103515625 smallest positive normal number in FP16
+-
+-    "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
+-    "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
+-    "thetaStep":0.87,
+-
+-    "beta_g": 1.5,              //my dtam_opencl 1.5                    // NB alpha_g & beta_g depend on image gradient &=> pixel value range. Here range 0.0-1.0
+-    "alpha_g":15,               // can vary 15 to 0.15  // 0.015        // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001
+-                                                                        // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
+-    "epsilon":1.0e-4,                                                   // used in __kernel void UpdateQD
+-    "lambda":1.0,                                                       // used in __kernel void UpdateA2
+-    "L":4.0,                                                            // used in CostVol computeSigmas
+-    "scale_E_aux":10000,        //1.0;                                  // from DTAM_Mapping input/json/icl_numin.json
+-
+-    // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
+-    "SE3_LM_B":0.1,
+-    "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
+-    "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
+-    "SE_iter_per_layer":5,
+-    "SE_iter":20,//2 //10//20
+-    "SE_factor":0.03,
+-    "SE_factor_layer_multiplier":0.75,
+-    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
+-
+-    "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
+-    "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+-    "Artif_pose_err_axis":5,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+-    "Artif_pose_err_factor":-50,  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                           // 0 = do not apply
+-    "":"",
+-    // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
+-    "sample_se3_incr":true,
+-    "":""
+-}
+diff --git a/local_conf/dtam_opencl_conf_WS_office_dataset.json b/local_conf/dtam_opencl_conf_WS_office_dataset.json
+deleted file mode 100644
+index c690945..0000000
+--- a/local_conf/dtam_opencl_conf_WS_office_dataset.json
++++ /dev/null
+@@ -1,90 +0,0 @@
+-{
+-    // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "verbosity":-1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
+-    "tiff":false,//true,//
+-    "png":true,
+-    "out_path":"/home/nick/programming/ComputerVision/MyCode",          // /media/hockingsn/Backup/output/Dynamic_slam_opencl
+-                                                                        // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
+-
+-    // Setup openCL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "kernel_folder":"/home/nick/programming/ComputerVision/MyCode/Dynamic_slam_opencl/kernels/",
+-    "kernel_files":["kernels_macros.h", "kernels.h", "kernels_photometric_cost.cl", "kernels_load_image.cl", "kernels_tracking.cl", "kernels_mapping.cl", "kernels_setup_keyframe.cl"],
+-                                                                        // array of kernel filenames
+-
+-    "kernel_build_options": "-I/home/nick/programming/ComputerVision/MyCode/Dynamic_slam_opencl/kernels/",
+-
+-    "opencl_platform":0,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices
+-    "opencl_device":0,
+-
+-    // Input data ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "data_path":"/home/nick/Programming/ComputerVision/DataSets/",      // /media/hockingsn/Backup/DoNotDelete/DataSets/computer_vision_data/
+-                                                                        // /home/hockingsn/Programming/DataSets/computer_vision_data/
+-                                                                        // /home/hockingsn/Programming/computer_vision_data/
+-                                                                        // /home/nick/programming/ComputerVision/DataSets
+-
+-    "data_file": "ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve",  // ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop //
+-                                                                        // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
+-    "data_file_increment":1,
+-    "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
+-
+-    // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "MipMap_margin":1,          //4
+-    "num_reductions":5,         //4                                     // Layers-1 of image pyramid in MipMap
+-    "gaussian_size":3,                                                  // Box blurr size. Actually using 5x5 box in the code.
+-
+-    "imagesPerCV":1,            //10,//20,//4,//30//4//7
+-    "max_frame_count":1,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
+-    "max_opt_count":5,          //5,//60,
+-    "max_inner_opt_count":10,   //10,
+-    "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
+-
+-    // Mapping parameters - DTAM ////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-    "regularizer_outer_iter":30,
+-    "regularizer_inner_iter":10,
+-    "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
+-                                                                        // Also keep layers for for depths across edge boundaries.
+-    "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
+-    "max_depth":485,// office dataset   //6.0 //livingroom dataset                                //  450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
+-    "min_depth":70, //82.0,// office dataset  //1.0 //livingroom dataset                                // 70.0;//3289.0;
+-    //"occlusionThreshold":0.05,// not currently used.
+-    "startAt":0,
+-
+-    "initialCost":1.0,          //3.0,
+-    "initialWeight":0.0000001,  // 0.00006103515625 smallest positive normal number in FP16
+-
+-    "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
+-    "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
+-    "thetaStep":0.87,
+-
+-    "beta_g": 1.5,              //my dtam_opencl 1.5                    // NB alpha_g & beta_g depend on image gradient &=> pixel value range. Here range 0.0-1.0
+-    "alpha_g":15,               // can vary 15 to 0.15  // 0.015        // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001
+-                                                                        // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
+-    "epsilon":1.0e-4,                                                   // used in __kernel void UpdateQD
+-    "lambda":1.0,                                                       // used in __kernel void UpdateA2
+-    "L":4.0,                                                            // used in CostVol computeSigmas
+-    "scale_E_aux":10000,        //1.0;                                  // from DTAM_Mapping input/json/icl_numin.json
+-
+-    // Tracking parameters //////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "SE3_LM_A":0.1,                                                     // LM damped least squares parameters for SE3 tracking
+-    "SE3_LM_B":0.1,
+-    "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
+-    "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
+-    "SE_iter_per_layer":5,
+-    "SE_iter":20,//2 //10//20
+-    "SE_factor":0.003,
+-    "SE_factor_layer_multiplier":0.75,
+-    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
+-
+-    "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
+-    "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+-    "Artif_pose_err_axis":5,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+-    "Artif_pose_err_factor":0, //-50  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                           // 0 = do not apply
+-    "":"",
+-    // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-    "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
+-    "sample_se3_incr":true,
+-    "":""
+-}
+diff --git a/main.cpp b/main.cpp
+index fc12259..937ce37 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -12,12 +12,12 @@ using namespace cv;
+ using namespace std;
+ int main(int argc, char *argv[])
+ {
+-	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit(1); }
++	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit; }
+ 	ifstream ifs(argv[1]);
+     Json::Reader reader;
+     Json::Value obj;
+     bool b = reader.parse(ifs, obj);
+-	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
++	if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj ;}
+ 	int verbosity_ 		= obj["verbosity"].asInt() ;						// -1= none, 0=errors only, 1=basic, 2=lots.
+ 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;
+ 	int max_frame_count = obj["max_frame_count"].asUInt();	

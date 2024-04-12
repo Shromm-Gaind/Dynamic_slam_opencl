@@ -618,8 +618,8 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	stringstream png_ss;
 	boost::filesystem::path folder_tiff = runcl.paths.at("depth_GT");
 	string type_string = runcl.checkCVtype(depth_GT.type() );
-	ss << "/" << folder_tiff.filename().string() << "_" << runcl.dataset_frame_num <<"type_"<<type_string;  
-	png_ss << "/" << folder_tiff.filename().string() << "_" << runcl.dataset_frame_num;
+	ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num <<"type_"<<type_string;
+	png_ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num;
 	boost::filesystem::path folder_png = folder_tiff;
 	folder_tiff += ss.str();
 	folder_tiff += ".tiff";

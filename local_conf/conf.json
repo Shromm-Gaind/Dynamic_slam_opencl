@@ -1,7 +1,7 @@
 {
     // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "verbosity":-1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
-    "tiff":false,//true,//false
+    "tiff":true,//true,//false
     "png":true,
     "out_path":"/home/nick/Programming/OpenCV/MySLAM",                  // /media/hockingsn/Backup/output/Dynamic_slam_opencl
                                                                         // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
@@ -79,7 +79,7 @@
     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
     "Artif_pose_err_axis":1,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
-    "Artif_pose_err_factor":5,
+    "Artif_pose_err_factor":0,
     "":"",
     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
