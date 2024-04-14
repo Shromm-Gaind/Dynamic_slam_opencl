@@ -1563,7 +1563,7 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				flush;
 																																			}
 																																					cout << "\n#### update = ";
-		float update_dof_weights[6] 	= { 0.4, 0.4, 0.4, -20, -20, -20 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+		float update_dof_weights[6] 	= { 0.8, 0.8, 0.8, -20, -20, -20 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
 		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
 		for (int SE3=0; SE3<6; SE3++) { //6
 																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][channel]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
