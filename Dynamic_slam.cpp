@@ -435,6 +435,8 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
     convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
+	//T /= obj["min_depth"].asFloat(); 																										// Normalize depth, for compatability between datasets. TODO why would the be needed ? depth map and pose should be the same scale within each dataset.
+
 																																			if(verbosity>local_verbosity_threshold) {	
 																																				cout << "\nR=";
 																																				for (int i=0; i<3; i++){
@@ -828,7 +830,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 	// Rotate 0.01 radians i.e 0.573  degrees
 	// Translate 0.001 'units' of distance 
 	const float delta_theta = obj["SO3_delta_theta"].asFloat();	//0.01; //0.001;
-	const float delta 	  	= obj["ST3_delta"].asFloat();		//1.0;//0.01; //0.001;
+	const float delta 	  	= obj["ST3_delta"].asFloat() ;		//1.0;//0.01; //0.001;  //  * obj["min_depth"].asFloat()
 	const float cos_theta   = cos(delta_theta);
 	const float sin_theta   = sin(delta_theta);
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::generate_SE3_k2k( ) chk_1,  delta_theta = "<<delta_theta<<",   delta = "<<delta<< endl << flush;
@@ -998,7 +1000,7 @@ void Dynamic_slam::estimateSO3(){
 }
 
 void Dynamic_slam::update_k2k(Matx61f update_){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = -3;
 	cv::Matx44f SE3Incr_matx 						= SE3_Matx44f(update_);
 	pose2pose 										= pose2pose *  SE3Incr_matx;
 	K2K 											= old_K * pose2pose * inv_K;
@@ -1561,11 +1563,11 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				flush;
 																																			}
 																																					cout << "\n#### update = ";
-		float update_dof_weights[6] 	= { 0.4, 0.4, 0.4, -4, -4, -4 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
+		float update_dof_weights[6] 	= { 0.4, 0.4, 0.4, -20, -20, -20 }; //{ 10, 10, 10, -400, -400, -400 };  // (artif pose error 20, axis 5, start layer 2,  weight -40) (artif pose error 20, axis 4, start layer 5, weight -180 )
 		float update_layer_weights[6] 	= {  1, 1, 1, 1, 1, 1 };
-		for (int SE3=0; SE3<6; SE3++) {
-																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][3]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
-			update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / (SE3_weights[layer][SE3][channel] * runcl.img_stats[IMG_VAR+channel] ) ;							// apply se3_dim weights and global factor.
+		for (int SE3=0; SE3<6; SE3++) { //6
+																																					cout << ", \nupdate se3 dof "<<SE3<<", layer "<<layer<<" = ("<< update_dof_weights[SE3]<<" * "<<update_layer_weights[layer]<<" * "<<factor<<" * "<<SE3_results[layer][SE3][channel]<<" / ( "<<SE3_weights[layer][SE3][channel]<<" * "<<runcl.img_stats[IMG_VAR+channel] ;
+			if(SE3<6)update.operator()(SE3) = update_dof_weights[SE3] * update_layer_weights[layer] * factor * SE3_results[layer][SE3][channel] / (SE3_weights[layer][SE3][channel] * runcl.img_stats[IMG_VAR+channel] ) ;							// apply se3_dim weights and global factor.
 
 																																					cout << " ) ) = \t "<< update.operator()(SE3) ;
 		}																																			cout << flush;

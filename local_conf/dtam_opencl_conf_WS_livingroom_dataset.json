@@ -72,8 +72,8 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
     "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
-    "SE_iter_per_layer":5,
-    "SE_iter":20,//2 //10//20
+    "SE_iter_per_layer":2,//5
+    "SE_iter":2,//2 //10//20
     "SE_factor":0.03,
     "SE_factor_layer_multiplier":0.75,
     "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
