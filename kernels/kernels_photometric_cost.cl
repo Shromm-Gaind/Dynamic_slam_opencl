@@ -58,7 +58,7 @@ float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int co
 	c_00 = img[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) ];
 
 	uint  global_id_u 	= get_global_id(0);
-	if(global_id_u == 10000  ){ printf("\n__bilinear_SE3_grad (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
+	//if(global_id_u == 10000  ){ printf("\n__bilinear_SE3_grad (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
 
 																			// weighting for bi-linear interpolation
 	float factor_x = fmod(u_flt,1);
@@ -79,7 +79,7 @@ float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, 
 	c_00 = img[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) ];
 
 	uint  global_id_u 	= get_global_id(0);
-	if(global_id_u == 10000  ){ printf("\n__bilinear_flt4 (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
+	//if(global_id_u == 10000  ){ printf("\n__bilinear_flt4 (global_id_u == 10000 )  chk_1  , coff_00=%u",  read_offset_ + (int_v2-1) * cols + (int_u2 -1)   ); }
 
 																			// weighting for bi-linear interpolation
 	float factor_x = fmod(u_flt,1);
@@ -115,7 +115,7 @@ void bilinear_SE3_grad_weight (float4 weights[6],
 	int coff_11					= read_offset_ + int_v2     * cols +  int_u2 ;
 
 	uint  global_id_u 	= get_global_id(0);
-	if(global_id_u == 1000  ){ printf("\n__bilinear_SE3_grad_weight (global_id_u == 1000 )  chk_1  , coff_00=%u",  coff_00   ); }
+	//if(global_id_u == 1000  ){ printf("\n__bilinear_SE3_grad_weight (global_id_u == 1000 )  chk_1  , coff_00=%u",  coff_00   ); }
 
 
 	float factor_x 				= fmod(u2_flt,1);

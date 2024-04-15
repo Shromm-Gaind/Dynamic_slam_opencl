@@ -17,6 +17,8 @@
 #define Ty	4
 #define Tz	5
 
+#define MAX_LAYERS  6
+
 namespace fs = ::boost::filesystem;
 
 class Dynamic_slam
@@ -30,7 +32,7 @@ class Dynamic_slam
     int verbosity;
     bool invert_GT_depth = false;
     int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter;
-    float SE3_Rho_sq_threshold[5][3], SE_factor;
+    float SE3_Rho_sq_threshold[5][3], SE_factor, SE3_update_dof_weights[6], SE3_update_layer_weights[5];
 
     //cv::Mat resultsMat;                                           // NB must do initial Mat construction here, before passing pointer to runcl object.
     cv::Mat resultsMat;

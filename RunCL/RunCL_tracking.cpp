@@ -687,7 +687,7 @@ void RunCL::read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels])
 }
 
 void RunCL::tracking_result(string result){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = -2;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
 																																				stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
 																																				stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
