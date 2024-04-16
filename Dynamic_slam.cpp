@@ -265,6 +265,17 @@ void Dynamic_slam::artificial_SO3_pose_error(){
 
 void Dynamic_slam::artificial_pose_error(){
 	int local_verbosity_threshold =-2;
+	Matx61f pose_step_algebra;
+	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(SE3,0) = obj["Artif_pose_err_algebra"][SE3].asFloat();
+	Matx44f poseStep = SE3_Matx44f(pose_step_algebra);
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\nposeStep = "<<poseStep;
+																																				cout << "\npose_step_algebra = "<<pose_step_algebra;
+																																				for (int SE3=0; SE3<6; SE3++) cout << "\nArtif_pose_err_algebra = "<<obj["Artif_pose_err_algebra"][SE3].asFloat();
+																																				cout << endl << flush;
+																																			}
+	/*
+################################
 	uint axis = obj["Artif_pose_err_axis"].asUInt() ;
 	Matx44f poseStep = transform[ axis ];
 																																			if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::artificial_pose_error()_chk_0" << flush;}
@@ -277,16 +288,19 @@ void Dynamic_slam::artificial_pose_error(){
 																																				cout << "\npose2pose = "; 	for (int i=0; i<16; i++) cout << ", \t" << pose2pose.operator()(i/4,i%4);
 																																				cout << "\nold_K2K = "; 	for (int i=0; i<16; i++) cout << ", \t" << K2K.operator()(i/4,i%4);
 																																			}
+	*/
 																																			if(verbosity>local_verbosity_threshold){
 																																				Matx61f pose2pose_SE3_Algebra = SE3_Algebra(pose2pose);																				//SE3_Algebra(const Matx44f& SE3_Matx)
 																																				cout << "\nTrue_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  		//[i][0];
 																																			}
-	pose2pose = pose2pose * big_step;
+	pose2pose = pose2pose * poseStep;	//big_step;
 																																			if(verbosity>local_verbosity_threshold){
 																																				Matx61f pose2pose_SE3_Algebra = SE3_Algebra(pose2pose);																				//SE3_Algebra(const Matx44f& SE3_Matx)
 																																				cout << "\tStart_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  	//[i][0];
+																																				/*
 																																				Matx61f big_step_SE3_Algebra = SE3_Algebra(big_step);
 																																				cout << "\tbig_step_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << big_step_SE3_Algebra.operator()(i,0);  			//[i][0];
+																																				*/
 																																				cout << endl << flush;
 																																			}
 	K2K = old_K * pose2pose * inv_K;																										// Add error of one step in the 2nd SE3 DoF.

@@ -22,9 +22,8 @@
                                                                         // /home/hockingsn/Programming/DataSets/computer_vision_data/
                                                                         // /home/hockingsn/Programming/computer_vision_data/
                                                                         // /home/nick/programming/ComputerVision/DataSets
-
-    "data_file":"ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop", //ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve  // ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop //
                                                                         // /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
+    "data_file":"ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop", //ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve  // ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop //
     "data_file_increment":1,
     "data_file_offset":0,       //475;//10;//46;//462;//380;//0;  700
 
@@ -47,8 +46,8 @@
     "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
                                                                         // Also keep layers for for depths across edge boundaries.
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
-    "max_depth":6.0, //485// office dataset   //6.0 //livingroom dataset                                //  450.0 o            // See values in DTAM_mapping/input/*.json file for each dataset.
-    "min_depth":1.0, //70 //82.0,// office dataset  //1.0 //livingroom dataset                                // 70.0;//3289.0;
+    "max_depth":6,            //485// office dataset   //6.0 //livingroom dataset          //  450.0 o        // See values in DTAM_mapping/input/*.json file for each dataset.
+    "min_depth":1,             //70 //82.0,// office dataset  //1.0 //livingroom dataset                       // 70.0;//3289.0;
     //"occlusionThreshold":0.05,// not currently used.
     "startAt":0,
 
@@ -73,15 +72,18 @@
     "SE3_start_layer":5,                                                // Must be =< num_reductions, i.e. num layers in mipmap
     "SE3_stop_layer":1,                                                 // Must be >=0 && < SE3_start_layer
     "SE_iter_per_layer":5,
-    "SE_iter":20,//2 //10//20
-    "SE_factor":0.002,//livingroom  // 0.02 office
+    "SE_iter":10,               //2 //10//20
+    "SE_factor":0.003,          //livingroom  // 0.02 office
     "SE_factor_layer_multiplier":0.75,
-    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
 
-    "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
-    "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
-    "Artif_pose_err_axis":3,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
-    "Artif_pose_err_factor":10,//10 //-50  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                           // 0 = do not apply
+    "SE3_Rho_sq_threshold":[[0.01,0.01,0.01] ,[0.01,0.01,0.01], [0.01 ,0.01, 0.01],[0.01,0.01,0.01],[0.01,0.01,0.01],[0.01,0.01,0.01]], // [layer 0-5][channel hsv]
+    "SE3_update_dof_weights":[2, 2, 2, -2, -2, -2],
+    "SE3_float update_layer_weights":[1, 1, 1, 1, 1, 1],
+
+    "SO3_delta_theta":1.0,                                             // radians 0.01 = 0.57 degrees
+    "ST3_delta":1.0,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+    "Artif_pose_err_axis":1,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
+    "Artif_pose_err_factor":50,//10 //-50  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                  // 0 = do not apply
     "":"",
     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.

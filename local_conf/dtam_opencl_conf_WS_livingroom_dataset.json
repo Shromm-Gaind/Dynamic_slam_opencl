@@ -80,6 +80,7 @@
 
     "SO3_delta_theta":0.01,                                             // radians 0.01 = 0.57 degrees
     "ST3_delta":0.01,                                                   // NB depends on depth scale, see max & min depth in mapping params.
+    "Artif_pose_err_algebra":[5.0,  0.0,  0.0,      0.0,  0.0,  0.0],
     "Artif_pose_err_axis":5,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
     "Artif_pose_err_factor":-50,  // axis 5 upto 200 // axis 4,3 upto 50  // axis 2 upto 25   // axis 1 stabilization issues at 10                           // 0 = do not apply
     "":"",
