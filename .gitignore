@@ -6,3 +6,4 @@ build/*
 *.kate-swp
 #local_conf/*.json
 Notes_variables.cl
+*.diff

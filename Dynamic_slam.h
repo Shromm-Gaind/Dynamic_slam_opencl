@@ -41,11 +41,11 @@ class Dynamic_slam
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
     const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
-    const cv::Matx33f Matx33f_zero = {0,0,0,  0,0,0,  0,0,0 };                //  = cv::Matx33f::zeros();//
-    const cv::Matx33f Matx33f_eye  = {1,0,0,  0,1,0,  0,0,1 };
+    //const cv::Matx33f Matx33f_zero = {0,0,0,  0,0,0,  0,0,0 };                //  = cv::Matx33f::zeros();//
+    //const cv::Matx33f Matx33f_eye  = {1,0,0,  0,1,0,  0,0,1 };
     
-    cv::Matx33f SO3_pose2pose;
-    cv::Matx31f SO3_pose2pose_algebra;
+    //cv::Matx33f SO3_pose2pose;
+    //cv::Matx31f SO3_pose2pose_algebra;
     
     cv::Matx44f K, inv_K, pose, inv_pose, K2K, old_K2K, pose2pose, old_K, inv_old_K, old_pose, inv_old_pose, transform[6]  ;
     cv::Matx61f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;
@@ -67,7 +67,7 @@ class Dynamic_slam
     cv::Matx44f keyframe_K, keyframe_inv_K, keyframe_pose, keyframe_inv_pose, keyframe_K2K, keyframe_pose2pose, keyframe_old_K, keyframe_inv_old_K, keyframe_old_pose, keyframe_inv_old_pose;
     cv::Matx44f keyframe_K_GT, keyframe_inv_K_GT, keyframe_pose_GT, keyframe_inv_pose_GT, keyframe_K2K_GT, keyframe_pose2pose_GT, keyframe_old_K_GT, keyframe_inv_old_K_GT, keyframe_old_pose_GT, keyframe_inv_old_pose_GT;
    
-    cv::Matx61f keyframe_pose2pose_algebra, keyframe_pose_algebra;    // NB 'pose' = absolute pose in world coords. 'pose2pose' = from previous keyframe.
+    //cv::Matx61f keyframe_pose2pose_algebra, keyframe_pose_algebra;    // NB 'pose' = absolute pose in world coords. 'pose2pose' = from previous keyframe.
     //uint keyframe_num;
     
     
