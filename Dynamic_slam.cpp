@@ -272,8 +272,7 @@ void Dynamic_slam::artificial_pose_error(){
 	int local_verbosity_threshold =-2;
 	Matx61f pose_step_algebra;
 	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(SE3,0) = obj["Artif_pose_err_algebra"][SE3].asFloat();
-	Matx44f poseStep; 																										//= SE3_Matx44f(pose_step_algebra);
-	poseStep = LieToP_Matx(pose_step_algebra);
+	Matx44f poseStep = LieToP_Matx(pose_step_algebra);																						//= SE3_Matx44f(pose_step_algebra);
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout << "\nposeStep = ";for(int row=0;row<4;row++){ cout<<"  \n"; for(int col=0; col<4;col++)cout<<poseStep.operator()(row,col)<<", \t";}
 																																				cout << "\npose_step_algebra = ";for(int col=0; col<6;col++)cout<<pose_step_algebra.operator()(col)<<", ";
@@ -342,7 +341,7 @@ void Dynamic_slam::predictFrame(){
 	else{ 							 pose2pose_algebra_0	= LieAdd(pose2pose_algebra_1, 	(runcl.dataset_frame_num > 2)*(p2p_alg));} //pose2pose_algebra_1 + (runcl.dataset_frame_num > 2)*(p2p_alg) ;} //+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
 
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.4"<< flush;}
-	LieToP(pose2pose_algebra_0, pose2pose); 		//pose2pose = SE3_Matx44f(pose2pose_algebra_0);
+	pose2pose = LieToP_Matx(pose2pose_algebra_0 ); 				//pose2pose = SE3_Matx44f(pose2pose_algebra_0);
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.5"<< flush;}
 	K2K = old_K * pose2pose * inv_K;
 	
@@ -749,19 +748,7 @@ cv::Matx44f Dynamic_slam::generate_invK_(cv::Matx44f K_){
 																																					for(int j=0; j<4; j++){
 																																						cout<<"\t"<< std::setw(5)<<test_K_.operator()(i,j);
 																																					}cout<<"\n";
-
-////
-/*
-	pose2pose_algebra_1		= SE3_Algebra(pose2pose);
-
-	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
-	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
-
-	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
-*/
-////
-
-									}cout<<"\n";
+																																				}cout<<"\n";
 
 																																				std::cout << std::fixed << std::setprecision(-1);		// Inspect values in matricies ///////
 																																				cout<<"\n\npose\n";
@@ -795,17 +782,6 @@ cv::Matx44f Dynamic_slam::generate_invK_(cv::Matx44f K_){
 	return inv_K_;
 }
 
-////
-/*
-	pose2pose_algebra_1		= SE3_Algebra(pose2pose);
-
-	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
-	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
-
-	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
-*/
-////
-
 
 void Dynamic_slam::generate_invK(){ 																										// TODO hack this to work here 
 	int local_verbosity_threshold = 1;
@@ -833,19 +809,7 @@ void Dynamic_slam::generate_invK(){ 																										// TODO hack this 
 	inv_K.operator()(1,2)  = -cy/fy;
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cv::Matx44f test_K = inv_K * K;
-
-////
-/*
-	pose2pose_algebra_1		= SE3_Algebra(pose2pose);
-
-	if (runcl.costvol_frame_num==0){ pose2pose_algebra_0	= 						(runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}
-	else{ 							 pose2pose_algebra_0	= pose2pose_algebra_1 + (runcl.dataset_frame_num > 2)*(pose2pose_algebra_1 - pose2pose_algebra_2) ;}		//+ (runcl.frame_num > 2)*0.5*(pose2pose_algebra_1 - pose2pose_algebra_2);	// Only use accel if there are enough previous frames.
-
-	pose2pose = SE3_Matx44f(pose2pose_algebra_0);
-*/
-////
-
-									cout<<"\n\ntest_camera_intrinsic_matrix inversion\n";	// Verify inv_K:
+																																				cout<<"\n\ntest_camera_intrinsic_matrix inversion\n";	// Verify inv_K:
 																																				for(int i=0; i<4; i++){
 																																					for(int j=0; j<4; j++){
 																																						cout<<"\t"<< std::setw(5)<<test_K.operator()(i,j);
@@ -894,7 +858,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 	const float cos_theta   = cos(delta_theta);
 	const float sin_theta   = sin(delta_theta);
 																																			// Old :  Rotate 0.01 radians i.e 0.573  degrees.  Translate 0.001 'units' of distance
-																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::generate_SE3_k2k( ) chk_1,"<<endl << flush;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\nDynamic_slam::generate_SE3_k2k( ) chk_1,"<<endl << flush;
 																																				cout << "  delta_theta = "<<delta_theta<< " radians," <<endl << flush;
 																																				cout << "  delta = "<<delta<< " units distance," <<endl << flush;
 																																				cout << "  f = "<<f<<endl << flush;  // "  res = "<<res<< endl<<
@@ -907,7 +871,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 																																				cout << "  obj[\"ST3_delta\"] =  "            <<obj["ST3_delta"].asFloat()             <<endl << flush;
 																																				cout << "  obj[\"min_depth\"] =  "            <<obj["min_depth"].asFloat()             <<endl << flush;
 																																				cout << "  obj[\"SO3_delta_theta\"] =  "      <<obj["SO3_delta_theta"].asFloat()       <<endl << flush;
-
+																																			}
 	//Identity =				(1,			0,			0,			0,  			0,			1,			0,			0,  			0,			0,			1,			0,  			0,	0,	0,	1);
 	transform[Rx] = cv::Matx44f(1,         0,          0,          0,\
 								0,         cos_theta, -sin_theta,  0,\
@@ -1094,8 +1058,7 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 																																						}cout<<")";
 																																					}cout<<flush;
 																																				}
-	cv::Matx44f SE3Incr_matx; // 						= SE3_Matx44f(update_);
-	LieToP(update_, SE3Incr_matx);
+	cv::Matx44f SE3Incr_matx = LieToP_Matx(update_); 								// 						= SE3_Matx44f(update_);
 	pose2pose 										= pose2pose *  SE3Incr_matx;
 	K2K 											= old_K * pose2pose * inv_K;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] 	= K2K.operator()(i/4, i%4);   }

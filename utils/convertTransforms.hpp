@@ -121,7 +121,7 @@ static void LieToRT(InputArray Lie, OutputArray _R, OutputArray _T){
     rodrigues(p.colRange(Range(0,3))).copyTo(R);
     Mat(p.colRange(Range(3,6)).t()).copyTo(T);
 }
-
+/*
 static void RTToLie(InputArray _R, InputArray _T, OutputArray Lie ){
 
     Mat R = _R.getMat();
@@ -139,7 +139,7 @@ static void RTToLie(InputArray _R, InputArray _T, OutputArray Lie ){
     T.copyTo(p.rowRange(Range(3,6)));
     assert(Lie.size()==Size(6,1));
 }
-
+*/
 static void RTToLie(Matx33f R, Matx13f T, Matx61f Lie ){
     Matx13f r(0,0,0);
     cv::Rodrigues(R, r);
@@ -157,6 +157,7 @@ static Mat RTToLie(InputArray _R, InputArray _T){
     RTToLie(_R,_T,P);
     return P;
 }
+/*
 static void PToLie(InputArray _P, OutputArray Lie){
     Mat P = _P.getMat();
     assert(P.cols == P.rows && P.rows == 4);
@@ -165,7 +166,7 @@ static void PToLie(InputArray _P, OutputArray Lie){
     RTToLie(R,T,Lie);
     assert(Lie.size()==Size(6,1));
 }
-
+*/
 static void PToLie(Matx44f P, Matx61f Lie){
     Matx33f R;
     Matx13f T;
@@ -191,6 +192,7 @@ static Mat RTToP(InputArray _R, InputArray _T){
     make4x4(P);
     return P;
 }
+/*
 static void LieToP(InputArray Lie, OutputArray _P){
     Mat p = Lie.getMat();
     _P.create(4,4,p.type());
@@ -204,7 +206,7 @@ static void LieToP(InputArray Lie, OutputArray _P){
     hconcat(R,T,P);
     make4x4(P).copyTo(_P);
 }
-
+*/
 static Matx44f LieToP_Matx(Matx61f Lie){
     Matx44f P;
     std::cout << "\nLieToP_Matx Lie = ";for(int col=0; col<6;col++)std::cout<<Lie.operator()(col)<<", ";
@@ -232,7 +234,7 @@ static Mat LieToP(InputArray Lie){
     LieToP(Lie,P);
     return P;
 }
-
+/*
 static Mat LieSub(Mat A, Mat B){
     Mat Pa;
     Mat Pb;
@@ -243,7 +245,7 @@ static Mat LieSub(Mat A, Mat B){
     PToLie(Pa*Pb.inv(),out);
     return out;
 }
-
+*/
 static Matx61f LieSub(Matx61f A, Matx61f B){
     Matx44f Pa = LieToP_Matx(A);
     Matx44f Pb = LieToP_Matx(B);
@@ -251,7 +253,7 @@ static Matx61f LieSub(Matx61f A, Matx61f B){
     PToLie(Pa*Pb.inv(),out);
     return out;
 }
-
+/*
 static Mat LieAdd(Mat A, Mat B){
     Mat Pa;
     Mat Pb;
@@ -262,7 +264,7 @@ static Mat LieAdd(Mat A, Mat B){
     PToLie(Pa*Pb,out);
     return out;
 }
-
+*/
 static Matx61f LieAdd(Matx61f A, Matx61f B){
     Matx44f Pa;
     Matx44f Pb;
