@@ -25,6 +25,9 @@ static Mat  makeGray(Mat image){
     return image;
 }
 
+
+/*
+///   ERROR my SE3 & SO3 functions are incorrect. Rather use originals below.
 ////  TODO replace all functions with Matx--f , if I use them, otherwise remove them and dependency on OpenCV other tha Matx-- itself.
 static Matx31f SO3_Algebra(const Matx33f& SO3_Matx){
     Matx31f SO3_Algebra;
@@ -85,8 +88,7 @@ static Matx44f SE3_Matx44f(const Matx61f& SE3_Algebra){
     
     return  SE3_Matx;
 }
-
-
+*/
 ////
 
 static Mat make4x4(const Mat& mat){
@@ -139,14 +141,26 @@ static void RTToLie(InputArray _R, InputArray _T, OutputArray Lie ){
     T.copyTo(p.rowRange(Range(3,6)));
     assert(Lie.size()==Size(6,1));
 }
-static Mat RTToLie(InputArray _R, InputArray _T){
 
+static void RTToLie(Matx33f R, Matx13f T, Matx61f Lie ){
+    Matx13f r(0,0,0);
+    cv::Rodrigues(R, r);
+    Lie.operator()(0) = r.operator()(0);
+    Lie.operator()(1) = r.operator()(1);
+    Lie.operator()(2) = r.operator()(2);
+
+    Lie.operator()(3) = T.operator()(0);
+    Lie.operator()(4) = T.operator()(1);
+    Lie.operator()(5) = T.operator()(2);
+}
+
+static Mat RTToLie(InputArray _R, InputArray _T){
     Mat P;
     RTToLie(_R,_T,P);
     return P;
 }
-static void PToLie(InputArray _P, OutputArray Lie){
 
+static void PToLie(InputArray _P, OutputArray Lie){
     Mat P = _P.getMat();
     assert(P.cols == P.rows && P.rows == 4);
     Mat R = P(Range(0,3),Range(0,3));
@@ -154,6 +168,15 @@ static void PToLie(InputArray _P, OutputArray Lie){
     RTToLie(R,T,Lie);
     assert(Lie.size()==Size(6,1));
 }
+
+static void PToLie(Matx44f P, Matx61f Lie){
+    Matx33f R;
+    Matx13f T;
+    for (int row=0; row<3;row++)for(int col=0; col<3; col++) R.operator()(row,col) = P.operator()(row,col);
+    int col =3;                 for(int row=0; row<3;row++)  T.operator()(row,col) = P.operator()(row,col);
+    RTToLie(R,T,Lie);
+}
+
 static void RTToP(InputArray _R, InputArray _T, OutputArray _P ){
     
     Mat R = _R.getMat();
@@ -184,6 +207,18 @@ static void LieToP(InputArray Lie, OutputArray _P){
     hconcat(R,T,P);
     make4x4(P).copyTo(_P);
 }
+
+static void LieToP_Matx(Matx61f Lie, Matx44f P){
+    Matx13f r;
+    r.operator()(0) = Lie.operator()(0);
+    r.operator()(1) = Lie.operator()(1);
+    r.operator()(2) = Lie.operator()(2);
+    Matx33f R;
+    Rodrigues(r,R);                         // makes rotation Mat from SO3 Lie vector.
+    for (int row=0; row<3;row++)for(int col=0; col<3; col++) P.operator()(row,col) = R.operator()(row,col);
+    int col =3;                 for(int row=0; row<3;row++)  P.operator()(row,col) = Lie.operator()(col);
+}
+
 static Mat LieToP(InputArray Lie){
     Mat P;
     LieToP(Lie,P);
@@ -201,10 +236,31 @@ static Mat LieSub(Mat A, Mat B){
     return out;
 }
 
+static Matx61f LieSub(Matx61f A, Matx61f B){
+    Matx44f Pa;
+    Matx44f Pb;
+    LieToP_Matx(A,Pa);
+    LieToP_Matx(B,Pb);
+    Matx61f out;
+    PToLie(Pa*Pb.inv(),out);
+    return out;
+}
+
 static Mat LieAdd(Mat A, Mat B){
     Mat Pa;
     Mat Pb;
     
+    LieToP(A,Pa);
+    LieToP(B,Pb);
+    Mat out;
+    PToLie(Pa*Pb,out);
+    return out;
+}
+
+static Matx61f LieAdd(Matx61f A, Matx61f B){
+    Mat Pa;
+    Mat Pb;
+
     LieToP(A,Pa);
     LieToP(B,Pb);
     Mat out;

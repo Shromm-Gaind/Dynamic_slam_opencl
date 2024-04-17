@@ -71,15 +71,17 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
-    "SE_iter_per_layer":5,      //5
-    "SE_iter":10,                //1 //10
-    "SE_factor":0.003,           //0.5
+    "SE_iter_per_layer":2,      //5
+    "SE_iter":2,               //1 //10
+    "SE_factor":0.003,          //0.5
     "SE3_Rho_sq_threshold":[[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,  [0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02]  ], // [layer 0-5][channel hsv]
     "SE3_update_dof_weights":[2, 2, 2, -1, -1, -1],
     "SE3_float update_layer_weights":[1, 1, 1, 1, 1, 1],
 
     "SO3_delta_theta":1.0,                                              // radians 0.01 = 0.57 degrees
     "ST3_delta":1.0,                                                    // NB depends on depth scale, see max & min depth in mapping params.
+
+
     "Artif_pose_err_axis":0,                                            // [0-5] rot xyz, trans xyz , in world coords, where x=   , y= up,  z= forward ?
     "Artif_pose_err_factor":2,
     "":"",
