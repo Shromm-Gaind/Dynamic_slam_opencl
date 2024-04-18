@@ -154,7 +154,9 @@ int Dynamic_slam::nextFrame() {
 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	use_GT_pose();
 	getFrame();
-	if(obj["Artif_pose_err_factor"].asFloat() != 0.0 ) artificial_pose_error(); else cout << "\nArtif_pose_err_factor = "<<obj["Artif_pose_err_factor"].asFloat() << flush;
+	cout << "\nArtif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+	if(obj["Artif_pose_err_bool"].asBool() == true ) artificial_pose_error();
+
 //	estimateSO3();
 	//artificial_pose_error();
 	//estimateSE3(); 					// own thread ? num iter ?
@@ -270,10 +272,14 @@ void Dynamic_slam::artificial_SO3_pose_error(){
 
 void Dynamic_slam::artificial_pose_error(){
 	int local_verbosity_threshold =-2;
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n\nDynamic_slam::artificial_pose_error() chk_0"<<flush;
+																																			}
 	Matx61f pose_step_algebra;
 	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(SE3,0) = obj["Artif_pose_err_algebra"][SE3].asFloat();
 	Matx44f poseStep = LieToP_Matx(pose_step_algebra);																						//= SE3_Matx44f(pose_step_algebra);
 																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n\nDynamic_slam::artificial_pose_error() chk_1"<<flush;
 																																				cout << "\nposeStep = ";for(int row=0;row<4;row++){ cout<<"  \n"; for(int col=0; col<4;col++)cout<<poseStep.operator()(row,col)<<", \t";}
 																																				cout << "\npose_step_algebra = ";for(int col=0; col<6;col++)cout<<pose_step_algebra.operator()(col)<<", ";
 																																				for (int SE3=0; SE3<6; SE3++) cout << "\nArtif_pose_err_algebra = "<<obj["Artif_pose_err_algebra"][SE3].asFloat();
@@ -297,24 +303,37 @@ void Dynamic_slam::artificial_pose_error(){
 																																			if(verbosity>local_verbosity_threshold){
 																																				Matx61f pose2pose_SE3_Algebra; // = SE3_Algebra(pose2pose);		//SE3_Algebra(const Matx44f& SE3_Matx)
 																																				PToLie(pose2pose, pose2pose_SE3_Algebra);
-																																				cout << "\nTrue_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  		//[i][0];
+																																				cout << "\n\nTrue_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  		//[i][0];
 																																			}
 	pose2pose = pose2pose * poseStep;	//big_step;
 																																			if(verbosity>local_verbosity_threshold){
 																																				Matx61f pose2pose_SE3_Algebra; // = SE3_Algebra(pose2pose);		//SE3_Algebra(const Matx44f& SE3_Matx)
 																																				PToLie(pose2pose, pose2pose_SE3_Algebra);
-																																				cout << "\tStart_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  	//[i][0];
+																																				cout << "\n\nStart_pose2pose_SE3_Algebra = "; 	for (int i=0; i<6; i++) cout << ", \t" << pose2pose_SE3_Algebra.operator()(i,0);  	//[i][0];
 																																				cout << endl << flush;
 																																			}
 	K2K = old_K * pose2pose * inv_K;																										// Add error of one step in the 2nd SE3 DoF.
-																																			if(verbosity>local_verbosity_threshold){ cout << "\nnew_K2K = "; for (int i=0; i<16; i++) cout << ", \t" << K2K.operator()(i/4,i%4);}
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n\nnew_K2K = "; for (int row=0; row<4; row++){
+																																				cout << " \n";
+																																				for (int col=0; col<4; col++) cout << ", \t" << K2K.operator()(row,col);
+																																				}
+																																			}
 	
 																																			if(verbosity>local_verbosity_threshold){
-																																				cout << "\nold runcl.fp32_k2k = "; 	for (int i=0; i<16; i++) cout << ", \t" << runcl.fp32_k2k[i];
+																																				cout << "\n\nold runcl.fp32_k2k = "; 	for (int i=0; i<4; i++){
+																																				cout << " \n";
+																																				for (int col=0; col<4; col++)  cout << ", \t" << runcl.fp32_k2k[i*4 + col];
+																																				}
+																																			}
+	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);  }
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout << "\n\nnew runcl.fp32_k2k = "; 	for (int i=0; i<4; i++){
+																																				cout << " \n";
+																																				for (int col=0; col<4; col++)  cout << ", \t" << runcl.fp32_k2k[i*4 + col];
+																																				}
 																																			}
 
-																																			if(verbosity>local_verbosity_threshold){ cout << "\nnew runcl.fp32_k2k = "; }
-	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);   																if(verbosity>local_verbosity_threshold)  cout << ",\t"<< runcl.fp32_k2k[i]; }
 	//runcl.loadFrameData(depth_GT, K2K, pose2pose);																						// NB runcl.fp32_k2k is loaded to k2kbuf by RunCL::estimateSE3(..)
 																																			if(verbosity>local_verbosity_threshold) {cout << "\nDynamic_slam::artificial_SO3_pose_error()_finish ##############################################" << flush;}
 }
@@ -1056,6 +1075,55 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 																																						for (int j=0; j<4; j++){
 																																							cout << ", \t"<< pose2pose_GT.operator()(i,j);
 																																						}cout<<")";
+																																					}cout<<flush;
+
+																																					// Ideal SE3 Incr
+																																					cout << "\npose2pose_inv chk_1"<< flush;
+
+																																					Matx61f pose2pose_alg_;
+																																					Matx61f pose2pose_GT_alg_;
+																																					PToLie(pose2pose, pose2pose_alg_);
+																																					PToLie(pose2pose_GT, pose2pose_GT_alg_);
+																																					Matx61f idealSE3Incr_alg_ = LieSub(pose2pose_alg_, pose2pose_GT_alg_);
+																																					Matx44f idealSE3Incr_ = LieToP_Matx(idealSE3Incr_alg_);
+
+																																					cout << "\nidealSE3Incr_alg_ = ";
+																																					for (int SE3=0; SE3<6; SE3++) cout << idealSE3Incr_alg_.operator()(SE3) << " \t";
+																																					cout<<flush;
+
+																																					cout << "\nidealSE3Incr_ = ";
+																																					for (int row=0; row<4; row++){
+																																						cout << "\n";
+																																						for (int col; col<4; col++) cout << idealSE3Incr_.operator()(row,col) << ", \t";
+																																					}
+																																					cout<<flush;
+
+																																					//////
+																																					Matx44f pose2pose_inv = pose2pose.inv();
+
+																																					cout << "\npose2pose_inv = ";
+																																					for (int row=0; row<4; row++){
+																																						cout << "\n";
+																																						for (int col; col<4; col++) cout << pose2pose_inv.operator()(row,col) << ", \t";
+																																					}cout<<flush;
+
+																																					cout << "\npose2pose_inv chk_2"<< flush;
+																																					Matx44f idealSE3Incr =  pose2pose_GT * pose2pose_inv;
+
+																																					cout << "\npose2pose_inv chk_3"<< flush;
+																																					Matx61f idealSE3Incr_algebra;
+																																					PToLie(idealSE3Incr, idealSE3Incr_algebra);
+
+																																					cout << "\npose2pose_inv chk_4"<< flush;
+
+																																					cout << "\nidealSE3Incr_algebra = ";
+																																					for (int SE3=0; SE3<6; SE3++) cout << idealSE3Incr_algebra.operator()(SE3) << " \t";
+																																					cout<<flush;
+
+																																					cout << "\nidealSE3Incr = ";
+																																					for (int row=0; row<4; row++){
+																																						cout << "\n";
+																																						for (int col; col<4; col++) cout << idealSE3Incr.operator()(row,col) << ", \t";
 																																					}cout<<flush;
 																																				}
 	cv::Matx44f SE3Incr_matx = LieToP_Matx(update_); 								// 						= SE3_Matx44f(update_);
