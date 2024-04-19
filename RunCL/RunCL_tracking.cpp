@@ -40,7 +40,7 @@ void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel mo
 }
 
 void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop ){
-	int local_verbosity_threshold = -3;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk0 .##################################################################"<<flush;}
 	cl_event writeEvt;
 	cl_int status;
@@ -333,7 +333,7 @@ void RunCL::estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], 
 }
 
 void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3(..)_chk0 .##################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
@@ -470,7 +470,7 @@ void RunCL::estimateSE3(float SE3_results[8][6][tracking_num_colour_channels], f
 }
 
 void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3_LK(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
-	int local_verbosity_threshold = -2;																									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk0 .##################################################################"<<flush;}
+	int local_verbosity_threshold = -1;																									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk0 .##################################################################"<<flush;}
     cl_event writeEvt;
     cl_int status;
 																																			if(verbosity>local_verbosity_threshold) {cout << "\nRunCL::estimateSE3_LK(..)__chk_0.3: K2K= ";
@@ -531,7 +531,7 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
 }
 
 void RunCL::read_Rho_sq( float Rho_sq_results[8][4] ){
-	int local_verbosity_threshold = -3;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::read_Rho_sq(..)_chk4 ."<<flush;}
 	cv::Mat rho_sq_sum_mat = cv::Mat::zeros (se3_sum_size, 4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float4 per group, holding HSV, plus entry[3]=pixel count.
 	ReadOutput( rho_sq_sum_mat.data, se3_sum_rho_sq_mem, pix_sum_size_bytes );																//float Rho_sq_reults[8][4] = {{0}};
@@ -581,7 +581,7 @@ void RunCL::read_Rho_sq( float Rho_sq_results[8][4] ){
 	}
 
 void RunCL::read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour_channels]){
-	int local_verbosity_threshold = -3;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::read_se3_weights(..)_chk1 ."<<flush;}
                                                                                                                                             // directly read higher layers
 	uint num_DoFs = 6;
@@ -638,7 +638,7 @@ void RunCL::read_se3_weights(float SE3_weights_results[8][6][tracking_num_colour
 	}
 
 void RunCL::read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels]){
-	int local_verbosity_threshold = -3;
+	int local_verbosity_threshold = -1;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::read_se3_incr(..)_chk1 ."<<flush;}
                                                                                                                                             // directly read higher layers
 	uint num_DoFs = 6;

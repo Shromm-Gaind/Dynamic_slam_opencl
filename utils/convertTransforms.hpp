@@ -181,6 +181,14 @@ static void PToLie(Matx44f P, Matx61f Lie){
     RTToLie(R,T,Lie);
 }
 
+static Matx61f PToLie(Matx44f P){
+    std::cout << "\n\nPToLie(Matx44f P) chk_0 #############"<<std::flush;
+    Matx61f Lie;
+    PToLie(P, Lie);
+    return Lie;
+}
+
+
 static void RTToP(InputArray _R, InputArray _T, OutputArray _P ){
     std::cout << "\n\nRTToP (InputArray _R, InputArray _T, OutputArray _P ) chk_0 #############"<<std::flush;
     Mat R = _R.getMat();

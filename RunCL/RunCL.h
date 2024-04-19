@@ -21,6 +21,7 @@
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
 #include "../utils/convertTransforms.hpp"
+#include "../utils/print_functions.hpp"
 #include "../kernels/kernels_macros.h"
 
 const uint tracking_num_colour_channels = 4;

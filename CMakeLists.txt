@@ -83,6 +83,8 @@ add_executable(Dynamic_slam
         RunCL/RunCL_setup_keyframe.cpp
         RunCL/RunCL_tracking.cpp
 
+        utils/print_functions.hpp
+        utils/print_functions.cpp
         utils/convertTransforms.hpp
         utils/convertAhandaPovRayToStandard.cpp
         utils/convertAhandaPovRayToStandard.h
