@@ -1,0 +1,16 @@
+{
+    // filepaths for a particular host machine ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    "out_path":"/home/nick/Programming/OpenCV/MySLAM",
+    "kernel_folder":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
+    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
+
+    // Input data ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    "data_path":"/home/nick/Programming/OpenCV/MySLAM/data/",           // /media/hockingsn/Backup/DoNotDelete/DataSets/computer_vision_data/
+                                                                        // /home/hockingsn/Programming/DataSets/computer_vision_data/
+                                                                        // /home/hockingsn/Programming/computer_vision_data/
+                                                                        // /home/nick/programming/ComputerVision/DataSets
+
+    "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_sample",
+    "data_file_increment":1,
+    "data_file_offset":0,       //475;//10;//46;//462;//380;//0;
+}

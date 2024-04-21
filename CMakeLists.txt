@@ -67,12 +67,12 @@ endif()
 
 add_executable(Dynamic_slam
         main.cpp
-        Dynamic_slam.cpp
-        Dynamic_slam.h
-        #RunCL_LinearMipMaps.cpp                        # Shelved. It will not make kernels simpler or faster.
-        ##RunCL_kernels.cpp
-        ##RunCL.cpp
-        ##RunCL.h
+        Dynamic_slam/Dynamic_slam.h
+        Dynamic_slam/Dynamic_slam_class.cpp
+        Dynamic_slam/Dynamic_slam_keyframe.cpp
+        Dynamic_slam/Dynamic_slam_mapping.cpp
+        Dynamic_slam/Dynamic_slam_tracking.cpp
+
         kernels/kernels_macros.h
         RunCL/RunCL.h
         RunCL/RunCL_class.cpp

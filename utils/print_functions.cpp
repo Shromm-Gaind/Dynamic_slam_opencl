@@ -56,6 +56,25 @@ void print_float_16(float float_16[16]){
     cout<<flush;
 }
 
+void print_json_float_9(Json::Value obj, std::string name){
+    cout << "\n\nobj["<<name<<"] ="<<flush;
+    for (int row=0; row<3; row++){
+        cout << "\n";
+        for (int col=0; col<3; col++) cout<<"\t"<< obj[name][row*3 + col].asFloat() <<","<<flush;
+    }
+}
+
+void print_matf(cv::Mat mat, int rows, int cols){
+    for(int row=0;row<rows;row++){
+         cout<<"  \n";
+         for(int col=0; col<cols;col++){
+             cout << mat.at<float>(row,col) << ", \t";
+         }
+    }
+    cout<<flush;
+}
+
+
 /*
 void print_float_4_16(float float_4_16[4*16]){
     for(int chan=0;chan<4;chan++){

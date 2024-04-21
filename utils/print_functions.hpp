@@ -9,6 +9,7 @@
 #include <string>
 #include <fstream>
 #include <opencv2/core.hpp>
+#include <jsoncpp/json/json.h>
 
 
 #define PRINT_MATX33F(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_matx33f(a);
@@ -21,6 +22,10 @@
 
 #define PRINT_FLOAT_16(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_float_16(a);
 
+#define PRINT_MAT44F(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_matf(a, 4, 4);
+
+#define PRINT_MAT33F(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_matf(a, 3, 3);
+
 
 void print_matx33f(cv::Matx33f matx);
 
@@ -32,6 +37,8 @@ void print_float_9(float float_9[9]);
 
 void print_float_16(float float_16[16]);
 
+void print_json_float_9(Json::Value obj, std::string name);
 
+void print_matf(cv::Mat mat, int rows, int cols);
 
 #endif /*PRINT_FNS_HPP*/

@@ -1,6 +1,6 @@
 {
     // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "verbosity":-1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
+    "verbosity":1,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
     "tiff":false,//true,//
     "png":true,
     "out_path":"/home/nick/programming/ComputerVision/MyCode",          // /media/hockingsn/Backup/output/Dynamic_slam_opencl
@@ -37,7 +37,7 @@
     "max_frame_count":1,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
     "max_opt_count":5,          //5,//60,
     "max_inner_opt_count":10,   //10,
-    "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
+    "cameraMatrix":[481.20,   0.0,  319.5,   	0.0,  480.0,  239.5, 	    0.0,    0.0,    1.0],
 
     // Mapping parameters - DTAM ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,8 +46,8 @@
     "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
                                                                         // Also keep layers for for depths across edge boundaries.
     "invert_GT_depth":true,                                             // 'true' if ground truth depth needs to be inverted.
-    "max_depth":6,            //485// office dataset   //6.0 //livingroom dataset          //  450.0 o        // See values in DTAM_mapping/input/*.json file for each dataset.
-    "min_depth":1,             //70 //82.0,// office dataset  //1.0 //livingroom dataset                       // 70.0;//3289.0;
+    "max_depth":6,              //485// office dataset   //6.0 //livingroom dataset          //  450.0 o        // See values in DTAM_mapping/input/*.json file for each dataset.
+    "min_depth":1,              //70 //82.0,// office dataset  //1.0 //livingroom dataset                       // 70.0;//3289.0;
     //"occlusionThreshold":0.05,// not currently used.
     "startAt":0,
 

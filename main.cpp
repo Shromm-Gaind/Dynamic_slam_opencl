@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include "Dynamic_slam/Dynamic_slam.h"
 
 using namespace cv;
 using namespace std;

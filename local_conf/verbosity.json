@@ -1,0 +1,142 @@
+{
+    // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    "verbosity":0,
+    "":,
+    "~Dynamic_slam": 1,
+    "Dynamic_slam": 1,
+
+    // functions
+    "initialize_camera": 1,
+    "report_GT_pose_error": 1,
+    "display_frame_resluts": 1,
+
+    "getPose": 1,
+    "getInvPose": 1,
+    "getPose": 1,
+    "getInvPose": 1,
+
+    "nextFrame": 1,
+    "optimize_depth": 1,
+
+    "predictFrame": 1,
+    "getFrame": 1,
+    "getFrameData": 1,
+    "use_GT_pose": 1,
+    "artificial_SO3_pose_error": 1,
+    "artificial_pose_error": 1,
+
+    "generate_invK": 1,
+    "generate_invK_": 1,
+    "generate_invPose": 1,
+    "generate_SE3_k2k": 1,
+    "update_k2k": 1,
+    "estimateSO3": 1,
+    "estimateSE3": 1,
+    "estimateSE3_LK": 1,
+    "estimateCalibration": 1,
+
+    "initialize_keyframe_from_GT": 1,
+    "initialize_keyframe_from_tracking": 1,
+    "initialize_new_keyframe": 1,
+
+    "updateDepthCostVol": 1,
+    "buildDepthCostVol_fast_peripheral": 1,
+    "computeSigmas": 1,
+    "updateQD": 1,
+    "cacheGValues": 1,
+    "updateA": 1,
+
+    "SpatialCostFns": 1,
+    "ParsimonyCostFns": 1,
+    "ExhaustiveSearch": 1,
+
+    "getResult": 1,
+
+    "RunCL": 1,
+	"testOpencl": 1,
+	"getDeviceInfoOpencl": 1,
+	"convertToString": 1,
+	"createQueues": 1,
+	"createAndBulidProgramFromSource": 1,
+	"createKernels": 1,
+
+	"waitForEventAndRelease": 1,
+	"mipmap_call_kernel": 1,
+
+	"initialize_fp32_params": 1,
+	"initialize": 1,
+	"allocatemem": 1,
+
+	"CleanUp": 1,
+	"exit_": 1,
+	"~RunCL": 1,
+
+	/////////////////////////////////////// RunCL_macro_conversion.cpp
+	"checkerror": 1,
+	"checkCVtype": 1,
+
+	/////////////////////////////////////// RunCL_DownloadAndSave.cpp
+	"createFolders": 1,
+	"ReadOutput": 1,
+	"ReadOutput": 1,
+	"saveCostVols": 1,
+
+	"DownloadAndSave": 1,
+	"DownloadAndSave_2Channel_volume": 1,
+
+	"DownloadAndSave_3Channel": 1,
+	"DownloadAndSave_3Channel_volume": 1,
+
+	"DownloadAndSave_6Channel": 1,
+	"DownloadAndSave_6Channel_volume": 1,
+
+	"DownloadAndSave_8Channel": 1,
+	"DownloadAndSave_8Channel_volume": 1,
+
+	"DownloadAndSave_HSV_grad": 1,
+	"SaveMat": 1,
+	"SaveMat_1chan": 1,
+	"DownloadAndSaveVolume": 1,
+
+	////////////////////////////////////// RunCL_load_image.cpp
+	"precom_param_maps": 1,
+	"predictFrame": 1,
+	"loadFrame": 1,
+	"cvt_color_space": 1,
+	"img_variance": 1,
+	"blur_image": 1,
+	"mipmap_linear": 1,
+	"img_gradients": 1,
+	"load_GT_depth": 1,
+	"convert_depth": 1,
+	"mipmap_depthmap": 1,
+
+	/////////////////////////////////////// RunCL_tracking.cpp
+	"se3_rho_sq": 1,
+	"estimateSO3": 1,
+	"estimateSE3": 1,
+	"estimateSE3_LK": 1,
+	"read_Rho_sq": 1,
+	"read_se3_weights": 1,
+	"read_se3_incr": 1,
+	"writeToResultsMat": 1,
+	"tracking_result": 1,
+	"estimateCalibration": 1,
+	"RelativeVel_Map": 1,
+	"atomic_test1": 1,
+
+	/////////////////////////////////////// RunCL_mapping.cpp
+	"transform_depthmap": 1,
+	"initializeDepthCostVol": 1,
+	"updateDepthCostVol": 1,
+	"updateQD": 1,
+	"updateG": 1,
+	"updateA": 1,
+	"computeSigmas": 1,
+	"measureDepthFit": 1,
+	"SpatialCostFns": 1,
+	"ParsimonyCostFns": 1,
+	"ExhaustiveSearch": 1,
+}
+
+
