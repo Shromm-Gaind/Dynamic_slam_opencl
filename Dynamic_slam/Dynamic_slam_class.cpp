@@ -7,18 +7,18 @@ using namespace std;
 
 Dynamic_slam::~Dynamic_slam(){ };
 
-Dynamic_slam::Dynamic_slam( Json::Value obj_ ): runcl(obj_ ) {
+Dynamic_slam::Dynamic_slam( map<string, Json::Value> obj_ ): runcl(obj_ ) {
 	int local_verbosity_threshold = -2;
-	obj = obj_;
-	verbosity 					= obj["verbosity"].asInt();
-	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();
-	invert_GT_depth  			= obj["invert_GT_depth"].asBool();
+	map<string, Json::Value>obj = obj_;
+	verbosity 					= obj["verbosity"]["verbosity"].asInt();
+	runcl.dataset_frame_num 	= obj["params"]["data_file_offset"].asUInt();
+	invert_GT_depth  			= obj["params"]["invert_GT_depth"].asBool();
 
-	SE3_start_layer 			= obj["SE3_start_layer"].asInt();
-    SE3_stop_layer 				= obj["SE3_stop_layer"].asInt();
-	SE_iter_per_layer 			= obj["SE_iter_per_layer"].asInt();
-    SE_iter 					= obj["SE_iter"].asInt();
-	SE_factor					= obj["SE_factor"].asFloat();
+	SE3_start_layer 			= obj["params"]["SE3_start_layer"].asInt();
+    SE3_stop_layer 				= obj["params"]["SE3_stop_layer"].asInt();
+	SE_iter_per_layer 			= obj["params"]["SE_iter_per_layer"].asInt();
+    SE_iter 					= obj["params"]["SE_iter"].asInt();
+	SE_factor					= obj["params"]["SE_factor"].asFloat();
 
 	for (int layer=0; layer<MAX_LAYERS; layer++){for (int chan=0; chan<3; chan++)	SE3_Rho_sq_threshold[layer][chan]  	= obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();  }
 	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();

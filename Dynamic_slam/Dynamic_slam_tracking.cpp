@@ -8,7 +8,7 @@ using namespace std;
 
 void Dynamic_slam::report_GT_pose_error(){ 																									// TODO this could be done in Max44f, without back and forth coversion.
 	int local_verbosity_threshold = -2;
-	pose2pose_accumulated_error_algebra = LieSub( PToLie(pose2pose_accumulated), PToLie(pose2pose_accumulated_GT) ); 						//pose2pose_accumulated_error_algebra 	= pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
+	pose2pose_accumulated_error_algebra = LieSub(PToLie(pose2pose_accumulated), PToLie(pose2pose_accumulated_GT) ); 						//pose2pose_accumulated_error_algebra 	= pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
 	pose2pose_error_algebra 			= LieSub(PToLie(pose2pose), PToLie(pose2pose_GT)); 													//pose2pose_error_algebra 				= pose2pose_algebra - pose2pose_GT_algebra;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::report_GT_error_chk 0\n" << flush;
 																																				PRINT_MATX44F(pose2pose_accumulated_GT,);

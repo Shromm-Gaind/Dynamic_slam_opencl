@@ -25,7 +25,7 @@ class Dynamic_slam
 {
   public:
     ~Dynamic_slam();
-    Dynamic_slam( Json::Value obj_ );
+    Dynamic_slam( map<string, Json::Value> obj_ );
     
     Json::Value obj;
     RunCL runcl;

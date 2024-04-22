@@ -84,7 +84,7 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 																																			cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
 }
 
-RunCL::RunCL(Json::Value obj_){
+RunCL::RunCL(map<string, Json::Value> obj_){
 	obj 		= obj_;
 	//resultsMat 	= resultsMat_;																												// NB points to results_Mat object in parent Dynamic_slam object.
 	verbosity 	= obj["verbosity"].asInt();
