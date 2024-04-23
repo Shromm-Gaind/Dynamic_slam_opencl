@@ -7,22 +7,22 @@ using namespace std;
 
 Dynamic_slam::~Dynamic_slam(){ };
 
-Dynamic_slam::Dynamic_slam( map<string, Json::Value> obj_ ): runcl(obj_ ) {
+Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( obj ,  verbosity_mp ) {   //    //     //// conf_params j_params
 	int local_verbosity_threshold = -2;
-	map<string, Json::Value>obj = obj_;
-	verbosity 					= obj["verbosity"]["verbosity"].asInt();
-	runcl.dataset_frame_num 	= obj["params"]["data_file_offset"].asUInt();
-	invert_GT_depth  			= obj["params"]["invert_GT_depth"].asBool();
+	//map<string, Json::Value>obj = obj_;
+	verbosity 					= verbosity_mp["verbosity"];						//	obj["verbosity"]["verbosity"].asInt();
+	runcl.dataset_frame_num 	= obj["params"]["data_file_offset"].asUInt();		//	j_params.int_mp["data_file_offset"];		//
+	invert_GT_depth  			= obj["params"]["invert_GT_depth"].asBool();		//	j_params.bool_mp["invert_GT_depth"];		//
 
-	SE3_start_layer 			= obj["params"]["SE3_start_layer"].asInt();
-    SE3_stop_layer 				= obj["params"]["SE3_stop_layer"].asInt();
-	SE_iter_per_layer 			= obj["params"]["SE_iter_per_layer"].asInt();
-    SE_iter 					= obj["params"]["SE_iter"].asInt();
-	SE_factor					= obj["params"]["SE_factor"].asFloat();
+	SE3_start_layer 			= obj["params"]["SE3_start_layer"].asInt();			//	 j_params.int_mp["SE3_start_layer"];		//
+    SE3_stop_layer 				= obj["params"]["SE3_stop_layer"].asInt();			//	j_params.int_mp["SE3_stop_layer"];		//
+	SE_iter_per_layer 			= obj["params"]["SE_iter_per_layer"].asInt();		//	j_params.int_mp["SE_iter_per_layer"];		//
+    SE_iter 					= obj["params"]["SE_iter"].asInt();					//	j_params.int_mp["SE_iter"];				//
+	SE_factor					= obj["params"]["SE_factor"].asFloat();				//	j_params.float_mp["SE_factor"];			//
 
-	for (int layer=0; layer<MAX_LAYERS; layer++){for (int chan=0; chan<3; chan++)	SE3_Rho_sq_threshold[layer][chan]  	= obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();  }
-	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();
-    for (int layer=0; layer<MAX_LAYERS; layer++) 									SE3_update_layer_weights[layer] 	= obj["SE3_float update_layer_weights"][layer].asFloat();
+	for (int layer=0; layer<MAX_LAYERS; layer++){for (int chan=0; chan<3; chan++)	SE3_Rho_sq_threshold[layer][chan]  	= obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();  }	//j_params.float_vecvec_mp["SE3_Rho_sq_threshold"][layer][chan]; }		//
+	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();				//j_params.float_vec_mp["SE3_update_dof_weights"][se3];					//
+    for (int layer=0; layer<MAX_LAYERS; layer++) 									SE3_update_layer_weights[layer] 	= obj["SE3_float update_layer_weights"][layer].asFloat();	//j_params.float_vec_mp["SE3_float update_layer_weights"][layer];		//
 
 																																			if(verbosity>local_verbosity_threshold-4) {cout << "\n Dynamic_slam::Dynamic_slam_chk 0,  SE3_Rho_sq_threshold[i][j] = ";
 																																				for (int i=0; i<5; i++){cout << "( "; for (int j=0; j<3; j++) {cout << ", ["<<i<<"]["<<j<<"]" << SE3_Rho_sq_threshold[i][j]; }   cout << " )";}
@@ -30,7 +30,7 @@ Dynamic_slam::Dynamic_slam( map<string, Json::Value> obj_ ): runcl(obj_ ) {
 																																				cout << endl << flush;
 																																			}
 	stringstream  ss0;
-	ss0 << obj["data_path"].asString() << obj["data_file"].asString();
+	ss0 << obj["data_path"].asString()  <<  obj["data_file"].asString();	// j_params.paths_mp["data_path"]   <<  j_params.paths_mp["data_file"];  //
 	rootpath 	= ss0.str();
 	root 		= rootpath;
 
@@ -56,8 +56,8 @@ Dynamic_slam::Dynamic_slam( map<string, Json::Value> obj_ ): runcl(obj_ ) {
 
 void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
 	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
-	uint reduction 		= obj["sample_layer"].asUInt();
-	uint SE_iter 		= obj["SE_iter"].asUInt();
+	uint reduction 		= obj["sample_layer"].asUInt();		//j_params.int_mp["sample_layer"]; 	//
+	uint SE_iter 		= obj["SE_iter"].asUInt();			//j_params.int_mp["SE_iter"];  		//
 	int rows 			= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
 	int cols 			= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );										if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 3: rows = "	<<rows<<", cols = "<<cols<< flush;
 	runcl.resultsMat 	= cv::Mat::zeros ( rows, cols , CV_8UC4);																			if(verbosity>local_verbosity_threshold) cout << ",  runcl.resultsMat.size() = "<< runcl.resultsMat.size() 	<< flush;
@@ -69,7 +69,7 @@ void Dynamic_slam::initialize_camera(){
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 0:" <<flush;}
 	K = K.zeros();																															// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
 	K.operator()(3,3) = 1;
-	for (int i=0; i<9; i++){K.operator()(i/3,i%3) = obj["cameraMatrix"][i].asFloat(); }
+	for (int i=0; i<9; i++){K.operator()(i/3,i%3) = obj["cameraMatrix"][i].asFloat(); }		//j_params.float_vec_mp["cameraMatrix"][i];   //
 	old_K		= K;
 	generate_invK();
 																																			if(verbosity>local_verbosity_threshold) {

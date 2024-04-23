@@ -380,7 +380,7 @@ void Dynamic_slam::estimateSE3(){
 
 
 void Dynamic_slam::estimateSE3_LK(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = -1;
 	Matx61f old_update = {0,0,0, 0,0,0}, update = {0,0,0, 0,0,0};																			// SE3 Lie Algebra holding the DoF of SE3.
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
 	if (obj["sample_se3_incr"]==true){

@@ -25,8 +25,10 @@ class Dynamic_slam
 {
   public:
     ~Dynamic_slam();
-    Dynamic_slam( map<string, Json::Value> obj_ );
-    
+    //Dynamic_slam( conf_params j_params ); // map<string, Json::Value> obj_
+    //Dynamic_slam( map<string, Json::Value> obj, int_map verbosity_mp  );
+    Dynamic_slam( Json::Value obj, int_map verbosity_mp  );
+
     Json::Value obj;
     RunCL runcl;
     int verbosity;

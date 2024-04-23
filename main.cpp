@@ -14,63 +14,69 @@
 #include <string>
 #include <sstream>
 #include "Dynamic_slam/Dynamic_slam.h"
+#include "utils/conf_params.hpp"
 
 using namespace cv;
 using namespace std;
-
+/*
 ////// headers
-typedef map<string,int>				int_map;
-typedef map<string,float>			float_map;
-typedef map<string,vector<float> >	float_vec_map;
-typedef map<string,string>			string_map;
+typedef map<string,bool>						bool_map;
+typedef map<string,int>							int_map;
+typedef map<string,float>						float_map;
+typedef map<string,vector<float> >				float_vec_map;
+typedef map<string,vector<vector<float>> >		float_vecvec_map;
+typedef map<string,string>						string_map;
+typedef map<string,vector<string>> 				string_vec_map;
 
-class json_params {
-	static const int_map 		verbosity;
-	static const int_map 		int_;
-	static const float_map 		float_;
-	static const float_vec_map 	float_vec;
-	static const string_map 	paths;		// should I use boost file path ?
+class conf_params {
+	int_map 					verbosity_mp;
+	bool_map					bool_mp;
+	int_map 					int_mp;
+	float_map 					float_mp;
+	float_vec_map 				float_vec_mp;
+	float_vecvec_map 			float_vecvec_mp;
+	string_vec_map				string_vec_mp;
+	string_map 					paths_mp;				// should I use boost file path ?
 
 public:
-	json_params(char * arg);
+	conf_params(char * arg);
 	void read_verbosity(	Json::Value verbosity_obj);	//,  const int_map 		&verbosity_map);
-	void read_paths(		Json::Value paths_obj);		//,  	const string_map 	&path_map
-	void read_jparams(		Json::Value params_obj); 	// , 	const int_map		&int_params, 	const float_map		&flt_params, 	const float_vec_map 	&flt_arry_params
+	void read_paths(		Json::Value paths_obj);		//,  const string_map 	&path_map
+	void read_jparams(		Json::Value params_obj); 	//,  const int_map		&int_params, 	const float_map		&flt_params, 	const float_vec_map 	&flt_arry_params
+
+	void readVecVecFloat(  	string member, Json::Value params_obj );
+	void readVecFloat( 		string member, Json::Value params_obj );
+	void readVecString( 	string member, Json::Value params_obj );
+
 	void display_params();
 };
-
+*/
 /////// main
 int main(int argc, char *argv[])
 {
 	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit(1); }
-	json_params j_params(argv[1]);
-
+	Json::Value obj;
+	conf_params j_params(argv[1], obj);
 	j_params.display_params();
 
-	exit(0); // TODO just for testing.
-
-}
-/*
-{
-	int verbosity_ 		= obj["verbosity"]["verbosity"].asInt() ;						// -1= none, 0=errors only, 1=basic, 2=lots.
-	int imagesPerCV 	= obj["params"]["imagesPerCV"].asUInt() ;
-	int max_frame_count = obj["params"]["max_frame_count"].asUInt();
+	int verbosity_ 		= j_params.verbosity_mp["verbosity"]; 				//obj["verbosity"]["verbosity"].asInt() ;			//  					// -1= none, 0=errors only, 1=basic, 2=lots.
+	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;						// j_params.int_mp["imagesPerCV"]; 			//
+	int max_frame_count = obj["max_frame_count"].asUInt();					// j_params.int_mp["max_frame_count"]; 		//
 	int frame_count 	= 0;
 	int ds_error 		= 0;
 																			if(verbosity_>0) cout << "\n\n main_chk 0\n" << flush;
-																			cout <<" conf file = " << argv[1] << endl;
-																			//cout << ifs.str() <<endl << endl;
-																			cout <<"verbosity_ = "<<verbosity_<<", imagesPerCV = "<<imagesPerCV <<endl;
-																			cout <<"outpath = " <<  obj["out_path"].asString() <<"\n"<< std::flush;
-	
-	Dynamic_slam   dynamic_slam(obj);										// Instantiate Dynamic_slam object before while loop.
+																			cout <<"\nconf file = "		<< argv[1];
+																			cout <<"\nverbosity_ = "	<<verbosity_;
+																			cout <<"\nimagesPerCV = "	<<imagesPerCV;
+																			cout <<"\noutpath = " 		<< j_params.paths_mp["out_path"];
+
+	Dynamic_slam   dynamic_slam(obj, j_params.verbosity_mp);				// Instantiate Dynamic_slam object before while loop.
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
 																			// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
 																			// NB need to initialize the cost volume with a key frame, and tracking with a depth map.
 																			// Also need a test for when to start a new keyframe.
 	dynamic_slam.initialize_keyframe_from_GT();
 	frame_count++;
-	
 																			if(verbosity_>0) cout << "\n main_chk 2\n" << flush;
 	do{																		// Long do while not yet crashed loop.
 		for (int i=0; i<imagesPerCV ; i++){									// Inner loop per keyframe.params
@@ -88,114 +94,221 @@ int main(int argc, char *argv[])
 	dynamic_slam.getResult();												// also calls RunCL::CleanUp()
 	exit(0);																// guarantees class destructors are called.
 }
-*/
 
+
+/*
 /////// functions
-json_params::json_params(char * arg){
+conf_params::conf_params(char * arg){
 	//json_params params;
 	ifstream ifs(arg);
 
 	Json::Reader reader;
-	Json::Value Jval[3];
-	map<string, Json::Value> obj{ {"paths",Jval[0]}, {"params",Jval[1]}, {"verbosity",Jval[2]} };
+	Json::Value paths_obj, params_obj, verbosity_obj;
+	//map<string, Json::Value> obj{ {"paths",Jval[0]}, {"params",Jval[1]}, {"verbosity",Jval[2]} };
 
-    bool b = reader.parse(ifs, obj["paths"]); 								if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj["paths"] ;}
+    bool b = reader.parse(ifs, paths_obj); 										if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << paths_obj ;}
+																				cout << "\njson_params::json_params(char * arg) chk 1"<<flush;
 
-	ifstream ifs_params(	obj["paths"]["params_conf"].asString() 	);
-	ifstream ifs_verbosity( obj["paths"]["verbosity_conf"].asString()	);
 
-	b = reader.parse(ifs_params, 	obj["params"]); 						if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj["params"] ;}
-	b = reader.parse(ifs_verbosity, obj["verbosity"]); 						if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << obj["verbosity"] ;}
 
-	// void read_verbosity(	Json::Value verbosity_obj,  int_map 	&verbosity_map);
+	ifstream ifs_params(	paths_obj["source_filepath"].asString()	 +  paths_obj["params_conf"].asString() 	);	if (!ifs_params.is_open()) {
+																															cout << "\njson_params::json_params(char * arg):  ifs_params  is NOT open !"<< flush;
+																															cout << "\nfilepath + "<< paths_obj["source_filepath"].asString()	 +  paths_obj["params_conf"].asString() << endl<<flush;
+																															exit(1);
+																													}
 
-	read_verbosity( obj["verbosity"]); 	//params.  , 	verbosity
-	read_paths(		obj["paths"]); 		// ,  		paths
-	read_jparams(	obj["params"]);		//, int_, float_, float_vec
+	ifstream ifs_verbosity( paths_obj["source_filepath"].asString()	 +  paths_obj["verbosity_conf"].asString()	);	if (!ifs_verbosity.is_open()) {
+																															cout << "\njson_params::json_params(char * arg):  ifs_verbosity  is NOT open !"<< flush;
+																															cout << "\nfilepath + "<< paths_obj["source_filepath"].asString()	 +  paths_obj["verbosity_conf"].asString() << endl<<flush;
+																															exit(1);
+																													}
 
-	//return params;
+	b = reader.parse(ifs_params, 	params_obj); 								if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << params_obj ;}
+
+																				cout << "\njson_params::json_params(char * arg) chk 4\n"<<flush;
+
+	b = reader.parse(ifs_verbosity, verbosity_obj); 							if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "NB lists .json file entries alphabetically: \n" << verbosity_obj ;}
+
+																				cout << "\njson_params::json_params(char * arg) chk 5\n"<<flush;
+
+																				// void read_verbosity(	Json::Value verbosity_obj,  int_map 	&verbosity_map);
+
+	read_verbosity( verbosity_obj); 											//params.  , 	verbosity
+																				cout << "\njson_params::json_params(char * arg) chk 6\n"<<flush;
+
+	read_paths(		paths_obj); 												// ,  		paths
+																				cout << "\njson_params::json_params(char * arg) chk 7\n"<<flush;
+
+	read_jparams(	params_obj);												//, int_, float_, float_vec
+																				cout << "\njson_params::json_params(char * arg) chk 8\n"<<flush;
+
+																				//return params;
 }
 
 
-void json_params::read_verbosity(Json::Value verbosity_obj){ // ,  const int_map verbosity_map_
+void conf_params::read_verbosity(Json::Value verbosity_obj){ // ,  const int_map verbosity_map_
 	// iterate over all entries in the verbosity.json file.
 	// NB function name clashes between classes ?
-	int_map verbosity_map = const_cast<int_map&>(verbosity);
-
-	Json::ArrayIndex size = verbosity_obj.size();
+																													cout << "\njson_params::read_verbosity(..) : chk_0\n"<<flush;
+	Json::Value::ArrayIndex size = verbosity_obj.size();
 	Json::Value::Members members = verbosity_obj.getMemberNames();
-	for (int index=0; index<size; index++){ verbosity_map[  members[index] ]   =    verbosity_obj[index].asInt(); }
+																													cout << "\njson_params::read_verbosity(..) : chk_2\n"<<flush;
+																													cout << "\nsize = "<< size << flush;
+																													cout << "\nmembers[0] = "<< members[0] <<flush;
+	string member;
+	for (int index=0; index<size; index++){
+		member = members[index];
+		verbosity_mp[  members[index] ]   =    verbosity_obj[member].asInt();
+	}
+																													cout << "\njson_params::read_verbosity(..) : finished\n"<<flush;
 }
 
 
-void json_params::read_paths(Json::Value paths_obj){ //,  const string_map path_map_		// Problem naming fo the and variable as too similar in structure
-	string_map path_map = const_cast<string_map&>(paths);
+void conf_params::read_paths(Json::Value paths_obj){ //,  const string_map path_map_		// Problem naming fo the and variable as too similar in structure
+	//string_map path_map = const_cast<string_map&>(paths);
 
 	Json::ArrayIndex size = paths_obj.size();
 	Json::Value::Members members = paths_obj.getMemberNames();
-	for (int index=0; index<size; index++){ path_map[  members[index] ]   =    paths_obj[index].asString(); }
-}
-
-
-void json_params::read_jparams(Json::Value params_obj){   // , int_map	&int_params, float_map &flt_params, float_vec_map &flt_arry_params  // int_,	float_,	float_vec;
-	float_vec_map 	float_vec_mp 	= const_cast<float_vec_map&>(float_vec);
-	float_map 		float__mp 		= const_cast<float_map&>(float_);
-	int_map 		int__mp 		= const_cast<int_map&>(int_);
-
-	Json::ArrayIndex size = params_obj.size();
-	Json::Value::Members members = params_obj.getMemberNames();
-
+	string member;
 	for (int index=0; index<size; index++){
+		member = members[index];
+		paths_mp[  members[index] ]   =    paths_obj[member].asString();
 
-		if (params_obj[index].isArray() ){
-			Json::ArrayIndex size2 = params_obj[index].size();
-
-			for (int index2=0; index2<size2; index2++){
-				if (params_obj[index][index2].isDouble()) {
-					float_vec_mp[  members[index] ][index2]	= params_obj[index][index2].asFloat();			// flt_arry_params
-				}
-				else {
-					cout << "\nparams_obj[\""<< members[index] <<"\"] : "<<  params_obj[index].asString()  << " , is not a float_array"<<flush;
-					break;
-				}
-			}
-		}
-		else if (params_obj[index].isDouble()){
-			float__mp[  members[index] ]	= params_obj[index].asFloat();  		// flt_params	float_
-		}
-		else if (params_obj[index].isInt() ){
-			int__mp[  members[index] ]   	= params_obj[index].asInt(); 			// int_params	int_
-		}
-		else {
-			cout << "\nparams_obj[\""<< members[index] <<"\"] : "<<  params_obj[index].asString()  << " , is not a float_array, float or int."<<flush;
-		}
 	}
 }
 
 
-void json_params::display_params(  ) {
+void conf_params::read_jparams(Json::Value params_obj){   // , int_map	&int_params, float_map &flt_params, float_vec_map &flt_arry_params  // int_,	float_,	float_vec;
+																													cout << "\njson_params::read_jparams(..) : chk_0\n"<<flush;
+	Json::ArrayIndex size = params_obj.size();
+	Json::Value::Members members = params_obj.getMemberNames();
+	string member;
+																													//cout << "\njson_params::read_jparams(..) : chk_1\n"<<flush;
+	for (int index=0; index<size; index++){
+		member = members[index];
+																													//cout << "\nindex="<<index<<flush; cout<< "\tmember="<<member<<" ,"<<flush;
+		if (params_obj[member].isArray() ){ 																		//cout << "\n isArray() " << members[index] <<" : "<< flush;
+			Json::ArrayIndex size2 = params_obj[member].size();														//cout << "\n array size = "<< size2 << " , " << flush;
+			if (params_obj[member][0].isString() ){																	//cout << "\n isArray() " << members[index] <<" : "<< flush;
+				readVecString( member, params_obj  );
+			}
+			else if (params_obj[member][0].isArray() ){																//cout << "\n isArray() " << members[index] <<" : "<< flush;
+				if (params_obj[member][0][0].isNumeric() ) {
+					readVecVecFloat(  member, params_obj );
+				}
+				else cout << "\n " << member << " is not float_vecvec  :    "  << flush;
+			}
+			else if (params_obj[member][0].isNumeric() ) {															//cout << "\nisNumeric"<<flush;
+				readVecFloat( member, params_obj );
+			}
+			else {
+				cout << "\nparams_obj[\""<< members[index] <<"\"] : "<<  params_obj[member].asString()  << " , is not a float_array. break;"<<flush;
+			}
+		}
+		else if (params_obj[member].isBool()){																		//cout << "\n isBool() " << members[index] <<" : "<< params_obj[member].asBool() <<" , "<< flush;
+			bool_mp[  members[index] ]	= params_obj[member].asBool();
+		}
+		else if (params_obj[member].isInt() ){																		//cout << "\n isInt() " << members[index] <<" : "<< params_obj[member].asInt() <<" , "<< flush;
+			int_mp[  members[index] ]   	= params_obj[member].asInt();
+		}
+		else if (params_obj[member].isDouble() && ! params_obj[member].isInt() ){  									//cout << "\n isDouble() " << members[index] <<" : "<< params_obj[member].asDouble() <<" , "<< flush;
+			float_mp[  members[index] ]	= params_obj[member].asFloat();
+		}
+		else {
+			cout << "\nparams_obj[\""<< members[index] <<"\"] : "<<  params_obj[member].asString()  << " , is not a float_array, float or int."<<flush;
+		}
+	}
+																													cout << "\njson_params::read_jparams(..) : finished\n"<<flush;
+}
+
+
+void conf_params::readVecVecFloat( string member, Json::Value params_obj  ){
+	vector<vector<float>> vec0;
+	Json::ArrayIndex size2 = params_obj[member].size();																cout << "\n array size = "<< size2 << " , " << flush;
+	for (int index2=0; index2<size2; index2++){																		cout << "\nindex2 = "<< index2 ;
+		vector<float> vec1;
+		Json::ArrayIndex size3 = params_obj[member].size();															cout << "\n array size = "<< size3 << " , " << flush;
+
+		for (int index3=0; index3<size2; index3++){																	cout << "\nindex3 = "<< index3 ;
+			if (params_obj[member][index2][index3].isNumeric() ) {													cout << "\nisNumeric"<<flush;
+																													cout << "\nparams_obj[member][index2][index3] = " << params_obj[member][index2][index3].asFloat() << " , " << flush;
+			vec1.push_back( params_obj[member][index2][index3].asFloat() );
+			}
+		}
+		vec0.push_back(vec1);
+	}
+	float_vecvec_mp[  member ] = vec0;
+}
+
+void conf_params::readVecFloat( string member, Json::Value params_obj  ){
+	vector<float> vec0;
+	Json::ArrayIndex size2 = params_obj[member].size();																cout << "\n array size = "<< size2 << " , " << flush;
+	for (int index2=0; index2<size2; index2++){																		cout << "\nindex2 = "<< index2 ;
+		if (params_obj[member][index2].isNumeric() ) {																cout << "\nisNumeric"<<flush;
+																													cout << "\nparams_obj[member][index2][index3] = " << params_obj[member][index2].asFloat() << " , " << flush;
+			vec0.push_back( params_obj[member][index2].asFloat() );
+		}
+	}
+	float_vec_mp[  member ] = vec0;
+}
+
+
+void conf_params::readVecString( string member, Json::Value params_obj  ){
+	vector<string> vec0;
+	Json::ArrayIndex size2 = params_obj[member].size();																cout << "\n array size = "<< size2 << " , " << flush;
+	for (int index2=0; index2<size2; index2++){																		cout << "\nindex2 = "<< index2 ;
+																													cout << "\nparams_obj[member][index2][index3] = " << params_obj[member][index2].asString() << " , " << flush;
+			vec0.push_back( params_obj[member][index2].asString() );
+	}
+	string_vec_mp[  member ] = vec0;
+}
+
+
+void conf_params::display_params(  ) {
 	cout << "\n\n params.paths   = "  << flush;
-	for (auto elem : paths) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
+	for (auto elem : paths_mp) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
 
 	cout << "\n\n params.int_   = "  << flush;
-	for (auto elem : int_) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
+	for (auto elem : int_mp) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
 
 	cout << "\n\n params.float_   = "  << flush;
-	for (auto elem : float_) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
+	for (auto elem : float_mp) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
 
 	cout << "\n\n params.float_vec   = "  << flush;
-	for (auto elem : float_vec) {
+	for (auto elem : float_vec_mp) {
 		cout << "\n " <<  elem.first <<" :  {";
 		for (auto elem2 : elem.second) {
 			cout << elem2 << ", ";
 		}
-		cout << flush;
+		cout << " } " << flush;
+	}
+
+	cout << "\n\n params.float_vecvec   = "  << flush;
+	for (auto elem : float_vecvec_mp) {
+		cout << "\n " <<  elem.first <<" :  {";
+		for (auto elem2 : elem.second) {
+			cout <<"\t [ " ;
+			for (auto elem3 : elem2){
+				cout << elem3 << ", ";
+			}
+			cout <<"], ";
+		}
+		cout << " } " << flush;
+	}
+
+	cout << "\n\n params.string_vec   = "  << flush;
+	for (auto elem : string_vec_mp) {
+		cout << "\n " <<  elem.first <<" :  {";
+		for (auto elem2 : elem.second) {
+			cout << elem2 << ", ";
+		}
+		cout << " } " << flush;
 	}
 
 	cout << "\n\n params.verbosity   = "  << flush;
-	for (auto elem : verbosity) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
+	for (auto elem : verbosity_mp) cout << "\n " <<  elem.first <<" : "<< elem.second << flush;
 }
-
+*/
 
 	
 /*	

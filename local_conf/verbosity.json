@@ -1,14 +1,16 @@
 {
     // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "verbosity":0,
-    "":,
-    "~Dynamic_slam": 1,
-    "Dynamic_slam": 1,
+    // NB Need to include classname. to prevent function name clashes between classes..... Or make it one list per class.
+    // NB Also overlarded function names within a class.
+    "verbosity":1,									// -1= none, 0=errors only, 1=basic, 2=lots.
+
+    "~Dynamic_slam":1,
+    "Dynamic_slam":1,
 
     // functions
-    "initialize_camera": 1,
-    "report_GT_pose_error": 1,
-    "display_frame_resluts": 1,
+    "initialize_camera":1,
+    "report_GT_pose_error":1,
+    "display_frame_resluts":1,
 
     "getPose": 1,
     "getInvPose": 1,
@@ -67,7 +69,7 @@
 	"initialize": 1,
 	"allocatemem": 1,
 
-	"CleanUp": 1,
+	"CleanUp":1,
 	"exit_": 1,
 	"~RunCL": 1,
 
@@ -136,7 +138,7 @@
 	"measureDepthFit": 1,
 	"SpatialCostFns": 1,
 	"ParsimonyCostFns": 1,
-	"ExhaustiveSearch": 1,
+	"ExhaustiveSearch": 1
 }
 
 

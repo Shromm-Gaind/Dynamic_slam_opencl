@@ -84,9 +84,9 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 																																			cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
 }
 
-RunCL::RunCL(map<string, Json::Value> obj_){
+RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp ){ 		// map<string, Json::Value> obj_
 	obj 		= obj_;
-	//resultsMat 	= resultsMat_;																												// NB points to results_Mat object in parent Dynamic_slam object.
+	//resultsMat 	= resultsMat_;																											// NB points to results_Mat object in parent Dynamic_slam object.
 	verbosity 	= obj["verbosity"].asInt();
 	tiff 		= obj["tiff"].asBool();
 	png 		= obj["png"].asBool();
@@ -163,12 +163,13 @@ void RunCL::createQueues(){
 }
 
 void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
-																																			if(verbosity>0) cout << "RunCL::createAndBulidProgramFromSource(..) chk 0\n" << flush;
+																																			if(verbosity>-2) cout << "RunCL::createAndBulidProgramFromSource(..) chk 0\n" << flush;
 	cl_int 	status;
 	cl_uint	num_files;
     char** 	strings;
     size_t*	lengths;
 
+	const char *basepath = obj["source_filepath"].asCString();
     const char *foldername = obj["kernel_folder"].asCString();
     num_files = obj["kernel_files"].size();
     lengths = (size_t*)malloc( (num_files+1)*sizeof(size_t) );                                                                              // allocate array for file lengths
@@ -177,10 +178,12 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
 
     for (int i=0; i<num_files; i++){                                                                                                        // for kernel source files in obj array
         const char *filename = obj["kernel_files"][i].asCString();
-        stringstream filepath; filepath << foldername << filename;
+        stringstream filepath; filepath << basepath << foldername << filename;
 		const std::string tmp =  filepath.str();
 		const char* char_filepath = tmp.c_str();
-		program_handle = fopen(char_filepath, "r");                                          if(program_handle == NULL) { perror("Couldn't find the program file"); exit(1); }
+		program_handle = fopen(char_filepath, "r");                                          if(program_handle == NULL) { perror("Couldn't find the program file");
+																															cout << "\tchar_filepath = "<< char_filepath << flush;
+																															exit(1); }
 
         fseek(program_handle, 0, SEEK_END);
         lengths[i] = ftell(program_handle);

@@ -68,34 +68,30 @@ endif()
 add_executable(Dynamic_slam
         main.cpp
 
-        Dynamic_slam/Dynamic_slam.h
-        kernels/kernels_macros.h
-        RunCL/RunCL.h
-        )
+         Dynamic_slam/Dynamic_slam.h
+         Dynamic_slam/Dynamic_slam_class.cpp
+         Dynamic_slam/Dynamic_slam_keyframe.cpp
+         Dynamic_slam/Dynamic_slam_mapping.cpp
+         Dynamic_slam/Dynamic_slam_tracking.cpp
 
-        # (
-        # Dynamic_slam/Dynamic_slam.h
-        # Dynamic_slam/Dynamic_slam_class.cpp
-        # Dynamic_slam/Dynamic_slam_keyframe.cpp
-        # Dynamic_slam/Dynamic_slam_mapping.cpp
-        # Dynamic_slam/Dynamic_slam_tracking.cpp
-        #
-        # kernels/kernels_macros.h
-        # RunCL/RunCL.h
-        # RunCL/RunCL_class.cpp
-        # RunCL/RunCL_DownloadAndSave.cpp
-        # RunCL/RunCL_load_image.cpp
-        # RunCL/RunCL_macro_conversion.cpp
-        # RunCL/RunCL_mapping.cpp
-        # RunCL/RunCL_setup_keyframe.cpp
-        # RunCL/RunCL_tracking.cpp
-        #
-        # utils/print_functions.hpp
-        # utils/print_functions.cpp
-        # utils/convertTransforms.hpp
-        # utils/convertAhandaPovRayToStandard.cpp
-        # utils/convertAhandaPovRayToStandard.h
-        # )
+         kernels/kernels_macros.h
+         RunCL/RunCL.h
+         RunCL/RunCL_class.cpp
+         RunCL/RunCL_DownloadAndSave.cpp
+         RunCL/RunCL_load_image.cpp
+         RunCL/RunCL_macro_conversion.cpp
+         RunCL/RunCL_mapping.cpp
+         RunCL/RunCL_setup_keyframe.cpp
+         RunCL/RunCL_tracking.cpp
+
+         utils/conf_params.hpp
+         utils/conf_params.cpp
+         utils/print_functions.hpp
+         utils/print_functions.cpp
+         utils/convertTransforms.hpp
+         utils/convertAhandaPovRayToStandard.cpp
+         utils/convertAhandaPovRayToStandard.h
+         )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
         OpenCL::OpenCL  

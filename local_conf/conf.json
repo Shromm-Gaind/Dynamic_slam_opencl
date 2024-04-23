@@ -1,34 +1,17 @@
 {
     // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "verbosity":0,                                                     // -1= none, 0=errors only, 1=basic, 2=lots.
     "tiff":false,//true,//false
     "png":true,
-    "out_path":"/home/nick/Programming/OpenCV/MySLAM",                  // /media/hockingsn/Backup/output/Dynamic_slam_opencl
-                                                                        // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
 
     // Setup openCL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    "kernel_folder":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
     "kernel_files":["kernels_macros.h", "kernels.h", "kernels_photometric_cost.cl", "kernels_load_image.cl", "kernels_tracking.cl", "kernels_mapping.cl", "kernels_setup_keyframe.cl"],
                                                                         // array of kernel filenames
 
-    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",
-
-    "opencl_platform":0,        // ThinkPad 2, Clevo 0, WS 0 or 1       // need platform & device GPU choices
-    "opencl_device":0,
-
     // Input data ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "data_path":"/home/nick/Programming/OpenCV/MySLAM/data/",           // /media/hockingsn/Backup/DoNotDelete/DataSets/computer_vision_data/
-                                                                        // /home/hockingsn/Programming/DataSets/computer_vision_data/
-                                                                        // /home/hockingsn/Programming/computer_vision_data/
-                                                                        // /home/nick/programming/ComputerVision/DataSets
-
-    "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_sample",
     "data_file_increment":1,
     "data_file_offset":0,       //475;//10;//46;//462;//380;//0;
 
     // Load images //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     "MipMap_margin":1,          //4
     "num_reductions":5,         //4                                     // Layers-1 of image pyramid in MipMap
     // gaussian_size 3                                                  // Box blurr size. Actually using 5x5 box in the code.
@@ -40,7 +23,6 @@
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
 
     // Mapping parameters - DTAM ////////////////////////////////////////////////////////////////////////////////////////////////////
-
     "regularizer_outer_iter":30,
     "regularizer_inner_iter":10,
     "layers":64,                 //7;//32;//64;//128;//256//255;        // Layers of CostVol. Coarse to fine warping may allow few layers to be selected. Need to store the range.
@@ -72,7 +54,7 @@
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
     "SE_iter_per_layer":2,      //5
-    "SE_iter":2,               //1 //10
+    "SE_iter":2,                //1 //10
     "SE_factor":0.003,          //0.5
     "SE_factor_layer_multiplier":0.75,
 

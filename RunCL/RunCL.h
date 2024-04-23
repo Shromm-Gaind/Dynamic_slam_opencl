@@ -20,6 +20,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
+
+#include "../utils/conf_params.hpp"
 #include "../utils/convertTransforms.hpp"
 #include "../utils/print_functions.hpp"
 #include "../kernels/kernels_macros.h"
@@ -30,6 +32,8 @@ using namespace std;
 class RunCL
 {
 public:
+	//RunCL( conf_params j_params ); // map<string, Json::Value> obj_
+	RunCL( Json::Value obj_ , int_map verbosity_mp );
 
 	Json::Value 		obj;
 	cv::Mat 			resultsMat;
@@ -101,7 +105,7 @@ public:
 
 	///////////////////////////////////// RunCL_class.cpp
 
-	RunCL(map<string, Json::Value> obj_);
+
 	void testOpencl();
 	void getDeviceInfoOpencl(cl_platform_id platform);
 	int  convertToString(const char *filename, std::string& s);
