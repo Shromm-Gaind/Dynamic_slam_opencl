@@ -1,6 +1,8 @@
 #include "RunCL.h"
 
 void RunCL::testOpencl(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::testOpencl"];
+
 	cout << "\n\nRunCL::testOpencl() ############################################################\n\n" << flush;
 	cl_platform_id *platforms;
 	cl_uint num_platforms;
@@ -66,6 +68,8 @@ void RunCL::testOpencl(){
 }
 
 void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
+	int local_verbosity_threshold = verbosity_mp["RunCL::getDeviceInfoOpencl"];
+
 	cout << "\n#RunCL::getDeviceInfoOpencl("<< platform <<")" << "\n" << flush;
 	cl_device_id *devices;
 	cl_uint num_devices, addr_data;
@@ -84,12 +88,16 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 																																			cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
 }
 
-RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp ){ 		// map<string, Json::Value> obj_
-	obj 		= obj_;
-	//resultsMat 	= resultsMat_;																											// NB points to results_Mat object in parent Dynamic_slam object.
+RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){ 		// map<string, Json::Value> obj_
+	obj 		 = obj_;																														// NB save obj_ to class member obj, so that it persists within this RunCL object.
+	verbosity_mp = verbosity_mp_;
+
 	verbosity 	= obj["verbosity"].asInt();
+	int local_verbosity_threshold = verbosity_mp["RunCL::RunCL"];
+
 	tiff 		= obj["tiff"].asBool();
 	png 		= obj["png"].asBool();
+
 																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
 	testOpencl();																															// Displays available OpenCL Platforms and Devices.
 																																			std::cout << "\nRunCL_chk 0\n" << std::flush; // if(verbosity>0)
@@ -154,7 +162,9 @@ RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp ){ 		// map<string, Json::
 
 
 void RunCL::createQueues(){
-    cl_int	status;
+    int local_verbosity_threshold = verbosity_mp["RunCL::createQueues"];
+
+	cl_int	status;
     cl_command_queue_properties prop[] = { 0 };																								//  NB Device (GPU) queues are out-of-order execution -> need synchronization.
     m_queue 	= clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n6 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
 	uload_queue = clCreateCommandQueueWithProperties(m_context, deviceId, prop, &status);	if(status!=CL_SUCCESS)	{cout<<"\n7 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
@@ -163,7 +173,9 @@ void RunCL::createQueues(){
 }
 
 void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
-																																			if(verbosity>-2) cout << "RunCL::createAndBulidProgramFromSource(..) chk 0\n" << flush;
+	int local_verbosity_threshold = verbosity_mp["RunCL::createAndBulidProgramFromSource"];
+
+																																			if(verbosity>-2) cout << "\nRunCL::createAndBulidProgramFromSource(..) chk 0\n" << flush;
 	cl_int 	status;
 	cl_uint	num_files;
     char** 	strings;
@@ -224,6 +236,8 @@ void RunCL::createAndBulidProgramFromSource(cl_device_id *devices){
 }
 
 void RunCL::createKernels(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::createKernels"];
+
 	cl_int err_code;
 
     cvt_color_space_linear_kernel 	= clCreateKernel(m_program, "cvt_color_space_linear", 		&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'cvt_color_space_linear'  kernel not built.\n"	<<flush; exit(0);   }
@@ -255,6 +269,8 @@ void RunCL::createKernels(){
 }
 
 int RunCL::convertToString(const char *filename, std::string& s){
+	int local_verbosity_threshold = verbosity_mp["RunCL::convertToString"];
+
 		size_t size;
 		char*  str;
 		std::fstream f(filename, (std::fstream::in | std::fstream::binary));
@@ -279,13 +295,11 @@ int RunCL::convertToString(const char *filename, std::string& s){
 		return 1;
 	}
 
-void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
-		float mu	= 2.0*std::sqrt((1.0/theta)*epsilon) /L;
-		sigma_d		=  mu / (2.0/ theta)  ;
-		sigma_q 	=  mu / (2.0*epsilon) ;
-}
+
 
 void RunCL::initialize_fp32_params(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::initialize_fp32_params"];
+
 	fp32_params[MAX_INV_DEPTH]	=  1/obj["min_depth"].asFloat()		;																		// This works: Initialize 'params[]' from conf.json .
 	fp32_params[MIN_INV_DEPTH]	=  1/obj["max_depth"].asFloat()		;
 
@@ -303,8 +317,8 @@ void RunCL::initialize_fp32_params(){
 	fp32_params[SE3_LM_B]		=    obj["SE3_LM_B"].asFloat()		;
 }
 
-void RunCL::initialize(){
-	int local_verbosity_threshold = -1;
+void RunCL::initialize_RunCL(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::initialize_RunCL"];// -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
@@ -501,7 +515,7 @@ void RunCL::initialize(){
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_call_kernel"];// -2;
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<
 																																				", layers_sequential="<<layers_sequential<<",  local_work_size="<<local_work_size<<" )_chk0"<<flush;
@@ -524,6 +538,8 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 }
 
 int RunCL::waitForEventAndRelease(cl_event *event){
+	int local_verbosity_threshold = verbosity_mp["RunCL::waitForEventAndRelease"];
+
 											if(verbosity>0) cout << "\nwaitForEventAndRelease_chk0, event="<<event<<" *event="<<*event << flush;
 		cl_int status = CL_SUCCESS;
 		status = clWaitForEvents(1, event); if (status != CL_SUCCESS) { cout << "\nclWaitForEvents status=" << status << ", " <<  checkerror(status) <<"\n" << flush; exit_(status); }
@@ -532,7 +548,7 @@ int RunCL::waitForEventAndRelease(cl_event *event){
 }
 
 void RunCL::allocatemem(){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = verbosity_mp["RunCL::allocatemem"];// 0;
 																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem()_chk0\n"<<flush;
 	stringstream 	ss;
 	ss 				<< "allocatemem";

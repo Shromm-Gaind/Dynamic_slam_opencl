@@ -1,7 +1,7 @@
 #include "RunCL.h"
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
-	int local_verbosity_threshold =-2;
+	int local_verbosity_threshold = verbosity_mp["RunCL::loadFrame"];//-2;
                                                                                                                                             if(verbosity>local_verbosity_threshold) {cout << "\n RunCL::loadFrame_chk 0\n" << flush;}
 	cl_int status;
 	cl_event writeEvt;																										               // WriteBuffer basemem #########
@@ -15,7 +15,7 @@ void RunCL::loadFrame(cv::Mat image){ //getFrame();
 }
 
 void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16FC3, HSV), NB we will use basemem for image upload, and imgmem for the MipMap. RGB is default for .png standard.
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["RunCL::cvt_color_space"];// -1;
                                                                                                                                             if(verbosity>local_verbosity_threshold) {
                                                                                                                                                 cout<<"\n\nRunCL::cvt_color_space()_chk0"<<flush;
                                                                                                                                                 cout << "\n";
@@ -128,7 +128,7 @@ void RunCL::cvt_color_space(){ //getFrame(); basemem(CV_8UC3, RGB)->imgmem(CV16F
 }
 
 void RunCL::img_variance(){
-	int local_verbosity_threshold =-1;
+	int local_verbosity_threshold = verbosity_mp["RunCL::img_variance"];//-1;
 
 	// TODO ? create a class for data, holding buffer, CPU data, stats about the data object, functions for write, read, save, display, & set_kernel_arg ?
 
@@ -201,7 +201,7 @@ void RunCL::img_variance(){
 }
 
 void RunCL::blur_image(){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["RunCL::blur_image"];// -1;
 
 	cl_int res, status;
 	cl_event ev, writeEvt;																																												// blur_image_kernel
@@ -260,7 +260,7 @@ void RunCL::blur_image(){
 
 
 void RunCL::mipmap_linear(){
-	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_linear(..)_chk0"<<flush;}
+	int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_linear"];// -1;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_linear(..)_chk0"<<flush;}
 	cl_event 	writeEvt;//, ev;
 	cl_int 		res; //, status;
 	/*
@@ -303,7 +303,7 @@ void RunCL::mipmap_linear(){
 }
 
 void RunCL::img_gradients(){ //getFrame();
-	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
+	int local_verbosity_threshold = verbosity_mp["RunCL::img_gradients"];// -2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::img_gradients(..)_chk0"<<flush;}
 	cl_int res;
 	size_t num_threads = ceil( (float)(mm_layerstep)/(float)local_work_size ) * local_work_size ;
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n num_threads = " << num_threads << ",   mm_layerstep = " << mm_layerstep << ",  local_work_size = " << local_work_size  <<endl << flush;}
@@ -340,7 +340,7 @@ void RunCL::img_gradients(){ //getFrame();
 }
 
 void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv::Matx44f GT_K2K,   cv::Matx44f GT_pose2pose
-    int local_verbosity_threshold = -4;
+    int local_verbosity_threshold = verbosity_mp["RunCL::load_GT_depth"];// -4;
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::load_GT_depth(..)_chk_0:"<<flush;
     cl_event 		writeEvt;
 	cl_int 	 		status;
@@ -382,7 +382,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
 }
 
 void RunCL::convert_depth(uint invert, float factor){
-	int local_verbosity_threshold = 0;																										if(verbosity>local_verbosity_threshold) {
+	int local_verbosity_threshold = verbosity_mp["RunCL::convert_depth"];/* 0;*/															if(verbosity>local_verbosity_threshold) {
 																																					cout<<"\n\nRunCL::convert_depth(uint invert, float factor)_chk0"<<flush;
 																																					cout<<", invert="<<invert<<",  factor="<<factor<<flush;
 																																			}
@@ -407,7 +407,7 @@ void RunCL::convert_depth(uint invert, float factor){
 }
 
 void RunCL::mipmap_depthmap(cl_mem depthmap_){
-	int local_verbosity_threshold =2;																										if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
+	int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_depthmap"];/*2;	*/									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::mipmap_depthmap(..)_chk0"<<flush;}
 	cl_event 	writeEvt;
 	cl_int 		res;
 

@@ -1,0 +1,40 @@
+{
+                                                                                                    // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
+    "source_filepath":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/",
+
+    // other .json files
+    "params_conf":"local_conf/conf.json",
+    "verbosity_conf":"local_conf/verbosity.json",
+
+    // filepaths for a particular host machine ////////////////////////////////////////////////////
+    "out_path":"/home/nick/Programming/OpenCV/MySLAM/",
+
+     // Setup openCL //////////////////////////////////////////////////////////////////////////////
+    "kernel_folder":"kernels/",
+    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",  //   TODO reconstruct using source_filepath
+
+    "opencl_platform":0,                                                                            // need platform & device GPU choices
+    "opencl_device":0,
+
+    // Input data ////////////////////////////////////////////////////////////////////////////////
+    "data_path":"/home/nick/Programming/OpenCV/MySLAM/data/",
+
+    "data_file":"ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_sample",
+    "data_file_increment":1,
+    "data_file_offset":0       //475;//10;//46;//462;//380;//0;
+}
+// Datasets
+//
+// WS
+// /home/nick/programming/ComputerVision/DataSets/ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_archieve
+// /home/nick/programming/ComputerVision/DataSets/ahanda-icl/LivingRoom'lt kt0'/living_room_traj3_loop
+//
+// ThinkPad
+// /home/nick/Programming/OpenCV/MySLAM/data/ahanda-icl/Trajectory_for_Variable_Frame-Rate/200fps/200fps_GT_sample
+//
+// Source folders
+//
+// ThinkPad
+// /home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl
+//
+//

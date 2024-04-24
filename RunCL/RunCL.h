@@ -34,8 +34,9 @@ class RunCL
 public:
 	//RunCL( conf_params j_params ); // map<string, Json::Value> obj_
 	RunCL( Json::Value obj_ , int_map verbosity_mp );
-
 	Json::Value 		obj;
+	int_map 			verbosity_mp;
+
 	cv::Mat 			resultsMat;
 	int					verbosity;
 	bool				tiff, png;
@@ -123,7 +124,7 @@ public:
 	// 	mipmap_call_kernel( 	depth_cost_vol_kernel, 		m_queue, 	start, 	stop );
 
 	void initialize_fp32_params();
-	void initialize();																													// Setting up buffers & mipmap parameters
+	void initialize_RunCL();																													// Setting up buffers & mipmap parameters
 	void allocatemem();
 
 	void CleanUp();																														// Exit...
@@ -199,8 +200,8 @@ public:
 	/////////////////////////////////////// RunCL_tracking.cpp
 	
 	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 				// Tracking
-	void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
-	void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+	//void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+	//void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
 	void estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop);
 
 	void read_Rho_sq(float Rho_sq_results[8][4]);

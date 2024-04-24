@@ -7,11 +7,11 @@ using namespace std;
 
 Dynamic_slam::~Dynamic_slam(){ };
 
-Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( obj ,  verbosity_mp ) {   //    //     //// conf_params j_params
-	int local_verbosity_threshold = -2;
-	cout << "\nDynamic_slam::Dynamic_slam(..)1 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl( obj_ ,  verbosity_mp_ ) {   //    //     //// conf_params j_params
+	obj = obj_;																																// NB save obj_ to class member obj, so that it persists within this Dynamic_slam object.
+	verbosity_mp = verbosity_mp_;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::Dynamic_slam"];// verbosity_mp["Dynamic_slam"];
 
-	//map<string, Json::Value>obj = obj_;
 	verbosity 					= verbosity_mp["verbosity"];						//	obj["verbosity"]["verbosity"].asInt();
 	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();			//	j_params.int_mp["data_file_offset"];		//
 	invert_GT_depth  			= obj["invert_GT_depth"].asBool();			//	j_params.bool_mp["invert_GT_depth"];		//
@@ -51,7 +51,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( o
 																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 3: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 																																			if(verbosity>1) { imshow("runcl.baseImage",runcl.baseImage); cv::waitKey(-1); }
-	runcl.initialize();
+	runcl.initialize_RunCL();
 	runcl.allocatemem();																													if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
@@ -61,7 +61,8 @@ Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( o
 };
 
 void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
-	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_resultsMat"];// verbosity_mp[""];//-2;																										if(verbosity>local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
+
 	uint reduction 		= obj["sample_layer"].asUInt();		//j_params.int_mp["sample_layer"]; 	//
 	uint SE_iter 		= obj["SE_iter"].asUInt();			//j_params.int_mp["SE_iter"];  		//
 	int rows 			= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
@@ -71,7 +72,7 @@ void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it 
 }
 
 void Dynamic_slam::initialize_camera(){
-	int local_verbosity_threshold = 2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_camera"];// verbosity_mp[""];//2;
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 0:" <<flush;}
 	K = K.zeros();																															// NB In DTAM_opencl, "cameraMatrix" found by convertAhandPovRay, called by fileLoader
 	K.operator()(3,3) = 1;
@@ -108,7 +109,7 @@ void Dynamic_slam::initialize_camera(){
 }
 
 int Dynamic_slam::nextFrame() {
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::nextFrame"];// -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num<<" \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
 	predictFrame();					// updates pose2pose for next frame in cost volume.			//  Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = 0
 	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
@@ -141,7 +142,7 @@ int Dynamic_slam::nextFrame() {
 
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getFrame"];// -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				// # load next image to buffer NB load at position [log_2 index]
 																																				// See CostVol::updateCost(..) & RunCL::calcCostVol(..)
@@ -181,7 +182,7 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 
 
 cv::Matx44f Dynamic_slam::getPose(Mat R, Mat T){																							// Mat R, Mat T, Matx44f& pose  // NB Matx::operator()() does not copy, but creates a submatrix. => would be updated when R & T are updated.
-	int local_verbosity_threshold = 1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getPose"];// 1;
 	cv::Matx44f pose;
 	for (int i=0; i<9; i++) pose.operator()(i/3,i%3) = 1 * R.at<float>(i/3,i%3);															if(verbosity>local_verbosity_threshold) { PRINT_MAT33F(R,);  PRINT_MATX44F(pose,); }
 	for (int i=0; i<3; i++) pose.operator()(i,3)      = T.at<float>(i);
@@ -191,6 +192,8 @@ cv::Matx44f Dynamic_slam::getPose(Mat R, Mat T){																							// Mat R,
 }
 
 cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44f& inv_pose
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getInvPose"];
+
 	cv::Matx44f local_inv_pose;
 	cv::Matx33f local_rotation;
 	cv::Matx31f local_translation;
@@ -221,7 +224,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 }
 
 void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getFrameData"];// -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num <<flush;
 	R.copyTo(old_R);																														// get ground truth frame to frame pose transform
 	T.copyTo(old_T);
@@ -236,7 +239,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
     char        *ch = new char [str.length()+1];
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
-    convertAhandaPovRayToStandard(ch,R,T,cameraMatrix);
+    convertAhandaPovRayToStandard(verbosity_mp, ch,R,T,cameraMatrix);
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\nR=";
 																																				for (int i=0; i<3; i++){
@@ -305,7 +308,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 2,"<<flush;}
 	int r = runcl.baseImage.rows;  //image.rows;
     int c = runcl.baseImage.cols;  //image.cols;
-	depth_GT = loadDepthAhanda(depth[runcl.dataset_frame_num].string(), r,c,cameraMatrix);
+	depth_GT = loadDepthAhanda(verbosity_mp, depth[runcl.dataset_frame_num].string(), r,c,cameraMatrix);
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;}
 	stringstream ss;
 	stringstream png_ss;
@@ -334,7 +337,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 }
 
 void Dynamic_slam::use_GT_pose(){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::use_GT_pose"];// -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose_chk_0,"<<flush;
 	old_K		= old_K_GT;
 	inv_K		= inv_K_GT;

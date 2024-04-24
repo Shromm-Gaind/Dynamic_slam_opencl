@@ -6,15 +6,15 @@
 #include <fstream>
 #include <string.h>
 #include <stdio.h>
+#include "convertAhandaPovRayToStandard.h"
 
 using namespace cv;
 using namespace std;
 Vec3f direction;
 Vec3f upvector;
-void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& cameraMatrix)
-{
-    int verbosity = 0;// TODO link to gobal verbosity
-    int local_verbosity_threshold =2;
+void convertAhandaPovRayToStandard(int_map verbosity_mp, const char *filepath,  Mat& R,  Mat& T, Mat& cameraMatrix){
+    int verbosity = verbosity_mp["verbosity"];//0;//  link to gobal verbosity
+    int local_verbosity_threshold = verbosity_mp["convertAhandaPovRayToStandard"];//2;
     																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 0"<<flush;
 	
     char     text_file_name[600];                                               // open .txt file
@@ -109,7 +109,10 @@ void convertAhandaPovRayToStandard(const char *filepath,  Mat& R,  Mat& T, Mat& 
 	
 }
 
-Mat loadDepthAhanda(string filename, int r,int c,Mat cameraMatrix){
+Mat loadDepthAhanda(int_map verbosity_mp, string filename, int r,int c,Mat cameraMatrix){
+    int verbosity = verbosity_mp["verbosity"];
+    int local_verbosity_threshold = verbosity_mp["loadDepthAhanda"];
+
     ifstream in(filename.c_str());
     int sz=r*c;
     Mat_<float> out(r,c);

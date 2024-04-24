@@ -25,23 +25,21 @@ class Dynamic_slam
 {
   public:
     ~Dynamic_slam();
-    //Dynamic_slam( conf_params j_params ); // map<string, Json::Value> obj_
-    //Dynamic_slam( map<string, Json::Value> obj, int_map verbosity_mp  );
-    Dynamic_slam( Json::Value obj, int_map verbosity_mp  );
-
+    Dynamic_slam(Json::Value obj_, int_map verbosity_mp);
     Json::Value obj;
+    int_map verbosity_mp;
+
     RunCL runcl;
     int verbosity;
     bool invert_GT_depth = false;
     int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter;
     float SE3_Rho_sq_threshold[5][3], SE_factor, SE3_update_dof_weights[6], SE3_update_layer_weights[5];
 
-    //cv::Mat resultsMat;                                           // NB must do initial Mat construction here, before passing pointer to runcl object.
-    cv::Mat resultsMat;
-    void initialize_resultsMat();                                             // used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
+    cv::Mat resultsMat;                                                         // NB must do initial Mat construction here, before passing pointer to runcl object.
+    void initialize_resultsMat();                                               // used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
 
     // camera & pose params
-    const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0}; //  = cv::Matx44f::zeros();//
+    const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0};   //  = cv::Matx44f::zeros();//
     const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
     //const cv::Matx33f Matx33f_zero = {0,0,0,  0,0,0,  0,0,0 };                //  = cv::Matx33f::zeros();//
     //const cv::Matx33f Matx33f_eye  = {1,0,0,  0,1,0,  0,0,1 };
@@ -110,8 +108,8 @@ class Dynamic_slam
     void generate_invPose();
     void generate_SE3_k2k( float _SE3_k2k[96] );
     void update_k2k(Matx61f update_);
-    void estimateSO3();
-    void estimateSE3();
+    //void estimateSO3();
+    //void estimateSE3();
     void estimateSE3_LK();
     void estimateCalibration();
     

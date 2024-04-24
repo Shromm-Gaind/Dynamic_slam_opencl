@@ -7,7 +7,7 @@ using namespace std;
 
 
 void Dynamic_slam::report_GT_pose_error(){ 																									// TODO this could be done in Max44f, without back and forth coversion.
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::report_GT_pose_error"];// -2;
 	pose2pose_accumulated_error_algebra = LieSub(PToLie(pose2pose_accumulated), PToLie(pose2pose_accumulated_GT) ); 						//pose2pose_accumulated_error_algebra 	= pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
 	pose2pose_error_algebra 			= LieSub(PToLie(pose2pose), PToLie(pose2pose_GT)); 													//pose2pose_error_algebra 				= pose2pose_algebra - pose2pose_GT_algebra;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::report_GT_error_chk 0\n" << flush;
@@ -24,7 +24,7 @@ void Dynamic_slam::report_GT_pose_error(){ 																									// TODO this
 }
 
 void Dynamic_slam::display_frame_resluts(){
-	int local_verbosity_threshold = 1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::display_frame_resluts_chk 0\n" << flush;}
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::display_frame_resluts"];// 1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::display_frame_resluts_chk 0\n" << flush;}
 	stringstream ss;
 	ss << "_p2p_error_" ;				for (int i=0; i<6; i++) ss << "," << pose2pose_error_algebra.operator()(i);
 	ss << "_cumulative_error_" ;		for (int i=0; i<6; i++) ss << "," << pose2pose_accumulated_error_algebra.operator()(i);
@@ -32,7 +32,7 @@ void Dynamic_slam::display_frame_resluts(){
 }
 
 void Dynamic_slam::artificial_pose_error(){
-	int local_verbosity_threshold =-2;																										if(verbosity>local_verbosity_threshold){ cout << "\n\nDynamic_slam::artificial_pose_error() chk_0"<<flush; }
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::artificial_pose_error"];//-2;																										if(verbosity>local_verbosity_threshold){ cout << "\n\nDynamic_slam::artificial_pose_error() chk_0"<<flush; }
 	Matx61f pose_step_algebra;
 	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(SE3,0) = obj["Artif_pose_err_algebra"][SE3].asFloat();
 	Matx44f poseStep 	= LieToP_Matx(pose_step_algebra);																					if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(poseStep,);	PRINT_MATX61F(pose_step_algebra,);	PRINT_MATX61F(PToLie(pose2pose),True);  }
@@ -42,7 +42,7 @@ void Dynamic_slam::artificial_pose_error(){
 }
 
 void Dynamic_slam::predictFrame(){
-	int local_verbosity_threshold = -2;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::predictFrame"];/* -2;*/														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				PRINT_MATX44F(K2K,Old);
 																																				PRINT_MATX44F(pose2pose,Old);
 																																			}
@@ -83,7 +83,7 @@ void Dynamic_slam::predictFrame(){
 
 
 cv::Matx44f Dynamic_slam::generate_invK_(cv::Matx44f K_){
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::generate_invK_"];// 0;
 	cv::Matx44f inv_K_;
 
 	float fx   =  K_.operator()(0,0);
@@ -122,7 +122,7 @@ void Dynamic_slam::generate_invK(){ inv_K = generate_invK_(K);  }
 
 
 void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																				// Generates a set of 6 k2k to be used to compute the SE3 maps for the current camera intrinsic matrix.
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::generate_SE3_k2k"];// -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) chk_0" << endl << flush;
 	// SE3
 	//const float res			= ( obj["cameraMatrix"][2].asFloat() + obj["cameraMatrix"][5].asFloat() ) /2.0;
@@ -209,7 +209,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 
 
 void Dynamic_slam::update_k2k(Matx61f update_){
-	int local_verbosity_threshold = -3;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::update_k2k"];// -3;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 1" << flush;
 																																				PRINT_MATX44F(pose2pose,);		PRINT_MATX44F(pose2pose_GT,);
 																																				Matx61f pose2pose_alg_ 			= PToLie(pose2pose);							// Ideal SE3 Incr
@@ -234,9 +234,10 @@ void Dynamic_slam::update_k2k(Matx61f update_){
 																																			}
 }
 
-
+/*
 void Dynamic_slam::estimateSE3(){
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::estimateSE3"];// -2;
+
 	Matx61f old_update = {0,0,0, 0,0,0}, update = {0,0,0, 0,0,0};																			// SE3 Lie Algebra holding the DoF of SE3.
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
 	if (obj["sample_se3_incr"]==true){
@@ -258,13 +259,13 @@ void Dynamic_slam::estimateSE3(){
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::estimateSE3()_chk 1.0" << "\t  iter = " << iter <<
 																																				",\t layer = "<<layer<< ",\t factor = "<<factor<<flush;  }
 		//////////////////////////////////////
-		/*
-		new algorithm
-		1st sample Rho_sq, until(new_Rho < old Rho)
-			{ reduce the step size 	}
-		2nd measure gradients
-		3rd compute the next step
-		*/
+
+		//new algorithm
+		//1st sample Rho_sq, until(new_Rho < old Rho)
+		//	{ reduce the step size 	}
+		//2nd measure gradients
+		//3rd compute the next step
+
 		if (iter%3==0 && iter>0) {layer --; factor *= 0.75;}
 		float 	Rho_sq_results[8][tracking_num_colour_channels] 	= {{0}};
 		const float count[4] = {(float)iter, (float)layer, factor,0};
@@ -377,10 +378,11 @@ void Dynamic_slam::estimateSE3(){
 	}
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::estimateSE3()_chk 8  Finished\n" << flush;}
 }
-
+*/
 
 void Dynamic_slam::estimateSE3_LK(){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::estimateSE3_LK"];// -1;
+
 	Matx61f old_update = {0,0,0, 0,0,0}, update = {0,0,0, 0,0,0};																			// SE3 Lie Algebra holding the DoF of SE3.
 	cv::Matx44f SE3Incr_matx;																												// SE3 transformation matrix.
 	if (obj["sample_se3_incr"]==true){

@@ -58,8 +58,7 @@ int main(int argc, char *argv[])
 	Json::Value obj;
 	conf_params j_params(argv[1], obj);
 	j_params.display_params();
-	cout << "\n obj = " << obj << endl << flush;
-	cout << "\nArtif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+	//cout << "\n obj = " << obj << endl << flush;
 
 	int verbosity_ 		= j_params.verbosity_mp["verbosity"]; 				//obj["verbosity"]["verbosity"].asInt() ;			//  					// -1= none, 0=errors only, 1=basic, 2=lots.
 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;						// j_params.int_mp["imagesPerCV"]; 			//

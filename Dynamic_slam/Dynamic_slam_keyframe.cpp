@@ -8,7 +8,7 @@ using namespace std;
 void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
 	cout << "\nDynamic_slam::initialize_keyframe_from_GT(..)0 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
 
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_GT"];// -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
 	keyframe_pose_GT 		= pose_GT;
 	keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
@@ -38,7 +38,7 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 }
 
 void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
-	int local_verbosity_threshold = -1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_tracking()_chk 0" << flush;}
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_tracking"];// -1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_tracking()_chk 0" << flush;}
 	keyframe_old_pose		= keyframe_pose;
 	keyframe_old_K			= keyframe_K;
 	keyframe_pose 			= pose;
@@ -61,7 +61,7 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
-	int local_verbosity_threshold = -1;
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_new_keyframe"];// -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_new_keyframe()_chk 0,  runcl.dataset_frame_num = "<< runcl.dataset_frame_num << flush;}
 	runcl.initialize_fp32_params();
 	//runcl.QD_count 	= 0; // TODO NB these are reset in Dynamic_slam::nextFrame()

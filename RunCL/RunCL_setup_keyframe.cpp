@@ -1,18 +1,19 @@
 #include "RunCL.h"
 
-
+/*
 void RunCL::predictFrame(){ //predictFrame();
-
+	int local_verbosity_threshold = verbosity_mp["RunCL::predictFrame"];
 
 }
+*/
 
 void RunCL::estimateCalibration(){ //estimateCalibration(); 		// own thread, one iter.
-
+	int local_verbosity_threshold = verbosity_mp["RunCL::estimateCalibration"];
 
 }
 
 void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){																		// NB must be used _before_ initializing the new cost_volume, because it uses keyframe_imgmem.
-	int local_verbosity_threshold = 0;
+	int local_verbosity_threshold = verbosity_mp["RunCL::transform_depthmap"];// 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_depthmap(..)_chk0 ."<<flush;}
 	cl_event writeEvt;
 	cl_int status;
@@ -58,7 +59,7 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 
 void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 															// Uses the current frame as the keyframe for a new depth cost volume.
 																																			// Dynamic_slam::initialize_from_GT(), Dynamic_slam::initialize_new_keyframe();
-	int local_verbosity_threshold = -2;
+	int local_verbosity_threshold = verbosity_mp["RunCL::initializeDepthCostVol"];// -2;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::initializeDepthCostVol(..)_chk0 ."<<flush;}
 	costvol_frame_num = 0;
 	cl_event writeEvt, ev;																													// Load keyframe
