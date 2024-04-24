@@ -1,5 +1,74 @@
 #include "RunCL.h"
 
+RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){ 		// map<string, Json::Value> obj_
+	obj 		 	= obj_;																														// NB save obj_ to class member obj, so that it persists within this RunCL object.
+	verbosity_mp 	= verbosity_mp_;
+	verbosity 						= obj["verbosity"].asInt();
+	tiff 							= obj["tiff"].asBool();
+	png 							= obj["png"].asBool();
+	int local_verbosity_threshold 	= verbosity_mp["RunCL::RunCL"];
+																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
+	testOpencl();																															// Displays available OpenCL Platforms and Devices.
+																																			std::cout << "\nRunCL_chk 0\n" << std::flush; // if(verbosity>0)
+																																			std::cout << "\nverbosity = "<<verbosity<< std::flush;
+
+																																			/*Step1: Getting platforms and choose an available one.*/////////
+	cl_uint 		numPlatforms;																											//the NO. of platforms
+	cl_platform_id 	platform 		= NULL;																									//the chosen platform
+	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); };
+	uint			conf_platform	= obj["opencl_platform"].asUInt();																		if(verbosity>0) cout << "numPlatforms = " << numPlatforms << ", conf_platform=" << conf_platform << "\n" << flush;
+
+
+
+	if (numPlatforms > conf_platform){
+		cl_platform_id* platforms 	= (cl_platform_id*)malloc(numPlatforms * sizeof(cl_platform_id));
+
+		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);		if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
+
+		platform 					= platforms[ conf_platform ];																			if(verbosity>0){ for(int i=0; i<numPlatforms; i++) { cout << "\nplatforms["<<i<<"] = "<<platforms[i]; }
+																																								 cout <<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
+																																							}
+		free(platforms);
+	} else {																																cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
+
+	cl_uint			numDevices		= 0;																									/*Step 2:Query the platform.*//////////////////////////////////
+	cl_device_id    *devices;
+	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\n3 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	uint conf_device = obj["opencl_device"].asUInt();
+
+	if (numDevices > conf_device){																											/*Choose the device*/
+		devices = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));
+		status  = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);  if (status != CL_SUCCESS) {cout << "\n4 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
+	}else{                                                                                  cout << "\n\nRunCL::RunCL(..), (numDevices <= conf_device)\n" << flush; exit(status);}
+
+	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};													/*Step 3: Create context.*////////////////////////////////////
+	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) {cout<<"\n5 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
+
+	deviceId  	= devices[conf_device];																										/*Step 4: Create command queue & associate context.*///////////
+																																			if(verbosity>0){
+																																				cout << "\ndeviceId = " << deviceId <<"\n" <<flush;
+																																				cl_int err;
+																																				cl_uint addr_data;
+																																				char name_data[48], ext_data[4096];
+																																				err = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, sizeof(name_data), name_data, NULL);
+																																				if(err < 0) {perror("Couldn't read extension data"); exit(1); }
+																																				clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, sizeof(ext_data), &addr_data, NULL);
+																																				clGetDeviceInfo(deviceId, CL_DEVICE_EXTENSIONS, sizeof(ext_data), ext_data, NULL);
+																																				printf("\nDevice num: %i \nNAME: %s\nADDRESS_WIDTH: %u\nEXTENSIONS: %s \n", conf_device, name_data, addr_data, ext_data);
+																																			}
+	createQueues();
+																																			// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
+																																			// NB Might want to create command queues on multiple platforms & devices.
+																																			// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
+
+	createAndBulidProgramFromSource( devices ); 																							/*Step 5: Create program object*/////////////
+																																			/*Step 6: Build program.*////////////////////
+																																			/*Step 7: Create kernel objects.*////////////
+	createKernels();
+	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
+	createFolders( );																														if(verbosity>0) cout << "RunCL_constructor finished ##########################\n" << flush;
+}
+
 void RunCL::testOpencl(){
 	int local_verbosity_threshold = verbosity_mp["RunCL::testOpencl"];
 
@@ -87,79 +156,6 @@ void RunCL::getDeviceInfoOpencl(cl_platform_id platform){
 	free(devices);
 																																			cout << "\nRunCL::getDeviceInfoOpencl("<< platform <<") finished\n" <<flush;
 }
-
-RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){ 		// map<string, Json::Value> obj_
-	obj 		 = obj_;																														// NB save obj_ to class member obj, so that it persists within this RunCL object.
-	verbosity_mp = verbosity_mp_;
-
-	verbosity 	= obj["verbosity"].asInt();
-	int local_verbosity_threshold = verbosity_mp["RunCL::RunCL"];
-
-	tiff 		= obj["tiff"].asBool();
-	png 		= obj["png"].asBool();
-
-																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
-	testOpencl();																															// Displays available OpenCL Platforms and Devices.
-																																			std::cout << "\nRunCL_chk 0\n" << std::flush; // if(verbosity>0)
-																																			std::cout << "\nverbosity = "<<verbosity<< std::flush;
-
-																																			/*Step1: Getting platforms and choose an available one.*/////////
-	cl_uint 		numPlatforms;																											//the NO. of platforms
-	cl_platform_id 	platform 		= NULL;																									//the chosen platform
-	cl_int			status 			= clGetPlatformIDs(0, NULL, &numPlatforms);				if (status != CL_SUCCESS){ cout << "Error: Getting platforms!" << endl; exit_(status); };
-	uint			conf_platform	= obj["opencl_platform"].asUInt();																		if(verbosity>0) cout << "numPlatforms = " << numPlatforms << ", conf_platform=" << conf_platform << "\n" << flush;
-
-
-
-	if (numPlatforms > conf_platform){
-		cl_platform_id* platforms 	= (cl_platform_id*)malloc(numPlatforms * sizeof(cl_platform_id));
-
-		status 	 					= clGetPlatformIDs(numPlatforms, platforms, NULL);		if (status != CL_SUCCESS){ cout << "Error: Getting platformsIDs" << endl; exit_(status); }
-
-		platform 					= platforms[ conf_platform ];																			if(verbosity>0){ for(int i=0; i<numPlatforms; i++) { cout << "\nplatforms["<<i<<"] = "<<platforms[i]; }
-																																								 cout <<"\nSelected platform number :"<<conf_platform<<", cl_platform_id platform = " << platform<<"\n"<<flush;
-																																							}
-		free(platforms);
-	} else {																																cout<<"Platform num "<<conf_platform<<" not available."<<flush; exit(0);}
-
-	cl_uint			numDevices		= 0;																									/*Step 2:Query the platform.*//////////////////////////////////
-	cl_device_id    *devices;
-	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);			if (status != CL_SUCCESS) {cout << "\n3 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
-	uint conf_device = obj["opencl_device"].asUInt();
-
-	if (numDevices > conf_device){																											/*Choose the device*/
-		devices = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));
-		status  = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);  if (status != CL_SUCCESS) {cout << "\n4 status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
-	}else{                                                                                  cout << "\n\nRunCL::RunCL(..), (numDevices <= conf_device)\n" << flush; exit(status);}
-
-	cl_context_properties cps[3]={CL_CONTEXT_PLATFORM,(cl_context_properties)platform,0};													/*Step 3: Create context.*////////////////////////////////////
-	m_context 	= clCreateContextFromType( cps, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);	if(status!=0) {cout<<"\n5 status="<<checkerror(status)<<"\n"<<flush;exit_(status);}
-
-	deviceId  	= devices[conf_device];																										/*Step 4: Create command queue & associate context.*///////////
-																																			if(verbosity>0){
-																																				cout << "\ndeviceId = " << deviceId <<"\n" <<flush;
-																																				cl_int err;
-																																				cl_uint addr_data;
-																																				char name_data[48], ext_data[4096];
-																																				err = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, sizeof(name_data), name_data, NULL);
-																																				if(err < 0) {perror("Couldn't read extension data"); exit(1); }
-																																				clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, sizeof(ext_data), &addr_data, NULL);
-																																				clGetDeviceInfo(deviceId, CL_DEVICE_EXTENSIONS, sizeof(ext_data), ext_data, NULL);
-																																				printf("\nDevice num: %i \nNAME: %s\nADDRESS_WIDTH: %u\nEXTENSIONS: %s \n", conf_device, name_data, addr_data, ext_data);
-																																			}
-	createQueues();
-																																			// Multiple queues for latency hiding: Upload, Download, Mapping, Tracking,... autocalibration, SIRFS, SPMP
-																																			// NB Might want to create command queues on multiple platforms & devices.
-																																			// NB might want to divde a task across multiple MPI Ranks on a multi-GPU WS or cluster.
-
-	createAndBulidProgramFromSource( devices ); 																							/*Step 5: Create program object*/////////////
-																																			/*Step 6: Build program.*////////////////////
-																																			/*Step 7: Create kernel objects.*////////////
-	createKernels();
-	basemem=imgmem=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
-	createFolders( );																														if(verbosity>0) cout << "RunCL_constructor finished ##########################\n" << flush;
-}
-
 
 void RunCL::createQueues(){
     int local_verbosity_threshold = verbosity_mp["RunCL::createQueues"];
@@ -250,14 +246,10 @@ void RunCL::createKernels(){
 	img_grad_kernel					= clCreateKernel(m_program, "img_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'img_grad'  kernel not built.\n"					<<flush; exit(0);   }
 	comp_param_maps_kernel			= clCreateKernel(m_program, "compute_param_maps", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'compute_param_maps'  kernel not built.\n"		<<flush; exit(0);   }
 	se3_rho_sq_kernel				= clCreateKernel(m_program, "se3_Rho_sq", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'se3_Rho_sq'  kernel not built.\n"				<<flush; exit(0);   }
-	so3_grad_kernel					= clCreateKernel(m_program, "so3_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'so3_grad'  kernel not built.\n"					<<flush; exit(0);   }
-	se3_grad_kernel					= clCreateKernel(m_program, "se3_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'se3_grad'  kernel not built.\n"					<<flush; exit(0);   }
-
 	se3_lk_grad_kernel				= clCreateKernel(m_program, "se3_LK_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'se3_LK_grad'  kernel not built.\n"				<<flush; exit(0);   }
 
 	atomic_test1_kernel				= clCreateKernel(m_program, "atomic_test1", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'atomic_test1'  kernel not built.\n"				<<flush; exit(0);   }
 
-	//invert_depth_kernel				= clCreateKernel(m_program, "invert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError ''  kernel not built.\n"						<<flush; exit(0);   }
 	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'convert_depth'  kernel not built.\n"			<<flush; exit(0);   }
 	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'transform_depthmap'  kernel not built.\n"		<<flush; exit(0);   }
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'DepthCostVol'  kernel not built.\n"				<<flush; exit(0);   }
@@ -271,31 +263,29 @@ void RunCL::createKernels(){
 int RunCL::convertToString(const char *filename, std::string& s){
 	int local_verbosity_threshold = verbosity_mp["RunCL::convertToString"];
 
-		size_t size;
-		char*  str;
-		std::fstream f(filename, (std::fstream::in | std::fstream::binary));
-		if (f.is_open() ) {
-			size_t fileSize;
-			f.seekg(0, std::fstream::end);
-			size = fileSize = (size_t)f.tellg();
-			f.seekg(0, std::fstream::beg);
-			str = new char[size + 1];
-			if (!str) {
-				f.close();
-				return 0;
-			}
-			f.read(str, fileSize);
+	size_t size;
+	char*  str;
+	std::fstream f(filename, (std::fstream::in | std::fstream::binary));
+	if (f.is_open() ) {
+		size_t fileSize;
+		f.seekg(0, std::fstream::end);
+		size = fileSize = (size_t)f.tellg();
+		f.seekg(0, std::fstream::beg);
+		str = new char[size + 1];
+		if (!str) {
 			f.close();
-			str[size] = '\0';
-			s = str;
-			delete[] str;
 			return 0;
 		}
-											cout << "Error: failed to open file\n:" << filename << endl;
-		return 1;
+		f.read(str, fileSize);
+		f.close();
+		str[size] = '\0';
+		s = str;
+		delete[] str;
+		return 0;
 	}
-
-
+										cout << "Error: failed to open file\n:" << filename << endl;
+	return 1;
+}
 
 void RunCL::initialize_fp32_params(){
 	int local_verbosity_threshold = verbosity_mp["RunCL::initialize_fp32_params"];
@@ -733,93 +723,92 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 																																		cout<<"\nRunCL::~RunCL_chk0_called"<<flush;
 	cl_int status;																														// release memory
 
-	status = clReleaseMemObject(imgmem);						if (status != CL_SUCCESS)	{ cout << "\nimgmem                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(imgmem_blurred);				if (status != CL_SUCCESS)	{ cout << "\nimgmem                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(gxmem);							if (status != CL_SUCCESS)	{ cout << "\ngxmem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(gymem);							if (status != CL_SUCCESS)	{ cout << "\ngymem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(g1mem);							if (status != CL_SUCCESS)	{ cout << "\ng1mem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(k_map_mem);						if (status != CL_SUCCESS)	{ cout << "\nk_map_mem                      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(dist_map_mem);					if (status != CL_SUCCESS)	{ cout << "\ndist_map_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(SE3_grad_map_mem);				if (status != CL_SUCCESS)	{ cout << "\nSE3_grad_map_mem               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(keyframe_SE3_grad_map_mem);		if (status != CL_SUCCESS)	{ cout << "\nSE3_incr_map_mem               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(SE3_weight_map_mem);			if (status != CL_SUCCESS)	{ cout << "\nSE3_weight_map_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(imgmem);						if (status != CL_SUCCESS)	{ cout << "\nimgmem                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_01"<<flush;
+	status = clReleaseMemObject(imgmem_blurred);				if (status != CL_SUCCESS)	{ cout << "\nimgmem_blurred                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_02"<<flush;
+	status = clReleaseMemObject(gxmem);							if (status != CL_SUCCESS)	{ cout << "\ngxmem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_03"<<flush;
+	status = clReleaseMemObject(gymem);							if (status != CL_SUCCESS)	{ cout << "\ngymem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_04"<<flush;
+	status = clReleaseMemObject(g1mem);							if (status != CL_SUCCESS)	{ cout << "\ng1mem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_05"<<flush;
+	status = clReleaseMemObject(k_map_mem);						if (status != CL_SUCCESS)	{ cout << "\nk_map_mem                      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_06"<<flush;
+	status = clReleaseMemObject(dist_map_mem);					if (status != CL_SUCCESS)	{ cout << "\ndist_map_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_07"<<flush;
+	status = clReleaseMemObject(SE3_grad_map_mem);				if (status != CL_SUCCESS)	{ cout << "\nSE3_grad_map_mem               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_08"<<flush;
+	status = clReleaseMemObject(keyframe_SE3_grad_map_mem);		if (status != CL_SUCCESS)	{ cout << "\nkeyframe_SE3_grad_map_mem      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_09"<<flush;
+	status = clReleaseMemObject(SE3_weight_map_mem);			if (status != CL_SUCCESS)	{ cout << "\nSE3_weight_map_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_10"<<flush;
 
-	status = clReleaseMemObject(SE3_incr_map_mem);				if (status != CL_SUCCESS)	{ cout << "\nSE3_incr_map_mem               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(SE3_map_mem);					if (status != CL_SUCCESS)	{ cout << "\nSE3_map_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(basemem);						if (status != CL_SUCCESS)	{ cout << "\nbasemem                        status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(depth_mem);						if (status != CL_SUCCESS)	{ cout << "\ndepth_mem                      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(depth_mem_GT);					if (status != CL_SUCCESS)	{ cout << "\ndepth_mem_GT                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(keyframe_depth_mem);			if (status != CL_SUCCESS)	{ cout << "\nkeyframe_depth_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(keyframe_depth_mem_GT);			if (status != CL_SUCCESS)	{ cout << "\nkeyframe_depth_mem_GT          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(keyframe_imgmem);				if (status != CL_SUCCESS)	{ cout << "\nkeyframe_imgmem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(keyframe_imgmem_HSV_grad);		if (status != CL_SUCCESS)	{ cout << "\nkeyframe_imgmem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(keyframe_g1mem);				if (status != CL_SUCCESS)	{ cout << "\nkeyframe_g1mem                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.2"<<flush;
-	status = clReleaseMemObject(dmem);							if (status != CL_SUCCESS)	{ cout << "\ndmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.3"<<flush;
-	status = clReleaseMemObject(amem);							if (status != CL_SUCCESS)	{ cout << "\namem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.4"<<flush;
-	status = clReleaseMemObject(lomem);							if (status != CL_SUCCESS)	{ cout << "\nlomem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.5"<<flush;
-	status = clReleaseMemObject(himem);							if (status != CL_SUCCESS)	{ cout << "\nhimem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.6"<<flush;
-	status = clReleaseMemObject(qmem);							if (status != CL_SUCCESS)	{ cout << "\ndmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.7"<<flush;
-	status = clReleaseMemObject(cdatabuf);						if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.8"<<flush;
-	status = clReleaseMemObject(cdatabuf_8chan);				if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.8"<<flush;
-	status = clReleaseMemObject(hdatabuf);						if (status != CL_SUCCESS)	{ cout << "\nhdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.9"<<flush;
-	status = clReleaseMemObject(img_sum_buf);					if (status != CL_SUCCESS)	{ cout << "\nhdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.10"<<flush;
-	status = clReleaseMemObject(fp32_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nfp32_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.11"<<flush;
-	status = clReleaseMemObject(k2kbuf);						if (status != CL_SUCCESS)	{ cout << "\nk2kbuf                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.12"<<flush;
-	status = clReleaseMemObject(SO3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.13"<<flush;
-	status = clReleaseMemObject(SE3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.13"<<flush;
-	status = clReleaseMemObject(uint_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nuint_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.14"<<flush;
-	status = clReleaseMemObject(mipmap_buf);					if (status != CL_SUCCESS)	{ cout << "\nmipmap_buf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.15"<<flush;
-	status = clReleaseMemObject(gaussian_buf);					if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.16"<<flush;
-	status = clReleaseMemObject(se3_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.17"<<flush;
-	status = clReleaseMemObject(se3_sum2_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum2_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
-	status = clReleaseMemObject(se3_weight_sum_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_weight_sum_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.18"<<flush;
+	status = clReleaseMemObject(SE3_incr_map_mem);				if (status != CL_SUCCESS)	{ cout << "\nSE3_incr_map_mem               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_11"<<flush;
+	status = clReleaseMemObject(SE3_map_mem);					if (status != CL_SUCCESS)	{ cout << "\nSE3_map_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_12"<<flush;
+	status = clReleaseMemObject(basemem);						if (status != CL_SUCCESS)	{ cout << "\nbasemem                        status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_13"<<flush;
+	status = clReleaseMemObject(depth_mem);						if (status != CL_SUCCESS)	{ cout << "\ndepth_mem                      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_14"<<flush;
+	status = clReleaseMemObject(depth_mem_GT);					if (status != CL_SUCCESS)	{ cout << "\ndepth_mem_GT                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_15"<<flush;
+	status = clReleaseMemObject(keyframe_depth_mem);			if (status != CL_SUCCESS)	{ cout << "\nkeyframe_depth_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_16"<<flush;
+	status = clReleaseMemObject(keyframe_depth_mem_GT);			if (status != CL_SUCCESS)	{ cout << "\nkeyframe_depth_mem_GT          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_17"<<flush;
+	status = clReleaseMemObject(keyframe_imgmem);				if (status != CL_SUCCESS)	{ cout << "\nkeyframe_imgmem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_18"<<flush;
+	status = clReleaseMemObject(keyframe_imgmem_HSV_grad);		if (status != CL_SUCCESS)	{ cout << "\nkeyframe_imgmem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_19"<<flush;
+	status = clReleaseMemObject(keyframe_g1mem);				if (status != CL_SUCCESS)	{ cout << "\nkeyframe_g1mem                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_20"<<flush;
+	status = clReleaseMemObject(dmem);							if (status != CL_SUCCESS)	{ cout << "\ndmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_21"<<flush;
+	status = clReleaseMemObject(amem);							if (status != CL_SUCCESS)	{ cout << "\namem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_22"<<flush;
+	status = clReleaseMemObject(lomem);							if (status != CL_SUCCESS)	{ cout << "\nlomem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_23"<<flush;
+	status = clReleaseMemObject(himem);							if (status != CL_SUCCESS)	{ cout << "\nhimem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_24"<<flush;
+	status = clReleaseMemObject(qmem);							if (status != CL_SUCCESS)	{ cout << "\ndmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_25"<<flush;
+	status = clReleaseMemObject(cdatabuf);						if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_26"<<flush;
+	status = clReleaseMemObject(cdatabuf_8chan);				if (status != CL_SUCCESS)	{ cout << "\ncdatabuf_8chan                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_27"<<flush;
+	status = clReleaseMemObject(hdatabuf);						if (status != CL_SUCCESS)	{ cout << "\nhdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_28"<<flush;
+	status = clReleaseMemObject(img_sum_buf);					if (status != CL_SUCCESS)	{ cout << "\nimg_sum_buf                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_29"<<flush;
+	status = clReleaseMemObject(fp32_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nfp32_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_30"<<flush;
+	status = clReleaseMemObject(k2kbuf);						if (status != CL_SUCCESS)	{ cout << "\nk2kbuf                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_31"<<flush;
+	status = clReleaseMemObject(SO3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSO3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_32"<<flush;
+	status = clReleaseMemObject(SE3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_33"<<flush;
+	status = clReleaseMemObject(uint_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nuint_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_34"<<flush;
+	status = clReleaseMemObject(mipmap_buf);					if (status != CL_SUCCESS)	{ cout << "\nmipmap_buf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_35"<<flush;
+	status = clReleaseMemObject(gaussian_buf);					if (status != CL_SUCCESS)	{ cout << "\ngaussian_buf                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_36"<<flush;
+	status = clReleaseMemObject(se3_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_37"<<flush;
+	status = clReleaseMemObject(se3_sum2_mem);					if (status != CL_SUCCESS)	{ cout << "\nse3_sum2_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_38"<<flush;
+	status = clReleaseMemObject(se3_weight_sum_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_weight_sum_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_39"<<flush;
 
-	status = clReleaseMemObject(SE3_rho_map_mem	);				if (status != CL_SUCCESS)	{ cout << "\nSE3_rho_map_mem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19"<<flush;
-	status = clReleaseMemObject(se3_sum_rho_sq_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_sum_rho_sq_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.19.5"<<flush;
-	status = clReleaseMemObject(img_stats_buf);					if (status != CL_SUCCESS)	{ cout << "\nimg_stats_buf                  status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.20"<<flush;
-	status = clReleaseMemObject(pix_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\npix_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.21"<<flush;
-	status = clReleaseMemObject(var_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\nvar_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.22"<<flush;
-	status = clReleaseMemObject(HSV_grad_mem);					if (status != CL_SUCCESS)	{ cout << "\nHSV_grad_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(dmem_disparity);				if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
-	status = clReleaseMemObject(dmem_disparity_sum);			if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity_sum             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(SE3_rho_map_mem	);				if (status != CL_SUCCESS)	{ cout << "\nSE3_rho_map_mem                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_40"<<flush;
+	status = clReleaseMemObject(se3_sum_rho_sq_mem);			if (status != CL_SUCCESS)	{ cout << "\nse3_sum_rho_sq_mem             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_41"<<flush;
+	status = clReleaseMemObject(img_stats_buf);					if (status != CL_SUCCESS)	{ cout << "\nimg_stats_buf                  status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_42"<<flush;
+	status = clReleaseMemObject(pix_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\npix_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_43"<<flush;
+	status = clReleaseMemObject(var_sum_mem);					if (status != CL_SUCCESS)	{ cout << "\nvar_sum_mem                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_44"<<flush;
+	status = clReleaseMemObject(HSV_grad_mem);					if (status != CL_SUCCESS)	{ cout << "\nHSV_grad_mem                   status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_45"<<flush;
+	status = clReleaseMemObject(dmem_disparity);				if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_45"<<flush;
+	status = clReleaseMemObject(dmem_disparity_sum);			if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity_sum             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_47"<<flush;
 
-	status = clReleaseMemObject(atomic_test1_buf);				if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity_sum             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.1"<<flush;
+	status = clReleaseMemObject(atomic_test1_buf);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_buf               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_48"<<flush;
 
 
 	// release kernels
-	status = clReleaseKernel(cvt_color_space_linear_kernel);	if (status != CL_SUCCESS)	{ cout << "\ncvt_color_space_linear_kernel 	status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.23"<<flush;
-	status = clReleaseKernel(img_variance_kernel);				if (status != CL_SUCCESS)	{ cout << "\nimg_variance_kernel 			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.24"<<flush;
-	status = clReleaseKernel(reduce_kernel);					if (status != CL_SUCCESS)	{ cout << "\nreduce_kernel 					status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.25"<<flush;
-	status = clReleaseKernel(mipmap_float4_kernel);				if (status != CL_SUCCESS)	{ cout << "\nmipmap_float4_kernel 			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.26"<<flush;
-	status = clReleaseKernel(img_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nimg_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.27"<<flush;
-	status = clReleaseKernel(comp_param_maps_kernel);			if (status != CL_SUCCESS)	{ cout << "\ncomp_param_maps_kernel 		status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.28"<<flush;
-	status = clReleaseKernel(se3_rho_sq_kernel);				if (status != CL_SUCCESS)	{ cout << "\nso3_grad_kernel  				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(so3_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nso3_grad_kernel  				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(se3_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(se3_lk_grad_kernel);				if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
+	status = clReleaseKernel(cvt_color_space_linear_kernel);	if (status != CL_SUCCESS)	{ cout << "\ncvt_color_space_linear_kernel 	status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_49"<<flush;
+	status = clReleaseKernel(img_variance_kernel);				if (status != CL_SUCCESS)	{ cout << "\nimg_variance_kernel 			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_50"<<flush;
+	status = clReleaseKernel(reduce_kernel);					if (status != CL_SUCCESS)	{ cout << "\nreduce_kernel 					status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_51"<<flush;
+	status = clReleaseKernel(mipmap_float4_kernel);				if (status != CL_SUCCESS)	{ cout << "\nmipmap_float4_kernel 			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_52"<<flush;
+	status = clReleaseKernel(img_grad_kernel);					if (status != CL_SUCCESS)	{ cout << "\nimg_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_53"<<flush;
+	status = clReleaseKernel(comp_param_maps_kernel);			if (status != CL_SUCCESS)	{ cout << "\ncomp_param_maps_kernel 		status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_54"<<flush;
+	status = clReleaseKernel(se3_rho_sq_kernel);				if (status != CL_SUCCESS)	{ cout << "\nse3_rho_sq_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_55"<<flush;
 
-	status = clReleaseKernel(invert_depth_kernel);				if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(transform_depthmap_kernel);		if (status != CL_SUCCESS)	{ cout << "\ntransform_depthmap_kernel 		status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(depth_cost_vol_kernel);			if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(updateQD_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(updateG_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(updateA_kernel);					if (status != CL_SUCCESS)	{ cout << "\nse3_grad_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
-	status = clReleaseKernel(measureDepthFit_kernel);			if (status != CL_SUCCESS)	{ cout << "\nmeasureDepthFit_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
+	status = clReleaseKernel(se3_lk_grad_kernel);				if (status != CL_SUCCESS)	{ cout << "\nse3_lk_grad_kernel 			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_58"<<flush;
 
-	status = clReleaseKernel(atomic_test1_kernel);				if (status != CL_SUCCESS)	{ cout << "\nmeasureDepthFit_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.29"<<flush;
+	status = clReleaseKernel(invert_depth_kernel);				if (status != CL_SUCCESS)	{ cout << "\ninvert_depth_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_59"<<flush;
+	status = clReleaseKernel(transform_depthmap_kernel);		if (status != CL_SUCCESS)	{ cout << "\ntransform_depthmap_kernel 		status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_60"<<flush;
+	status = clReleaseKernel(depth_cost_vol_kernel);			if (status != CL_SUCCESS)	{ cout << "\ndepth_cost_vol_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_61"<<flush;
+	status = clReleaseKernel(updateQD_kernel);					if (status != CL_SUCCESS)	{ cout << "\nupdateQD_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_62"<<flush;
+	status = clReleaseKernel(updateG_kernel);					if (status != CL_SUCCESS)	{ cout << "\nupdateG_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_63"<<flush;
+	status = clReleaseKernel(updateA_kernel);					if (status != CL_SUCCESS)	{ cout << "\nupdateA_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_64"<<flush;
+	status = clReleaseKernel(measureDepthFit_kernel);			if (status != CL_SUCCESS)	{ cout << "\nmeasureDepthFit_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_65"<<flush;
+
+	status = clReleaseKernel(atomic_test1_kernel);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_66"<<flush;
 
 
 	// release command queues
-	status = clReleaseCommandQueue(m_queue);                   if (status != CL_SUCCESS)	{ cout << "\nm_queue                        status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.30"<<flush;
-	status = clReleaseCommandQueue(uload_queue);               if (status != CL_SUCCESS)	{ cout << "\nuload_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.31"<<flush;
-	status = clReleaseCommandQueue(dload_queue);               if (status != CL_SUCCESS)	{ cout << "\ndload_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.32"<<flush;
-	status = clReleaseCommandQueue(track_queue);               if (status != CL_SUCCESS)	{ cout << "\ntrack_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.33"<<flush;
+	status = clReleaseCommandQueue(m_queue);                   if (status != CL_SUCCESS)	{ cout << "\nm_queue                        status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_67"<<flush;
+	status = clReleaseCommandQueue(uload_queue);               if (status != CL_SUCCESS)	{ cout << "\nuload_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_68"<<flush;
+	status = clReleaseCommandQueue(dload_queue);               if (status != CL_SUCCESS)	{ cout << "\ndload_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_69"<<flush;
+	status = clReleaseCommandQueue(track_queue);               if (status != CL_SUCCESS)	{ cout << "\ntrack_queue 	                status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_70"<<flush;
 
 	// release Program
-	clReleaseProgram(m_program);	if (status != CL_SUCCESS)	{ cout << "\nm_program 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.34"<<flush;
+	clReleaseProgram(m_program);	if (status != CL_SUCCESS)	{ cout << "\nm_program 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_71"<<flush;
 
 	// release context
-	clReleaseContext(m_context);	if (status != CL_SUCCESS)	{ cout << "\nm_context 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::CleanUp_chk0.35"<<flush;
+	clReleaseContext(m_context);	if (status != CL_SUCCESS)	{ cout << "\nm_context 	status = " << checkerror(status) <<"\n"<<flush; }	if(verbosity>0) cout<<"\nRunCL::~RunCL_chk_72"<<flush;
 																																			cout<<"\nRunCL::~RunCL_chk1_finished"<<flush;
 }
 

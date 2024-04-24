@@ -270,17 +270,10 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	generate_invK();
 	inv_K_GT = inv_K; 																														// TODO change this when we autocalibrate K.
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::getFrameData_chk 0.4"<<flush; // K2K
-	K2K_GT = old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;;
-	//   wrong way around :  old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;																				// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
+	K2K_GT 					= old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;;
+	//   wrong way around :   old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT;																// TODO  Issue, not valid for first frame, pose  should be identty, Also what would estimate SE3 do ?
 
-	pose2pose_GT = old_pose_GT * inv_pose_GT;
-	/*
-	if (runcl.costvol_frame_num <= 0 ) {																									// Transfered initialization to    dynamic_slam.initialize_keyframe_from_GT() or Dynamic_slam::initialize_keyframe_from_tracking()
-		keyframe_pose_GT 		= pose_GT;
-		keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
-		keyframe_inv_K_GT		= generate_invK_(K_GT);				//  inv_old_K_GT;
-	}
-	*/
+	pose2pose_GT 			= old_pose_GT * inv_pose_GT;
 	keyframe_pose2pose_GT 	= pose_GT * keyframe_inv_pose_GT;
 	keyframe_K2K_GT 		= K_GT * pose_GT * keyframe_inv_pose_GT * keyframe_inv_K_GT;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n Dynamic_slam::getFrameData_chk 0.1.2"<<flush;
@@ -363,6 +356,7 @@ void Dynamic_slam::use_GT_pose(){
 //////
 
 void Dynamic_slam::estimateCalibration(){
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::estimateCalibration"];
 // # Get 1st & 2nd order gradients wrt calibration parameters.
 //
 
@@ -377,23 +371,27 @@ void Dynamic_slam::estimateCalibration(){
 
 // ## Regularize Maps : AbsDepth, GradDepth, SurfNormal, RelVel,
 void Dynamic_slam::SpatialCostFns(){
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::SpatialCostFns"];
 // # Spatial cost functions
 // see CostVol::updateQD(..), RunCL::updateQD(..) & __kernel void UpdateQD(..)
 
 }
 
 void Dynamic_slam::ParsimonyCostFns(){
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::ParsimonyCostFns"];
 // # Parsimony cost functions : NB Bin sort pixels to find non-spatial neighbours
 // see SIFS for priors & Morphogenesis for BinSort
 
 }
 
 void Dynamic_slam::ExhaustiveSearch(){
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::ExhaustiveSearch"];
 // # Update A : exhaustive search on cost vol with cost fns -> update maps.
 // see CostVol::updateA(..), RunCL::updateA(..) & __kernel void UpdateA2(..)
 
 }
 
 void Dynamic_slam::getResult(){
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getResult"];
 
 };

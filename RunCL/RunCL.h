@@ -37,7 +37,7 @@ public:
 	Json::Value 		obj;
 	int_map 			verbosity_mp;
 
-	cv::Mat 			resultsMat;
+	cv::Mat 			resultsMat;						// used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
 	int					verbosity;
 	bool				tiff, png;
 	std::vector<cl_platform_id> 	m_platform_ids;
@@ -46,7 +46,7 @@ public:
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
 	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
-	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, se3_rho_sq_kernel, so3_grad_kernel, se3_grad_kernel, comp_param_maps_kernel;
+	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, se3_rho_sq_kernel, comp_param_maps_kernel;
 	cl_kernel			se3_lk_grad_kernel, atomic_test1_kernel;
 	
 	//bool 				frame_bool_idx=0;
@@ -184,8 +184,7 @@ public:
 */
 	////////////////////////////////////// RunCL_load_image.cpp
 
-	void precom_param_maps(float SO3_k2k[6*16]);
-	void predictFrame();																												// Image loading & preparation
+	void precom_param_maps(float SO3_k2k[6*16]);																						// Image loading & preparation
 	void loadFrame(cv::Mat image);
 	void cvt_color_space();
 	void img_variance();
@@ -200,8 +199,7 @@ public:
 	/////////////////////////////////////// RunCL_tracking.cpp
 	
 	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 				// Tracking
-	//void estimateSO3(float SO3_results[8][3][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
-	//void estimateSE3(float SE3_results[8][6][4], float Rho_sq_results[8][4], int count, uint start, uint stop);
+
 	void estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop);
 
 	void read_Rho_sq(float Rho_sq_results[8][4]);

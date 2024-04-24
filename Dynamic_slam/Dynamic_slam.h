@@ -35,9 +35,6 @@ class Dynamic_slam
     int SE_iter_per_layer, SE3_stop_layer, SE3_start_layer, SE_iter;
     float SE3_Rho_sq_threshold[5][3], SE_factor, SE3_update_dof_weights[6], SE3_update_layer_weights[5];
 
-    cv::Mat resultsMat;                                                         // NB must do initial Mat construction here, before passing pointer to runcl object.
-    void initialize_resultsMat();                                               // used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
-
     // camera & pose params
     const cv::Matx44f Matx44f_zero = {0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0};   //  = cv::Matx44f::zeros();//
     const cv::Matx44f Matx44f_eye  = {1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1};
@@ -67,14 +64,9 @@ class Dynamic_slam
     cv::Matx44f keyframe_K, keyframe_inv_K, keyframe_pose, keyframe_inv_pose, keyframe_K2K, keyframe_pose2pose, keyframe_old_K, keyframe_inv_old_K, keyframe_old_pose, keyframe_inv_old_pose;
     cv::Matx44f keyframe_K_GT, keyframe_inv_K_GT, keyframe_pose_GT, keyframe_inv_pose_GT, keyframe_K2K_GT, keyframe_pose2pose_GT, keyframe_old_K_GT, keyframe_inv_old_K_GT, keyframe_old_pose_GT, keyframe_inv_old_pose_GT;
    
-    //cv::Matx61f keyframe_pose2pose_algebra, keyframe_pose_algebra;    // NB 'pose' = absolute pose in world coords. 'pose2pose' = from previous keyframe.
-    //uint keyframe_num;
-    
-    
     // image parameters
     cv::Size    base_image_size;
     int         base_image_type;
-    
     
     // data files
     std::string rootpath;
@@ -83,52 +75,46 @@ class Dynamic_slam
     vector<fs::path> png;
     vector<fs::path> depth;
     
-    // functions
+    // functions ////////////////////////////////////////
+    /////////////////////////////////////// Dynamic_slam_class.cpp
+    void initialize_resultsMat();
     void initialize_camera();
-    void report_GT_pose_error();
-    void display_frame_resluts();
-    
-    void getPose();     // cv::Mat R, cv::Mat T, cv::Matx44f& pose
-    void getInvPose();  // cv::Matx44f pose, cv::Matx44f& inv_pose
+    int  nextFrame();
+    void getFrame();
     cv::Matx44f getPose(cv::Mat R, cv::Mat T);
     cv::Matx44f getInvPose(cv::Matx44f pose);
-    
-    int  nextFrame();
-    void optimize_depth();
-    
-    void predictFrame();
-    void getFrame();
     void getFrameData();
     void use_GT_pose();
-    void artificial_SO3_pose_error();
-    void artificial_pose_error();
-    
-    void generate_invK();
-    cv::Matx44f generate_invK_(cv::Matx44f K_);
-    void generate_invPose();
-    void generate_SE3_k2k( float _SE3_k2k[96] );
-    void update_k2k(Matx61f update_);
-    //void estimateSO3();
-    //void estimateSE3();
-    void estimateSE3_LK();
+    //void generate_invPose();
     void estimateCalibration();
-    
-    void initialize_keyframe_from_GT();
-    void initialize_keyframe_from_tracking();
-    void initialize_new_keyframe();
-    
-    void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
-    void buildDepthCostVol_fast_peripheral();  // Higher levels only, built on current frame.
-    //void computeSigmas(float epsilon, float theta, float L, float& sigma_d, float& sigma_q); // use RunCL.cpp version.
-    void updateQD();
-    void cacheGValues();
-    bool updateA();
-    
     void SpatialCostFns();
     void ParsimonyCostFns();
     void ExhaustiveSearch();
-    
     void getResult();
+
+    /////////////////////////////////////// Dynamic_slam_keyframe.cpp
+    void initialize_keyframe_from_GT();
+    void initialize_keyframe_from_tracking();
+    void initialize_new_keyframe();
+
+    /////////////////////////////////////// Dynamic_slam_mapping.cpp
+    void optimize_depth();
+    void updateDepthCostVol();                 // Built forwards. Updates keframe only when needed.
+    void buildDepthCostVol_fast_peripheral();  // Higher levels only, built on current frame.
+    void updateQD();
+    void cacheGValues();
+    bool updateA();
+
+    /////////////////////////////////////// Dynamic_slam_tracking.cpp
+    void report_GT_pose_error();
+    void display_frame_resluts();
+    void artificial_pose_error();
+    void predictFrame();
+    cv::Matx44f generate_invK_(cv::Matx44f K_);
+    void generate_invK();
+    void generate_SE3_k2k( float _SE3_k2k[96] );
+    void update_k2k(Matx61f update_);
+    void estimateSE3_LK();
   
     // return the filenames of all files that have the specified extension
     // in the specified directory and all subdirectories
@@ -153,8 +139,6 @@ class Dynamic_slam
         }
       }
     }
-    //void get_all(fs::path& root, const string& ext, vector<fs::path>& ret);
-    
 
   private:
     float old_theta, theta, thetaStart, thetaStep, thetaMin, epsilon, lambda, sigma_d, sigma_q;

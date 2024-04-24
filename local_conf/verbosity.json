@@ -4,87 +4,93 @@
     // NB Also overlarded function names within a class.
     "verbosity":1,									// -1= none, 0=errors only, 1=basic, 2=lots.
 
-
-    // utils/
+    // utils/ ###############################################################
     /////////////////////////////////////// convertAhandaPovRayToStandard.cpp
     "convertAhandaPovRayToStandard":2,
     "loadDepthAhanda":2,
 
+	/////////////////////////////////////// conf_params.cpp
+	"conf_params::conf_params":1,
+	"conf_params::read_verbosity":1,
+	"conf_params::read_paths":1,
+	"conf_params::read_jparams":1,
+	"conf_params::readVecVecFloat":1,
+	"conf_params::readVecFloat":1,
+	"conf_params::readVecString":1,
+	"conf_params::display_params":1,
 
+	/////////////////////////////////////// print_functions.cpp
+	"print_matx33f":1,
+	"print_matx44f":1,
+	"print_matx61f":1,
+	"print_float_6":1,
+	"print_float_9":1,
+	"print_float_16":1,
+	"print_json_float_9":1,
+	"print_matf":1,
 
-    // Dynaic_slam/
+    // Dynaic_slam/ ##############################################
     /////////////////////////////////////// Dynamic_slam_class.cpp
     "~Dynamic_slam":1,
     "Dynamic_slam::Dynamic_slam":-2,
-
-    // functions
+    "Dynamic_slam::initialize_resultsMat":-2,
     "Dynamic_slam::initialize_camera":2,
-    "Dynamic_slam::report_GT_pose_error":-2,
-    "Dynamic_slam::display_frame_resluts":1,
-
+    "Dynamic_slam::nextFrame": -2,
+    "Dynamic_slam::getFrame": -1,
     "Dynamic_slam::getPose": 1,
     "Dynamic_slam::getInvPose": 1,
-    "getPose": 1,
-    "getInvPose": 1,
-
-    "Dynamic_slam::nextFrame": -2,
-    "Dynamic_slam::optimize_depth": 1,
-    "Dynamic_slam::updateDepthCostVol":-1,
-
-    "Dynamic_slam::predictFrame": -2,
-    "Dynamic_slam::getFrame": -1,
     "Dynamic_slam::getFrameData": -2,
     "Dynamic_slam::use_GT_pose": -1,
-    "artificial_SO3_pose_error": 1,
-    "Dynamic_slam::artificial_pose_error": -2,
 
-    //"generate_invK": 1,
-    "Dynamic_slam::generate_invK_": 0,
-    "generate_invPose": 1,
-    "Dynamic_slam::generate_SE3_k2k": -2,
-    "Dynamic_slam::update_k2k": -3,
-    //"estimateSO3": 1,
-    //"Dynamic_slam::estimateSE3": -2,
-    "Dynamic_slam::estimateSE3_LK": -1,
+    //"generate_invPose": 1,
+    "Dynamic_slam::estimateCalibration": 1,
+    "Dynamic_slam::SpatialCostFns": 1,
+    "Dynamic_slam::ParsimonyCostFns": 1,
+    "Dynamic_slam::ExhaustiveSearch": 1,
+    "Dynamic_slam::getResult": 1,
 
-    "estimateCalibration": 1,
-
+    /////////////////////////////////////// Dynamic_slam_keyframe.cpp
     "Dynamic_slam::initialize_keyframe_from_GT": -1,
     "Dynamic_slam::initialize_keyframe_from_tracking": -1,
     "Dynamic_slam::initialize_new_keyframe": -1,
-    "Dynamic_slam::initialize_resultsMat":-2,
 
-    "updateDepthCostVol": 1,
-    "Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
-    //"computeSigmas": 1,
+    /////////////////////////////////////// Dynamic_slam_mapping.cpp
+    "Dynamic_slam::optimize_depth": 1,
+    "Dynamic_slam::updateDepthCostVol":-1,
+	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": 1,
     "Dynamic_slam::cacheGValues": 1,
     "Dynamic_slam::updateA": 1,
 
-    "SpatialCostFns": 1,
-    "ParsimonyCostFns": 1,
-    "ExhaustiveSearch": 1,
+    /////////////////////////////////////// Dynamic_slam_tracking.cpp
+    "Dynamic_slam::report_GT_pose_error":-2,
+    "Dynamic_slam::display_frame_resluts":1,
+    "Dynamic_slam::artificial_pose_error": -2,
+    "Dynamic_slam::predictFrame": -2,
+    "Dynamic_slam::generate_invK_": 0,
+    "Dynamic_slam::generate_SE3_k2k": -2,
+    "Dynamic_slam::update_k2k": -3,
+    "Dynamic_slam::estimateSE3_LK": -1,
 
-    "getResult": 1,
-
-    "RunCL::RunCL": 1,
+	// RunCL/ ##############################################
+	/////////////////////////////////////// RunCL_class.cpp
+	"RunCL::RunCL": 1,
 	"RunCL::testOpencl": 1,
 	"RunCL::getDeviceInfoOpencl": 1,
-	"RunCL::convertToString": 1,
 	"RunCL::createQueues": 1,
 	"RunCL::createAndBulidProgramFromSource": 1,
 	"RunCL::createKernels": 1,
 
-	"RunCL::waitForEventAndRelease": 1,
-	"RunCL::mipmap_call_kernel": -2,
-
+	"RunCL::convertToString": 1,
 	"RunCL::initialize_fp32_params": 1,
 	"RunCL::initialize_RunCL": -1,
+
+	"RunCL::mipmap_call_kernel": -2,
+	"RunCL::waitForEventAndRelease": 1,
 	"RunCL::allocatemem": 0,
 
-	"CleanUp":1,
-	"exit_": 1,
 	"~RunCL": 1,
+	"exit_": 1,
 
 	/////////////////////////////////////// RunCL_macro_conversion.cpp
 	"checkerror": 1,
@@ -92,7 +98,6 @@
 
 	/////////////////////////////////////// RunCL_DownloadAndSave.cpp
 	"RunCL::createFolders": 1,
-	//"ReadOutput": 1,
 	"RunCL::ReadOutput": 1,
 	"RunCL::saveCostVols": 1,
 
@@ -114,8 +119,6 @@
 	"RunCL::DownloadAndSaveVolume": 1,
 
 	////////////////////////////////////// RunCL_load_image.cpp
-	//"RunCL::predictFrame": 1,
-
 	"RunCL::loadFrame": -2,
 	"RunCL::cvt_color_space": 1,
 	"RunCL::img_variance": -1,
@@ -129,8 +132,6 @@
 	/////////////////////////////////////// RunCL_tracking.cpp
 	"RunCL::precom_param_maps": -2,
 	"RunCL::se3_rho_sq": -1,
-	//"RunCL::estimateSO3": -1,
-	//"RunCL::estimateSE3": -1,
 	"RunCL::estimateSE3_LK": -1,
 	"RunCL::read_Rho_sq": -1,
 	"RunCL::read_se3_weights": -1,

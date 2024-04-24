@@ -6,8 +6,6 @@ using namespace cv;
 using namespace std;
 
 void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
-	cout << "\nDynamic_slam::initialize_keyframe_from_GT(..)0 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_GT"];// -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
 	keyframe_pose_GT 		= pose_GT;
@@ -25,16 +23,9 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 	keyframe_K2K 			= K2K_GT;						// TODO chk wrt when this is called and what values it would hold.
 	keyframe_pose2pose 		= pose2pose_GT;
 
-	cout << "\nDynamic_slam::initialize_keyframe_from_GT(..)1 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
 	runcl.initializeDepthCostVol( runcl.depth_mem_GT );
 
-	cout << "\nDynamic_slam::initialize_keyframe_from_GT(..)2 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
 	initialize_new_keyframe();
-
-	cout << "\nDynamic_slam::initialize_keyframe_from_GT(..)3 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
 }
 
 void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
