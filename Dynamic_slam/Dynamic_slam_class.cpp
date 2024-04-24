@@ -9,16 +9,18 @@ Dynamic_slam::~Dynamic_slam(){ };
 
 Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( obj ,  verbosity_mp ) {   //    //     //// conf_params j_params
 	int local_verbosity_threshold = -2;
+	cout << "\nDynamic_slam::Dynamic_slam(..)1 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+
 	//map<string, Json::Value>obj = obj_;
 	verbosity 					= verbosity_mp["verbosity"];						//	obj["verbosity"]["verbosity"].asInt();
-	runcl.dataset_frame_num 	= obj["params"]["data_file_offset"].asUInt();		//	j_params.int_mp["data_file_offset"];		//
-	invert_GT_depth  			= obj["params"]["invert_GT_depth"].asBool();		//	j_params.bool_mp["invert_GT_depth"];		//
+	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();			//	j_params.int_mp["data_file_offset"];		//
+	invert_GT_depth  			= obj["invert_GT_depth"].asBool();			//	j_params.bool_mp["invert_GT_depth"];		//
 
-	SE3_start_layer 			= obj["params"]["SE3_start_layer"].asInt();			//	 j_params.int_mp["SE3_start_layer"];		//
-    SE3_stop_layer 				= obj["params"]["SE3_stop_layer"].asInt();			//	j_params.int_mp["SE3_stop_layer"];		//
-	SE_iter_per_layer 			= obj["params"]["SE_iter_per_layer"].asInt();		//	j_params.int_mp["SE_iter_per_layer"];		//
-    SE_iter 					= obj["params"]["SE_iter"].asInt();					//	j_params.int_mp["SE_iter"];				//
-	SE_factor					= obj["params"]["SE_factor"].asFloat();				//	j_params.float_mp["SE_factor"];			//
+	SE3_start_layer 			= obj["SE3_start_layer"].asInt();			//	j_params.int_mp["SE3_start_layer"];			//
+    SE3_stop_layer 				= obj["SE3_stop_layer"].asInt();			//	j_params.int_mp["SE3_stop_layer"];			//
+	SE_iter_per_layer 			= obj["SE_iter_per_layer"].asInt();			//	j_params.int_mp["SE_iter_per_layer"];		//
+    SE_iter 					= obj["SE_iter"].asInt();					//	j_params.int_mp["SE_iter"];					//
+	SE_factor					= obj["SE_factor"].asFloat();				//	j_params.float_mp["SE_factor"];				//
 
 	for (int layer=0; layer<MAX_LAYERS; layer++){for (int chan=0; chan<3; chan++)	SE3_Rho_sq_threshold[layer][chan]  	= obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();  }	//j_params.float_vecvec_mp["SE3_Rho_sq_threshold"][layer][chan]; }		//
 	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();				//j_params.float_vec_mp["SE3_update_dof_weights"][se3];					//
@@ -41,6 +43,8 @@ Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( o
 	get_all(root, ".txt",   txt);																											// Get lists of files. Gathers all filepaths with each suffix, into c++ vectors.
 	get_all(root, ".png",   png);
 	get_all(root, ".depth", depth);
+	cout << "\nDynamic_slam::Dynamic_slam(..)2 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<"png[runcl.dataset_frame_num].string()="<< png[runcl.dataset_frame_num].string()  <<flush;
 	runcl.baseImage 	= imread(png[runcl.dataset_frame_num].string());																	// Set image params, ref for dimensions and data type.
@@ -51,6 +55,8 @@ Dynamic_slam::Dynamic_slam( Json::Value obj, int_map verbosity_mp  ):   runcl( o
 	runcl.allocatemem();																													if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
 	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
+	cout << "\nDynamic_slam::Dynamic_slam(..)3 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
+
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
 };
 
