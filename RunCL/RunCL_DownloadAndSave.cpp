@@ -433,7 +433,9 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 			cv::waitKey(-1);
 			destroyWindow( "RunCL::DownloadAndSave_3Channel_volume: bufImg" );
 		}
-		writeToResultsMat(&bufImg , iter , row_of_images+i );																				// add patch from bufImg to resultsMat
+		writeToResultsMat(&bufImg , iter , row_of_images+i );																				// Add patch from bufImg to resultsMat  TODO this is a bad idea, tangled code.
+																																			// DownloadAndSave_3Channel_volume(..) is called for several differnt buffers. !
+																																			// Onlly valid when called by RunCL::tracking_result
 	}
 																																			if(verbosity> local_verbosity_threshold){cout << "\nDownloadAndSave_3Channel_volume_chk_2  finished" << flush;}
 }

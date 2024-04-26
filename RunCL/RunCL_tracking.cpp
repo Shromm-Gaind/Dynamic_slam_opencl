@@ -404,7 +404,8 @@ void RunCL::tracking_result(string result){
 																																				stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
 																																				stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
 																																				cout << " , " << ss_path_rho.str() << " , " <<  paths.at(ss_path_rho.str()) << " , " << ss.str()  <<flush;
-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1 );
+																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, /*display*/true );
+
 																																			}
 
 
