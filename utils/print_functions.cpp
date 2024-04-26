@@ -11,6 +11,16 @@ void print_matx33f(cv::Matx33f matx){
     cout<<flush;
 }
 
+void print_matx44_32f(cv::Matx44f matx){
+     for(int row=0;row<3;row++){
+         cout<<"  \n";
+         for(int col=0; col<3;col++){
+             cout << matx.operator()(row,col) << ", \t";
+         }
+    }
+    cout<<flush;
+}
+
 void print_matx44f(cv::Matx44f matx){
      for(int row=0;row<4;row++){
          cout<<"  \n";
@@ -22,11 +32,26 @@ void print_matx44f(cv::Matx44f matx){
 }
 
 void print_matx61f(cv::Matx61f matx){
-     for(int col=0; col<4;col++){
+     for(int col=0; col<6;col++){
          cout << matx.operator()(col) << ", \t";
          }
     cout<<flush;
 }
+
+void print_matx16f(cv::Matx16f matx){
+     for(int col=0; col<6;col++){
+         cout << matx.operator()(0,col) << ", \t";
+         }
+    cout<<flush;
+}
+
+void print_matx13f(cv::Matx13f matx){
+     for(int col=0; col<3;col++){
+         cout << matx.operator()(0,col) << ", \t";
+         }
+    cout<<flush;
+}
+//cout << "\nT = "<<T.operator()(0)<<", "<<T.operator()(1)<<", "<<T.operator()(2)<<endl<<flush;
 
 
 void print_float_6(float float_6[6]){

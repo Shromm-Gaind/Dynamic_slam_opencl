@@ -5,6 +5,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgproc/imgproc_c.h> // req for types e.g. CV_BGR2GRAY
 #include <opencv2/calib3d/calib3d.hpp>
+#include "print_functions.hpp"
 using namespace cv;
 
 struct m33 {
@@ -25,69 +26,6 @@ static Mat  makeGray(Mat image){
     return image;
 }
 
-/*
-////  TODO replace all functions with Matx--f , if I use them, otherwise remove them and dependency on OpenCV other tha Matx-- itself.
-static Matx31f SO3_Algebra(const Matx33f& SO3_Matx){
-    Matx31f SO3_Algebra;
-    SO3_Algebra.operator()(0,0) = SO3_Matx.operator()(1,2)  - SO3_Matx.operator()(2,1);
-    SO3_Algebra.operator()(1,0) = SO3_Matx.operator()(2,0)  - SO3_Matx.operator()(0,2);
-    SO3_Algebra.operator()(2,0) = SO3_Matx.operator()(0,1)  - SO3_Matx.operator()(1,0);
-    
-    return  SO3_Algebra;
-}
-
-static Matx33f SO3_Matx33f(const Matx31f& SO3_Algebra){
-    Matx33f SO3_Matx;
-    SO3_Matx.operator()(0,0 )   = 1.0f;
-    SO3_Matx.operator()(1,1 )   = 1.0f;
-    SO3_Matx.operator()(2,2 )   = 1.0f;
-    
-    SO3_Matx.operator()(1,2)    = SO3_Algebra.operator()(0,0)  ;
-    SO3_Matx.operator()(2,0)    = SO3_Algebra.operator()(1,0)  ;
-    SO3_Matx.operator()(0,1)    = SO3_Algebra.operator()(2,0)  ;
-    
-    SO3_Matx.operator()(2,1)    = - SO3_Algebra.operator()(0,0);
-    SO3_Matx.operator()(0,2)    = - SO3_Algebra.operator()(1,0);
-    SO3_Matx.operator()(1,0)    = - SO3_Algebra.operator()(2,0);
-    
-    return  SO3_Matx;
-}
-
-static Matx61f SE3_Algebra(const Matx44f& SE3_Matx){
-    Matx61f SE3_Algebra;
-    SE3_Algebra.operator()(0,0) = SE3_Matx.operator()(1,2)  - SE3_Matx.operator()(2,1);
-    SE3_Algebra.operator()(1,0) = SE3_Matx.operator()(2,0)  - SE3_Matx.operator()(0,2);
-    SE3_Algebra.operator()(2,0) = SE3_Matx.operator()(0,1)  - SE3_Matx.operator()(1,0);
-    SE3_Algebra.operator()(3,0) = SE3_Matx.operator()(0,3)  ;
-    SE3_Algebra.operator()(4,0) = SE3_Matx.operator()(1,3)  ;
-    SE3_Algebra.operator()(5,0) = SE3_Matx.operator()(2,3)  ;
-
-    return  SE3_Algebra;
-}
-
-static Matx44f SE3_Matx44f(const Matx61f& SE3_Algebra){
-    Matx44f SE3_Matx;
-    SE3_Matx.operator()(0,0 )   = 1.0f;
-    SE3_Matx.operator()(1,1 )   = 1.0f;
-    SE3_Matx.operator()(2,2 )   = 1.0f;
-    SE3_Matx.operator()(3,3 )   = 1.0f;
-    
-    SE3_Matx.operator()(1,2)    = SE3_Algebra.operator()(0,0)  ;
-    SE3_Matx.operator()(2,0)    = SE3_Algebra.operator()(1,0)  ;
-    SE3_Matx.operator()(0,1)    = SE3_Algebra.operator()(2,0)  ;
-    
-    SE3_Matx.operator()(2,1)    = - SE3_Algebra.operator()(0,0);
-    SE3_Matx.operator()(0,2)    = - SE3_Algebra.operator()(1,0);
-    SE3_Matx.operator()(1,0)    = - SE3_Algebra.operator()(2,0);
-    
-    SE3_Matx.operator()(0,3)    = SE3_Algebra.operator()(3,0)  ;
-    SE3_Matx.operator()(1,3)    = SE3_Algebra.operator()(4,0)  ;
-    SE3_Matx.operator()(2,3)    = SE3_Algebra.operator()(5,0)  ;
-    
-    return  SE3_Matx;
-}
-////
-*/
 
 static Mat make4x4(const Mat& mat){
     if (mat.rows!=4||mat.cols!=4){
@@ -106,7 +44,7 @@ static Mat rodrigues(const Mat& p){
 }
 
 static void LieToRT(InputArray Lie, OutputArray _R, OutputArray _T){
-    std::cout << "\n\nLieToRT(InputArray Lie, OutputArray _R, OutputArray _T) chk_0 #############"<<std::flush;
+    //std::cout << "\n\nLieToRT(InputArray Lie, OutputArray _R, OutputArray _T) chk_0 #############"<<std::flush;
     Mat p = Lie.getMat();
     _R.create(3,3,CV_32FC1);
     Mat R = _R.getMat();
@@ -118,87 +56,48 @@ static void LieToRT(InputArray Lie, OutputArray _R, OutputArray _T){
     rodrigues(p.colRange(Range(0,3))).copyTo(R);
     Mat(p.colRange(Range(3,6)).t()).copyTo(T);
 }
-/*
-static void RTToLie(InputArray _R, InputArray _T, OutputArray Lie ){
 
-    Mat R = _R.getMat();
-    Mat T = _T.getMat();
-    Lie.create(1,6,T.type());
-    
-    Mat p = Lie.getMat(); 
-    assert(p.size()==Size(6,1));
-    p=p.reshape(1,6);
-    if(T.rows==1){
-        T = T.t();
-    }
-    
-    rodrigues(R).copyTo(p.rowRange(Range(0,3)));
-    T.copyTo(p.rowRange(Range(3,6)));
-    assert(Lie.size()==Size(6,1));
-}
-*/
-static void RTToLie(Matx33f R, Matx13f T, Matx61f Lie ){
-    std::cout << "\n\nRTToLie(Matx33f R, Matx13f T, Matx61f Lie ) chk_0 #############"<<std::flush;
+static void RTToLie(Matx33f R, Matx13f T, Matx16f &Lie ){
+    //std::cout << "\n\nRTToLie(Matx33f R, Matx13f T, Matx16f Lie ) chk_0 #############"<<std::flush;
     Matx13f r(0,0,0);
-    cv::Rodrigues(R, r);
-    Lie.operator()(0) = r.operator()(0);
-    Lie.operator()(1) = r.operator()(1);
-    Lie.operator()(2) = r.operator()(2);
-
-    Lie.operator()(3) = T.operator()(0);
-    Lie.operator()(4) = T.operator()(1);
-    Lie.operator()(5) = T.operator()(2);
-}
-/*
-static Mat RTToLie(InputArray _R, InputArray _T){
-    Mat P;
-    RTToLie(_R,_T,P);
-    return P;
-}
-*/
-static Matx61f RTToLie(Matx33f _R, Matx13f _T){
-    std::cout << "\n\nRTToLie(Matx33f _R, Matx13f _T) chk_0 #############"<<std::flush;
-    Matx61f P;
-    RTToLie(_R,_T,P);
-    return P;
-}
-/*
-static void PToLie(InputArray _P, OutputArray Lie){
-    Mat P = _P.getMat();
-    assert(P.cols == P.rows && P.rows == 4);
-    Mat R = P(Range(0,3),Range(0,3));
-    Mat T = P(Range(0,3),Range(3,4));
-    RTToLie(R,T,Lie);
-    assert(Lie.size()==Size(6,1));
-}
-*/
-static void PToLie(Matx44f P, Matx61f Lie){
-    std::cout << "\n\nPToLie(Matx44f P, Matx61f Lie) chk_0 #############"<<std::flush;
-    Matx33f R;
-    Matx13f T;
-    for (int row=0; row<3;row++)for(int col=0; col<3; col++) R.operator()(row,col) = P.operator()(row,col);
-    int col =3;                 for(int row=0; row<3;row++)  T.operator()(row,col) = P.operator()(row,col);
-    RTToLie(R,T,Lie);
+    cv::Rodrigues(R, r);                // PRINT_MATX13F(r,);  PRINT_MATX13F(T,);       // Makes so3 algebra from SO3 Matx33f
+    Matx16f temp(r.operator()(0,0), r.operator()(0,1), r.operator()(0,2),   T.operator()(0,0), T.operator()(0,1), T.operator()(0,2) );
+    Lie = temp.get_minor<1,6>(0,0);     // PRINT_MATX16F(Lie, RTToLie(..));
 }
 
-static Matx61f PToLie(Matx44f P){
-    std::cout << "\n\nPToLie(Matx44f P) chk_0 #############"<<std::flush;
-    Matx61f Lie;
-    PToLie(P, Lie);
+static Matx16f RTToLie(Matx33f _R, Matx13f _T){
+    //std::cout << "\n\nRTToLie(Matx33f _R, Matx13f _T) chk_0 #############"<<std::flush;
+    Matx16f P;
+    RTToLie(_R,_T,P);
+
+    return P;
+}
+
+static void PToLie(Matx44f P, Matx16f &Lie){    //PRINT_MATX44F(P,);
+    //std::cout << "\n\nPToLie(Matx44f P, Matx16f Lie) chk_0 #############"<<std::flush;
+    Matx33f R( P.get_minor<3,3>(0,0) );         //PRINT_MATX33F(R,);
+    Matx31f T( P.get_minor<3,1>(0,3) );         //PRINT_MATX13F(T.t(),);
+    RTToLie(R,T.t(),Lie);                       //PRINT_MATX16F(Lie, PToLie(Matx44f P, Matx16f Lie));
+}
+
+static Matx16f PToLie(Matx44f P){
+    //std::cout << "\n\nPToLie(Matx44f P) chk_0 #############"<<std::flush;
+    Matx16f Lie;
+    PToLie(P, Lie);                             //PRINT_MATX16F(Lie, PToLie(..));
     return Lie;
 }
 
-
 static void RTToP(InputArray _R, InputArray _T, OutputArray _P ){
-    std::cout << "\n\nRTToP (InputArray _R, InputArray _T, OutputArray _P ) chk_0 #############"<<std::flush;
+    //std::cout << "\n\nRTToP (InputArray _R, InputArray _T, OutputArray _P ) chk_0 #############"<<std::flush;
     Mat R = _R.getMat();
     Mat T = _T.getMat();
     Mat P = _P.getMat();
     hconcat(R,T,P);
     make4x4(P).copyTo(_P);
 }
+
 static Mat RTToP(InputArray _R, InputArray _T){
-    std::cout << "\n\nRTToP (InputArray _R, InputArray _T) chk_0 #############"<<std::flush;
+    //std::cout << "\n\nRTToP (InputArray _R, InputArray _T) chk_0 #############"<<std::flush;
     Mat R = _R.getMat();
     Mat T = _T.getMat();
     Mat P;
@@ -206,90 +105,36 @@ static Mat RTToP(InputArray _R, InputArray _T){
     make4x4(P);
     return P;
 }
-/*
-static void LieToP(InputArray Lie, OutputArray _P){
-    Mat p = Lie.getMat();
-    _P.create(4,4,p.type());
-    Mat P = _P.getMat();
-    if(p.cols==1){
-        p = p.t();
-    } 
-    
-    Mat R=rodrigues(p.colRange(Range(0,3))); // makes rotation Mat from SO3 Lie vector.
-    Mat T=p.colRange(Range(3,6)).t();
-    hconcat(R,T,P);
-    make4x4(P).copyTo(_P);
-}
-*/
-static Matx44f LieToP_Matx(Matx61f Lie){
-    Matx44f P;
-    std::cout << "\n\nLieToP_Matx chk_0 #############"<<std::flush;
-    std::cout << "\n\nLieToP_Matx Lie = ";for(int col=0; col<6;col++)std::cout<<Lie.operator()(col)<<", ";
 
-    Matx13f r;
-    r.operator()(0) = Lie.operator()(0);
-    r.operator()(1) = Lie.operator()(1);
-    r.operator()(2) = Lie.operator()(2);
-    std::cout << "\n\nLieToP_Matx r = ";for(int col=0; col<3;col++)std::cout<<r.operator()(col)<<", ";
-
+static Matx44f LieToP_Matx(Matx16f Lie){
+    //std::cout << "\n\nLieToP_Matx chk_0 #############"<<std::flush;
+                                                //PRINT_MATX16F(Lie,  LieToP_Matx(Matx16f Lie) );
+    Matx13f r( Lie.get_minor<1,3>(0,0) );       //PRINT_MATX13F(r,    LieToP_Matx(Matx16f Lie) );
     Matx33f R;
-    Rodrigues(r,R);                         // makes rotation Mat from SO3 Lie vector.
-    std::cout << "\n\nLieToP_Matx R = ";for(int row=0;row<3;row++){ std::cout<<"  \n"; for(int col=0; col<3;col++)std::cout<<R.operator()(row,col)<<", \t";}
-    std::cout <<std::endl<<std::flush;
+    Rodrigues(r,R);                             //PRINT_MATX33F(R, LieToP_Matx(Matx16f Lie) );        // makes rotation Mat from SO3 Lie vector.
 
-    for (int row=0; row<3;row++)for(int col=0; col<3; col++) P.operator()(row,col) = R.operator()(row,col);
-    int col =3;                 for(int row=0; row<3;row++)  P.operator()(row,col) = Lie.operator()(col);
-    int row =3;                 for(int col=0; col<3;col++)  P.operator()(row,col) = 0;
-    P.operator()(3,3)=1;
+    Matx44f P = Matx44f::zeros();
+    for (int row=0; row<3;row++)    for(int col=0; col<3; col++)    P.operator()(row,col) = R.operator()(row,col);
+    int col =3;                     for(int row=0; row<3;row++)     P.operator()(row,col) = Lie.operator()(col);
 
-    std::cout << "\n\nLieToP_Matx P = ";for(int row=0;row<4;row++){ std::cout<<"  \n"; for(int col=0; col<4;col++)std::cout<<P.operator()(row,col)<<", \t";}
-    std::cout <<std::endl<<std::endl<<std::flush;
+    P.operator()(3,3)=1;                        //PRINT_MATX44F(P, LieToP_Matx(Matx16f Lie)_2 )
     return P;
 }
-/*
-static Mat LieToP(InputArray Lie){
-    Mat P;
-    LieToP(Lie,P);
-    return P;
-}
-*/
-/*
-static Mat LieSub(Mat A, Mat B){
-    Mat Pa;
-    Mat Pb;
-    LieToP(A,Pa);
-    LieToP(B,Pb);
-    Mat out;
-    assert(A.size()==Size(6,1) && B.size()==Size(6,1));
+
+static Matx16f LieSub(Matx16f A, Matx16f B){
+    //std::cout << "\n\nLieSub chk_0 #############"<<std::flush;
+    Matx44f Pa = LieToP_Matx(A);
+    Matx44f Pb = LieToP_Matx(B);
+    Matx16f out;
     PToLie(Pa*Pb.inv(),out);
     return out;
 }
-*/
-static Matx61f LieSub(Matx61f A, Matx61f B){
-    std::cout << "\n\nLieSub chk_0 #############"<<std::flush;
-    Matx44f Pa = LieToP_Matx(A);
-    Matx44f Pb = LieToP_Matx(B);
-    Matx61f out;
-    PToLie(Pa*Pb.inv(),out);
-    return out;
-}
-/*
-static Mat LieAdd(Mat A, Mat B){
-    Mat Pa;
-    Mat Pb;
 
-    LieToP(A,Pa);
-    LieToP(B,Pb);
-    Mat out;
-    PToLie(Pa*Pb,out);
-    return out;
-}
-*/
-static Matx61f LieAdd(Matx61f A, Matx61f B){
-    std::cout << "\n\nLieSub chk_0 #############"<<std::flush;
+static Matx16f LieAdd(Matx16f A, Matx16f B){
+    //std::cout << "\n\nLieSub chk_0 #############"<<std::flush;
     Matx44f Pa = LieToP_Matx(A);
     Matx44f Pb = LieToP_Matx(B);
-    Matx61f out;
+    Matx16f out;
     PToLie(Pa*Pb,out);
     return out;
 }
