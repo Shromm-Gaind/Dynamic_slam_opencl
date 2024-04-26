@@ -34,7 +34,7 @@ void Dynamic_slam::display_frame_resluts(){
 void Dynamic_slam::artificial_pose_error(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::artificial_pose_error"];//-2;																										if(verbosity>local_verbosity_threshold){ cout << "\n\nDynamic_slam::artificial_pose_error() chk_0"<<flush; }
 	Matx16f pose_step_algebra;
-	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(SE3,0) = obj["Artif_pose_err_algebra"][SE3].asFloat();
+	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(0,SE3) = obj["Artif_pose_err_algebra"][SE3].asFloat();
 	Matx44f poseStep 	= LieToP_Matx(pose_step_algebra);																					if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(poseStep,);	PRINT_MATX16F(pose_step_algebra,);	PRINT_MATX16F(PToLie(pose2pose),True);  }
 	pose2pose 			= pose2pose * poseStep;																								if(verbosity>local_verbosity_threshold){ PRINT_MATX16F(PToLie(pose2pose),Start); }
 	K2K 				= old_K * pose2pose * inv_K;																						if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(K2K,New);	PRINT_FLOAT_16(runcl.fp32_k2k,Old); }// Add error of one step in the 2nd SE3 DoF.

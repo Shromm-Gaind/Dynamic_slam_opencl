@@ -53,13 +53,13 @@
     "SE3_LM_B":0.1,
     "SE3_start_layer":5,
     "SE3_stop_layer":1,
-    "SE_iter_per_layer":1,      //5
-    "SE_iter":1,                //1 //10
+    "SE_iter_per_layer":3,      //5
+    "SE_iter":3,                //1 //10
     "SE_factor":0.003,          //0.5
     "SE_factor_layer_multiplier":0.75,
 
     "SE3_Rho_sq_threshold":[[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,[0.02,0.02,0.02] ,  [0.02,0.02,0.02] ,[0.02,0.02,0.02]  ], // [layer 0-5][channel hsv]
-    "SE3_update_dof_weights":[-1, -1, -1, -1, -1, -1],                 // -1, -1, -1  // 0, 0, 0, -100, -100, -1
+    "SE3_update_dof_weights":[-1, -1, -1, -2000, -2000, -2000],                 // -1, -1, -1  // 0, 0, 0, -100, -100, -1
     "SE3_float update_layer_weights":[1, 1, 1, 1, 1, 1],
 
     "SO3_delta_theta":1.0,                                              // radians 0.01 = 0.57 degrees
