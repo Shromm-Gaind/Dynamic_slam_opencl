@@ -115,7 +115,7 @@ static Matx44f LieToP_Matx(Matx16f Lie){
 
     Matx44f P = Matx44f::zeros();
     for (int row=0; row<3;row++)    for(int col=0; col<3; col++)    P.operator()(row,col) = R.operator()(row,col);
-    int col =3;                     for(int row=0; row<3;row++)     P.operator()(row,col) = Lie.operator()(col);
+    for(int row=0; row<3; row++)  {                                 P.operator()(row,3) = Lie.operator()(0,row+3); }
 
     P.operator()(3,3)=1;                        //PRINT_MATX44F(P, LieToP_Matx(Matx16f Lie)_2 )
     return P;

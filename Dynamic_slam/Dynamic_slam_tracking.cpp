@@ -212,25 +212,26 @@ void Dynamic_slam::update_k2k(Matx16f update_){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::update_k2k"];// -3;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 1, compute idealSE3Incr_algebra :" << flush;
 																																				PRINT_MATX44F(pose2pose,);		PRINT_MATX44F(pose2pose_GT,);
-																																				Matx16f pose2pose_alg_ 			= PToLie(pose2pose);							PRINT_MATX16F(pose2pose_alg_,);
-																																				Matx16f pose2pose_GT_alg_ 		= PToLie(pose2pose_GT);							PRINT_MATX16F(pose2pose_GT_alg_,);
-																																				Matx16f idealSE3Incr_alg_ 		= LieSub(pose2pose_alg_, pose2pose_GT_alg_);	PRINT_MATX16F(idealSE3Incr_alg_,);
-																																				Matx44f idealSE3Incr_ 			= LieToP_Matx(idealSE3Incr_alg_);				PRINT_MATX44F(idealSE3Incr_,);
-																																				Matx44f pose2pose_inv 			= pose2pose.inv(); 								PRINT_MATX44F(pose2pose_inv,);
-																																				Matx44f idealSE3Incr 			= pose2pose_GT * pose2pose_inv;					PRINT_MATX44F(idealSE3Incr,);
-																																				Matx16f idealSE3Incr_algebra 	= PToLie(idealSE3Incr); 						PRINT_MATX16F(idealSE3Incr_algebra,);
+																																				Matx16f pose2pose_alg_ 			= PToLie(pose2pose);							PRINT_MATX16F(pose2pose_alg_,update_k2k()_chk 1);
+																																				Matx16f pose2pose_GT_alg_ 		= PToLie(pose2pose_GT);							PRINT_MATX16F(pose2pose_GT_alg_,update_k2k()_chk 1);
+																																				Matx16f idealSE3Incr_alg_ 		= LieSub(pose2pose_alg_, pose2pose_GT_alg_);	PRINT_MATX16F(idealSE3Incr_alg_,update_k2k()_chk 1);
+																																				Matx44f idealSE3Incr_ 			= LieToP_Matx(idealSE3Incr_alg_);				PRINT_MATX44F(idealSE3Incr_,update_k2k()_chk 1);
+
+																																				Matx44f pose2pose_inv 			= pose2pose.inv(); 								PRINT_MATX44F(pose2pose_inv,update_k2k()_chk 1);
+																																				Matx44f idealSE3Incr 			= pose2pose_GT * pose2pose_inv;					PRINT_MATX44F(idealSE3Incr,update_k2k()_chk 1);
+																																				Matx16f idealSE3Incr_algebra 	= PToLie(idealSE3Incr); 						PRINT_MATX16F(idealSE3Incr_algebra,update_k2k()_chk 1);
 																																			}
 	cv::Matx44f SE3Incr_matx = LieToP_Matx(update_); 								// 						= SE3_Matx44f(update_);
 	pose2pose 										= pose2pose *  SE3Incr_matx;
 	K2K 											= old_K * pose2pose * inv_K;
 	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] 	= K2K.operator()(i/4, i%4);   }
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 2, compute K2K :" << flush;
-																																				PRINT_MATX16F(update_,);
-																																				PRINT_MATX44F(SE3Incr_matx,);
-																																				PRINT_MATX44F(K2K,);
-																																				PRINT_MATX44F(pose2pose,);
-																																				PRINT_MATX44F(old_K,);
-																																				PRINT_MATX44F(inv_K,);
+																																				PRINT_MATX16F(update_,update_k2k()_chk 2);
+																																				PRINT_MATX44F(SE3Incr_matx,update_k2k()_chk 2);
+																																				PRINT_MATX44F(K2K,update_k2k()_chk 2);
+																																				PRINT_MATX44F(pose2pose,update_k2k()_chk 2);
+																																				PRINT_MATX44F(old_K,update_k2k()_chk 2);
+																																				PRINT_MATX44F(inv_K,update_k2k()_chk 2);
 
 																																				cout << "\n####################################### finished Dynamic_slam::update_k2k(Matx16f update_)"<<flush;
 																																			}
