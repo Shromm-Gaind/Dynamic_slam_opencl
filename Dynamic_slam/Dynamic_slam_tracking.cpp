@@ -255,6 +255,7 @@ void Dynamic_slam::estimateSE3_LK(){
 	uint  layer 						= SE3_start_layer;
 	float factor 						= obj["SE_factor"].asFloat();					//0.04
 	float factor_layer_multiplier 		= obj["SE_factor_layer_multiplier"].asFloat();  //0.75
+	float factor_iter_multiplier 		= obj["SE_factor_iter_multiplier"].asFloat();	//0.9
 	int   iter_per_layer 				= obj["SE_iter_per_layer"].asInt();				//1
 	uint channel  						= 2; 																								// TODO combine Rho HSV channels
 																																			cout <<  "\n### Dynamic_slam::estimateSE3_LK(): (Rho_sq_result < SE3_Rho_sq_threshold[layer][channel])=("<<Rho_sq_result<<
@@ -331,6 +332,7 @@ void Dynamic_slam::estimateSE3_LK(){
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n###  Dynamic_slam::estimateSE3_LK()_chk 6.2: \t"<< ss.str() << endl << flush;}
 		}
+		factor *= factor_iter_multiplier;
 		// # Predict dammped least squares step of SE3 for whole image + residual of translation for relative velocity map.
 		// # Pass prediction to lower layers. Does it fit better ?
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
