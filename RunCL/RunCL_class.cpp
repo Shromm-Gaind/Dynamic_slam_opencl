@@ -3,10 +3,10 @@
 RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){ 		// map<string, Json::Value> obj_
 	obj 		 	= obj_;																														// NB save obj_ to class member obj, so that it persists within this RunCL object.
 	verbosity_mp 	= verbosity_mp_;
-	verbosity 						= obj["verbosity"].asInt();
+	verbosity 						= verbosity_mp_["verbosity"]; //obj["verbosity"].asInt();
+	int local_verbosity_threshold 	= verbosity_mp["RunCL::RunCL"];
 	tiff 							= obj["tiff"].asBool();
 	png 							= obj["png"].asBool();
-	int local_verbosity_threshold 	= verbosity_mp["RunCL::RunCL"];
 																																			std::cout << "RunCL::RunCL verbosity = " << verbosity << std::flush;
 	testOpencl();																															// Displays available OpenCL Platforms and Devices.
 																																			std::cout << "\nRunCL_chk 0\n" << std::flush; // if(verbosity>0)

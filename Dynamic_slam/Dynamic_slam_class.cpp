@@ -10,9 +10,9 @@ Dynamic_slam::~Dynamic_slam(){ };
 Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl( obj_ ,  verbosity_mp_ ) {   //    //     //// conf_params j_params
 	obj = obj_;																																// NB save obj_ to class member obj, so that it persists within this Dynamic_slam object.
 	verbosity_mp = verbosity_mp_;
-	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::Dynamic_slam"];// verbosity_mp["Dynamic_slam"];
-
 	verbosity 					= verbosity_mp["verbosity"];						//	obj["verbosity"]["verbosity"].asInt();
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::Dynamic_slam"];		// verbosity_mp["Dynamic_slam"];
+
 	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();			//	j_params.int_mp["data_file_offset"];		//
 	invert_GT_depth  			= obj["invert_GT_depth"].asBool();			//	j_params.bool_mp["invert_GT_depth"];		//
 
@@ -206,10 +206,15 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 	inv_local_translation = - local_rotation.t() * local_translation;
 	for (int i=0; i<3; i++) local_inv_pose.operator()(i,3) = inv_local_translation.operator()(i,0);
 	for (int i=0; i<4; i++) local_inv_pose.operator()(3,i) =                  pose.operator()(3,i);
+																																			if(true){//verbosity>local_verbosity_threshold){
+																																				//cout << "\n\nlocal_translation =";		for (int i=0; i< 3; i++) cout << ", " <<     local_translation.operator()(i,0);
+																																				//cout << "\n\ninv_local_translation =";	for (int i=0; i< 3; i++) cout << ", " << inv_local_translation.operator()(i,0);
+																																				//cout << "\n\nlocal_inv_pose ="; 		for (int i=0; i<16; i++) cout << ", " <<        local_inv_pose.operator()(i/4,i%4);
 
-	cout << "\n\nlocal_translation =";		for (int i=0; i< 3; i++) cout << ", " <<     local_translation.operator()(i,0);
-	cout << "\n\ninv_local_translation =";	for (int i=0; i< 3; i++) cout << ", " << inv_local_translation.operator()(i,0);
-	cout << "\n\nlocal_inv_pose ="; 		for (int i=0; i<16; i++) cout << ", " <<        local_inv_pose.operator()(i/4,i%4);
+																																				PRINT_MATX31F(local_translation,"Dynamic_slam::getInvPose(cv::Matx44f pose)" );
+																																				PRINT_MATX31F(inv_local_translation,"Dynamic_slam::getInvPose(cv::Matx44f pose)" );
+																																				PRINT_MATX44F(local_inv_pose, "Dynamic_slam::getInvPose(cv::Matx44f pose)" );
+																																			}
 	return local_inv_pose;
 																																			/*
 																																			*  Inverse of a transformation matrix:

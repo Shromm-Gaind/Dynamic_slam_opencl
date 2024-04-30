@@ -22,6 +22,8 @@
 
 #define PRINT_MATX13F(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_matx13f(a);
 
+#define PRINT_MATX31F(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_matx31f(a);
+
 
 #define PRINT_FLOAT_9(a,txt) std::cout << "\n\n" << #txt <<" "<< #a << " = " << std::flush ; print_float_9(a);
 
@@ -42,6 +44,7 @@ void print_matx16f(cv::Matx16f matx);
 
 void print_matx13f(cv::Matx13f matx);
 
+void print_matx31f(cv::Matx31f matx);
 
 void print_matx44_32f(cv::Matx44f matx);
 

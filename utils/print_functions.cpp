@@ -51,6 +51,14 @@ void print_matx13f(cv::Matx13f matx){
          }
     cout<<flush;
 }
+
+void print_matx31f(cv::Matx31f matx){
+     for(int row=0; row<3;row++){
+         cout << matx.operator()(row,0) << ", \t";
+         }
+    cout<<flush;
+}
+
 //cout << "\nT = "<<T.operator()(0)<<", "<<T.operator()(1)<<", "<<T.operator()(2)<<endl<<flush;
 
 

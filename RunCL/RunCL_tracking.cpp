@@ -134,6 +134,10 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																			}
 }
 
+
+
+
+
 // TODO   Move writeToResultsMat(..) into DownloadAndSave_3Channel_volume   AND pass back a Mat from DownloadAndSave_3Channel   // Question : why is reading the buffer twice such a problem ?  // why is it crashing ?
 void RunCL::writeToResultsMat(cv::Mat *bufImg , uint column_of_images , uint row_of_images ){													// writeToResultsMat(buffer , column of images = iteration, row of images );
 	int local_verbosity_threshold = verbosity_mp["RunCL::writeToResultsMat"];
@@ -232,9 +236,12 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
 																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSE3_LK_";
                                                                                                                                                 stringstream ss_path;
 																																				bool display = false; 	//obj["sample_se3_incr"].asBool();
-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, true,  -1, 1, true, count, display );
+																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1, true, count, display );
 																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
 																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
+
+																																				PrepareResults_3Channel_volume(  SE3_rho_map_mem,  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, -1, 1,  count );
+																																				PrepareResults_3Channel_volume(  SE3_incr_map_mem, 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, -1, 6,  count );
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk5 ."<<flush;}
 	read_Rho_sq(Rho_sq_results);
@@ -399,17 +406,14 @@ void RunCL::read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels])
 }
 
 void RunCL::tracking_result(string result){
-	int local_verbosity_threshold = verbosity_mp["RunCL::tracking_result"];// -2;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
-																																				stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
-																																				stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
-																																				cout << " , " << ss_path_rho.str() << " , " <<  paths.at(ss_path_rho.str()) << " , " << ss.str()  <<flush;
-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, /*display*/true );
+	if(verbosity>verbosity_mp["RunCL::tracking_result"]) {
 
-																																			}
-
-
-
+		cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
+		stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
+		stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
+		cout << " , " << ss_path_rho.str() << " , " <<  paths.at(ss_path_rho.str()) << " , " << ss.str()  <<flush;
+		DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  ss.str(), paths.at(ss_path_rho.str()), mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, /*display*/true );
+	}
 }
 
 /*

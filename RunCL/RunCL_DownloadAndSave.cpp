@@ -440,6 +440,83 @@ void RunCL::DownloadAndSave_3Channel_volume(cl_mem buffer, std::string count, bo
 																																			if(verbosity> local_verbosity_threshold){cout << "\nDownloadAndSave_3Channel_volume_chk_2  finished" << flush;}
 }
 
+void RunCL::PrepareResults_3Channel(cl_mem buffer, size_t image_size_bytes, cv::Size size_mat, int type_mat, cv::Mat *bufImg, float max_range /*=1*/, uint offset /*=0*/ ){
+	int local_verbosity_threshold = verbosity_mp["RunCL::PrepareResults_3Channel"];// 2;																										// bufImg will hold a pointer to the version written to .png
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_0, image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
+		cv::Mat temp_mat, temp_mat2;
+		temp_mat = cv::Mat::zeros (size_mat, type_mat);
+		ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_1, "<<flush;
+		cv::Scalar 	sum = cv::sum(temp_mat);																								// NB always returns a 4 element vector.
+
+		double 		minVal[3]={1,1,1}, 					maxVal[3]={0,0,0};
+		cv::Point 	minLoc[3]={{0,0},{0,0},{0,0}}, 		maxLoc[3]={{0,0},{0,0},{0,0}};
+		vector<cv::Mat> spl;
+		split(temp_mat, spl);																												// process - extract only the correct channel
+		double max = 0;
+		for (int i =0; i < 3; ++i){
+			cv::minMaxLoc(spl[i], &minVal[i], &maxVal[i], &minLoc[i], &maxLoc[i]);
+			if (maxVal[i] > max) max = maxVal[i];
+		}
+
+		if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_3Channel_Chk_2, "<<flush;
+		if (max_range <0.0){																												if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_2.2, (max_range <0.0)    squeeze and shift to 0.0-1.0 "<<flush;
+			spl[0] /=(-2*max_range);  spl[1] /=(-2*max_range);  spl[2] /=(-2*max_range);
+			spl[0] +=0.5;  spl[1] +=0.5;  spl[2] +=0.5;
+			cv::merge(spl, temp_mat);
+		}else{ 																																if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_2.3, (max_range > 0)     temp_mat /=max_range;"<<flush;
+			temp_mat /=max_range;
+		}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_3, "<<flush;
+		cv::Mat outMat;
+		if ((type_mat == CV_32FC3) || (type_mat == CV_32FC4)){
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_4, "<<flush;
+			temp_mat *=256;
+			temp_mat.convertTo(outMat, CV_8U);
+
+			if (type_mat == CV_32FC4){
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_5, "<<flush;
+				std::vector<cv::Mat> matChannels;
+				cv::split(outMat, matChannels);
+				cv::merge(matChannels, outMat);
+			}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_6, "<<flush;
+			outMat.copyTo(*bufImg);
+		}else if (type_mat == CV_8UC3){
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_7, "<<flush;
+			temp_mat.copyTo(*bufImg);
+
+		}else {cout << "\n\nError RunCL::PrepareResults_3Channel(..)  needs new code for "<<checkCVtype(type_mat)<<endl<<flush; exit(0);}
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nPrepareResults_3Channel_Chk_9, finished "<<flush;
+}
+
+void RunCL::PrepareResults_3Channel_volume(cl_mem buffer, size_t image_size_bytes, cv::Size size_mat, int type_mat, float max_range, uint vol_layers,  float iter){
+	int local_verbosity_threshold = verbosity_mp["RunCL::PrepareResults_3Channel_volume"];//2;
+																																			if(verbosity> local_verbosity_threshold) {
+																																				cout<<"\n\nPrepareResults_3Channel_volume_chk_0 "<<flush;
+																																				cout<<"\t  image_size_bytes="<<image_size_bytes<<",\t size_mat="<<size_mat<<",\t type_mat="<<type_mat<<
+																																				"\t max_range="<<max_range<<"\t vol_layers="<<vol_layers<<"\t iter="<<iter<<flush;
+																																			}
+	cv::Mat bufImg;
+	int row_of_images = 0;  if ( vol_layers > 1) row_of_images=1;
+	for (uint i=0; i<vol_layers; i++) {
+		PrepareResults_3Channel(buffer, image_size_bytes, size_mat, type_mat, &bufImg, max_range, i*image_size_bytes);
+
+		if (verbosity_mp["RunCL::PrepareResults_3Channel_volume"]){
+			cv::namedWindow( "RunCL::PrepareResults_3Channel_volume: bufImg" , 0 );
+			cv::imshow( "RunCL::PrepareResults_3Channel_volume: bufImg" , bufImg  );
+			cv::waitKey(-1);
+			destroyWindow( "RunCL::PrepareResults_3Channel_volume: bufImg" );
+		}
+		writeToResultsMat(&bufImg , iter , row_of_images+i );																				// Add patch from bufImg to resultsMat  TODO this is a bad idea, tangled code.
+																																			// PrepareResults_3Channel_volume(..) is called for several differnt buffers. !
+																																			// Onlly valid when called by RunCL::tracking_result
+	}
+																																			if(verbosity> local_verbosity_threshold){cout << "\nDownloadAndSave_3Channel_volume_chk_2  finished" << flush;}
+}
+
+
+
 void RunCL::DownloadAndSave_6Channel(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range /*=1*/, uint offset /*=0*/){
 	int local_verbosity_threshold = verbosity_mp["RunCL::DownloadAndSave_6Channel"];// 1;
 																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave_6Channel_Chk_0    filename = ["<<folder_tiff.filename()<<"] folder="<<folder_tiff<<", image_size_bytes="<<image_size_bytes<<", size_mat="<<size_mat<<", type_mat="<<type_mat<<" : "<<checkCVtype(type_mat)<<"\t"<<flush;
