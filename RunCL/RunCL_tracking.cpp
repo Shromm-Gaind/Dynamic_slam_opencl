@@ -71,7 +71,7 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_rho_sq_kernel, m_queue, start, stop );
 
-																																			 if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk3 ."<<flush;
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::se3_rho_sq(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num <<"_iter_"<<count[0]<<"_layer"<<count[1]<<"_factor"<<count[2]<<"_se3_rho_sq_";
 																																				stringstream ss_path;
 
@@ -85,8 +85,6 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 	cv::Mat rho_sq_sum_mat = cv::Mat::zeros (se3_sum_size, 4, CV_32FC1); // cv::Mat::zeros (int rows, int cols, int type)					// NB the data returned is one float4 per group, holding HSV, plus entry[3]=pixel count.
 	ReadOutput( rho_sq_sum_mat.data, se3_sum_rho_sq_mem, pix_sum_size_bytes );																//float Rho_sq_reults[8][4] = {{0}};
 																																			if(verbosity>local_verbosity_threshold+2) {
-// DownloadAndSave_3Channel(buffer, ss.str(), folder, image_size_bytes, size_mat, type_mat, show, max_range, i*image_size_bytes, exception_tiff);
-// ReadOutput(temp_mat.data, buffer,  image_size_bytes,   offset);
 																																				cout << "\n\nRunCL::se3_rho_sq(..)_chk5 ."<<flush;
 																																				cout << "\nrho_sq_sum_mat.size()="<<rho_sq_sum_mat.size()<<flush;
 																																				cout << "\nse3_sum_size="<<se3_sum_size<<flush;
@@ -105,18 +103,17 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 		uint global_sum_offset 		= read_offset_ / local_work_size ;
 		uint groups_to_sum 			= rho_sq_sum_mat.at<float>(global_sum_offset, 0);
 		uint start_group 			= global_sum_offset + 1;
-		uint stop_group 			= start_group + groups_to_sum ;   																		// -1
-																																			/*
-																																			cout << "\nRunCL::se3_rho_sq(..)_chk6 layer = "<<i<<
-																																			", read_offset_="<<read_offset_<<
-																																			", global_sum_offset = "<<global_sum_offset<<
-																																			", groups_to_sum = "<<groups_to_sum<<
-																																			", start_group = "<<start_group<<
-																																			", stop_group = "<<stop_group<< flush;
-																																			*/
-		for (int j=start_group; j< stop_group; j++){	for (int l=0; l<4; l++){ 	Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		};
-			//cout << "\n #group = " << j << ", Value = " << rho_sq_sum_mat.at<float>(j, 2);
-		}																									// sum j groups for this layer of the MipMap.
+		uint stop_group 			= start_group + groups_to_sum ;   																		if(verbosity>local_verbosity_threshold+1) {
+																																				cout << "\nRunCL::se3_rho_sq(..)_chk6 layer = "<<i<<
+																																				", read_offset_="<<read_offset_<<
+																																				", global_sum_offset = "<<global_sum_offset<<
+																																				", groups_to_sum = "<<groups_to_sum<<
+																																				", start_group = "<<start_group<<
+																																				", stop_group = "<<stop_group<< flush;
+																																			}
+		for (int j=start_group; j< stop_group; j++){
+			for (int l=0; l<4; l++){ 					Rho_sq_results[i][l] += rho_sq_sum_mat.at<float>(j, l);		};						// sum j groups for this layer of the MipMap.
+		}
 	}
 																																			if(verbosity>local_verbosity_threshold+1) {
 																																				cout << endl;
@@ -134,53 +131,6 @@ void RunCL::se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint st
 																																			}
 }
 
-
-
-
-
-// TODO   Move writeToResultsMat(..) into DownloadAndSave_3Channel_volume   AND pass back a Mat from DownloadAndSave_3Channel   // Question : why is reading the buffer twice such a problem ?  // why is it crashing ?
-void RunCL::writeToResultsMat(cv::Mat *bufImg , uint column_of_images , uint row_of_images ){													// writeToResultsMat(buffer , column of images = iteration, row of images );
-	int local_verbosity_threshold = verbosity_mp["RunCL::writeToResultsMat"];
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk0,\t column_of_images="<<column_of_images<<"\t row_of_images="<<row_of_images<<" "<<flush;}
-	uint reduction 			= obj["sample_layer"].asUInt();
-
-/* Display bufImg
-	cv::namedWindow( "writeToResultsMat" , 0 );
-	cv::imshow("writeToResultsMat", *bufImg);
-	cv::waitKey(-1);
-	destroyWindow( "writeToResultsMat" );
-*/
-	int patch_rows 			= MipMap[reduction*8 + MiM_READ_ROWS];
-	int patch_cols 			= MipMap[reduction*8 + MiM_READ_COLS];
-	int row_offset 			= mm_margin * reduction;																						if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk3"<<flush;}
-	for (int layer = 0; layer < reduction; layer ++)  { row_offset += MipMap[layer*8 + MiM_READ_ROWS]; }									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk4"<<flush;}
-	int col_offset 			= mm_margin ;																									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk5"<<flush;}
-	int row_offset2			= mm_margin + row_of_images * ( mm_margin + patch_rows );																// paste patch
-	int col_offset2			= mm_margin + column_of_images * ( mm_margin + patch_cols );													if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk5.1"<<flush;}
-
-	/* Display writeToResultsMat_patch
-	cv::namedWindow( "writeToResultsMat_patch" , 0 );
-	Mat temp_mat;
-	temp_mat.data = bufImg->data;
-	cv::imshow("writeToResultsMat_patch", temp_mat(cv::Rect( col_offset, row_offset, patch_cols, patch_rows )));
-	cv::waitKey(-1);
-	destroyWindow( "writeToResultsMat_patch" );
-	*/
-
-	//cout << "\nRunCL::writeToResultsMat(..)  resultsMat.type() = " << resultsMat.type()  << "  " <<  checkCVtype(resultsMat.type())  << ",    bufImg->type() = " << bufImg->type()  << "  " <<  checkCVtype(bufImg->type())  << endl << flush;
-
-	for (int col = 0; col < patch_cols ; col++ ) {
-		for (int row = 0; row < patch_rows ; row ++) {
-			resultsMat.at<Vec4b>(row+row_offset2 , col+col_offset2) = bufImg->at<Vec4b>(row+row_offset , col+col_offset);  // wrong vec type for img
-		}
-	}																																		if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::writeToResultsMat(..)_chk finished"<<flush;}
-	/* Display resultsMat
-	cv::namedWindow( "writeToResultsMat: resultsMat" , 0 );
-	cv::imshow("writeToResultsMat: resultsMat", resultsMat);
-	cv::waitKey(-1);
-	destroyWindow( "writeToResultsMat: resultsMat" );
-	*/
-}
 
 void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop){ //estimateSE3_LK(); 	(uint start=0, uint stop=8)			// TODO replace arbitrary fixed constant with a const uint variable in the header...
 	int local_verbosity_threshold = verbosity_mp["RunCL::estimateSE3_LK"];// -1;																									if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk0 .##################################################################"<<flush;}
@@ -231,15 +181,16 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
 	res = clSetKernelArg(se3_lk_grad_kernel,19, sizeof(int), &wg_divisor);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__private		uint 		wg_divisor						//19
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk1 ."<<flush;}
-	mipmap_call_kernel( se3_lk_grad_kernel, m_queue, start, stop, false, local_work_size/wg_divisor); 										//mipmap_call_kernel( se3_lk_grad_kernel, m_queue, start, stop );	// reduced worksize to allow for local memory limit 4kb on rtx 3030
+	mipmap_call_kernel( se3_lk_grad_kernel, m_queue, start, stop, false, local_work_size/wg_divisor); 										// reduced worksize to allow for local memory limit 4kb on rtx 3030
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSE3_LK_";
                                                                                                                                                 stringstream ss_path;
-																																				bool display = false; 	//obj["sample_se3_incr"].asBool();
+																																				bool display = false;
 																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1, true, count, display );
 																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
 																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
-
+																																			}
+																																			if(obj["sample_se3_incr"].asBool()==true) {
 																																				PrepareResults_3Channel_volume(  SE3_rho_map_mem,  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, -1, 1,  count );
 																																				PrepareResults_3Channel_volume(  SE3_incr_map_mem, 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, -1, 6,  count );
 																																			}
@@ -407,7 +358,6 @@ void RunCL::read_se3_incr(float SE3_results[8][6][tracking_num_colour_channels])
 
 void RunCL::tracking_result(string result){
 	if(verbosity>verbosity_mp["RunCL::tracking_result"]) {
-
 		cout<<"\n\nRunCL::tracking_result(..)_chk0"<<flush;
 		stringstream ss;			ss << dataset_frame_num <<  "_img_grad_" << result;				// "_iter_"<< count <<
 		stringstream ss_path_rho;	ss_path_rho << "SE3_rho_map_mem";
@@ -434,8 +384,8 @@ void RunCL::atomic_test1(){
 
 	clFlush(uload_queue); status = clFinish(uload_queue); 																					if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
 
-	res = clSetKernelArg(atomic_test1_kernel, 0, sizeof(int), 		&num_threads_int);														if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;
-	res = clSetKernelArg(atomic_test1_kernel, 1, sizeof(cl_mem), 	&atomic_test1_buf);														if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	res = clSetKernelArg(atomic_test1_kernel, 0, sizeof(int), 		&num_threads_int);														if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	res = clSetKernelArg(atomic_test1_kernel, 1, sizeof(cl_mem), 	&atomic_test1_buf);														if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	/*
 	cl_int clEnqueueNDRangeKernel(
 									cl_command_queue 		command_queue,

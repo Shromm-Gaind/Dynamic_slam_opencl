@@ -29,7 +29,7 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 }
 
 void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
-	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_tracking"];// -1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_tracking()_chk 0" << flush;}
+	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_tracking"];// -1;
 	keyframe_old_pose		= keyframe_pose;
 	keyframe_old_K			= keyframe_K;
 	keyframe_pose 			= pose;

@@ -73,7 +73,8 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	save_index = keyFrameCount*1000 + costvol_frame_num;
 	ss << save_index;
 
-	DownloadAndSave(		 	key_frame_depth_map_src,   	ss.str(),   paths.at("key_frame_depth_map_src"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);	cout << "\nDownloadAndSave (.. key_frame_depth_map_src ..) finished\n"<<flush;
+	DownloadAndSave(		 	key_frame_depth_map_src,   	ss.str(),   paths.at("key_frame_depth_map_src"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
+																																			if(verbosity>local_verbosity_threshold)	cout << "\nDownloadAndSave (.. key_frame_depth_map_src ..) finished\n"<<flush;
 
 	status = clEnqueueCopyBuffer( m_queue, key_frame_depth_map_src, keyframe_depth_mem,			0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}
 	status = clEnqueueCopyBuffer( m_queue, depth_mem_GT, 			keyframe_depth_mem_GT,		0, 0, mm_size_bytes_C1, 	0, NULL, &writeEvt);	if(status!= CL_SUCCESS){cout << "\n status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_key_frame_depth_map_src\n" 				<< flush;exit_(status);}

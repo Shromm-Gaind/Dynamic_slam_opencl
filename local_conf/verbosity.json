@@ -89,7 +89,7 @@
 	"RunCL::waitForEventAndRelease": 1,
 	"RunCL::allocatemem": 0,
 
-	"~RunCL": 1,
+	"~RunCL": 0,
 	"exit_": 1,
 
 	/////////////////////////////////////// RunCL_macro_conversion.cpp
@@ -109,6 +109,7 @@
 
 	"RunCL::PrepareResults_3Channel_volume":0,
 	"RunCL::PrepareResults_3Channel":0,
+	"RunCL::writeToResultsMat": 1,
 
 	"RunCL::DownloadAndSave_6Channel": 1,
 	"RunCL::DownloadAndSave_6Channel_volume": 1,
@@ -128,6 +129,7 @@
 	"RunCL::blur_image": -1,
 	"RunCL::mipmap_linear": -1,
 	"RunCL::img_gradients": -2,
+
 	"RunCL::load_GT_depth": -2,
 	"RunCL::convert_depth": 0,
 	"RunCL::mipmap_depthmap": 2,
@@ -135,13 +137,13 @@
 	/////////////////////////////////////// RunCL_tracking.cpp
 	"RunCL::precom_param_maps": -2,
 	"RunCL::se3_rho_sq": -1,
+
 	"RunCL::estimateSE3_LK": -1,
 	"RunCL::read_Rho_sq": -1,
 	"RunCL::read_se3_weights": -1,
 	"RunCL::read_se3_incr": -1,
-	"RunCL::writeToResultsMat": 1,
-	"RunCL::tracking_result": -2,
 
+	"RunCL::tracking_result": -2,
 	"RelativeVel_Map": 1,
 	"RunCL::atomic_test1": 1,
 

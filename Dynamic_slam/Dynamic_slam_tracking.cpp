@@ -319,29 +319,22 @@ void Dynamic_slam::estimateSE3_LK(){
 		update_k2k( update );																												if(verbosity>local_verbosity_threshold) {cout << "\n\n###  Dynamic_slam::estimateSE3_LK()_chk 6: (iter>0 && Rho_sq_result > old_Rho_sq_result)" << flush;}
 		old_update 				= update;
 		old_Rho_sq_result 		= Rho_sq_result;
-																																			if (obj["sample_se3_incr"]==true){
-																																				// Extract sample images from Rho_map and SE3_incr_map - done in RunCL::se3_rho_sq(..) and RunCL::estimate_SE3(..)
-																																				// Write data into image
-																																				//uint reduction 			= obj["sample_layer"].asUInt();
-																																				//int cols 				= runcl.MipMap[reduction*8 + MiM_READ_COLS];
-																																				//int row_offset 			= 2* runcl.mm_margin ;
-																																				// int col_offset 			= 2* runcl.mm_margin + iter * (runcl.mm_margin + cols  );
-																																				if(verbosity>local_verbosity_threshold) {cout << "\n\n###  Dynamic_slam::estimateSE3_LK()_chk 6.1" << flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n###  Dynamic_slam::estimateSE3_LK()_chk 6.1" << flush;
 																																				stringstream ss;
-																																				ss << "Rho_sq_result = " << Rho_sq_result << "\nSE3_results[layer][se3][chan=2 'value'] :";
+																																				ss << "\tRho_sq_result = " << Rho_sq_result << "\nSE3_results[layer][se3][chan=2 'value'] :";
 																																				for (int se3 = 0; se3<6; se3++) { ss<< "\nse3 dof = "<< se3 << " : ";
 																																					for (int layer = 0; layer<obj["num_reductions"].asInt(); layer ++){
 																																						ss << SE3_results[layer][se3][2] << "  \t";
 																																					}ss << "\t";
-																																			}
-																																			if(verbosity>local_verbosity_threshold) {cout << "\n\n###  Dynamic_slam::estimateSE3_LK()_chk 6.2: \t"<< ss.str() << endl << flush;}
+																																				cout << ss.str() << endl << flush;}
 																																			}
 		factor *= factor_iter_multiplier;
+		// # TODO maybe ...
 		// # Predict dammped least squares step of SE3 for whole image + residual of translation for relative velocity map.
 		// # Pass prediction to lower layers. Does it fit better ?
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 	}
-																																			if(obj["sample_se3_incr"]==true) { cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 6.3\n" << flush;
+																																			if(obj["sample_se3_incr"].asBool()==true) { cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 6.3, display and save ResultsMat\n" << flush;
 																																				cv::namedWindow( "Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , 0 );														// show runcl.resultsMat
 																																				cv::imshow("Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , runcl.resultsMat);
 																																				cv::waitKey(-1);

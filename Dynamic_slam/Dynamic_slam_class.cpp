@@ -26,7 +26,7 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl(
 	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();				//j_params.float_vec_mp["SE3_update_dof_weights"][se3];					//
     for (int layer=0; layer<MAX_LAYERS; layer++) 									SE3_update_layer_weights[layer] 	= obj["SE3_float update_layer_weights"][layer].asFloat();	//j_params.float_vec_mp["SE3_float update_layer_weights"][layer];		//
 
-																																			if(verbosity>local_verbosity_threshold-4) {cout << "\n Dynamic_slam::Dynamic_slam_chk 0,  SE3_Rho_sq_threshold[i][j] = ";
+																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::Dynamic_slam_chk 0,  SE3_Rho_sq_threshold[i][j] = ";
 																																				for (int i=0; i<5; i++){cout << "( "; for (int j=0; j<3; j++) {cout << ", ["<<i<<"]["<<j<<"]" << SE3_Rho_sq_threshold[i][j]; }   cout << " )";}
 																																				cout << ",\t SE_factor = "<<SE_factor;
 																																				cout << endl << flush;
@@ -43,8 +43,6 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl(
 	get_all(root, ".txt",   txt);																											// Get lists of files. Gathers all filepaths with each suffix, into c++ vectors.
 	get_all(root, ".png",   png);
 	get_all(root, ".depth", depth);
-	cout << "\nDynamic_slam::Dynamic_slam(..)2 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
 																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<"png[runcl.dataset_frame_num].string()="<< png[runcl.dataset_frame_num].string()  <<flush;
 	runcl.baseImage 	= imread(png[runcl.dataset_frame_num].string());																	// Set image params, ref for dimensions and data type.
@@ -54,10 +52,8 @@ Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl(
 	runcl.initialize_RunCL();
 	runcl.allocatemem();																													if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
 																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-	initialize_camera();																													if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 5\n" << flush;
-	cout << "\nDynamic_slam::Dynamic_slam(..)3 : Artif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
-
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 7 finished\n" << flush;
+	initialize_camera();
+																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_ finished\n" << flush;
 };
 
 void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
@@ -111,30 +107,25 @@ void Dynamic_slam::initialize_camera(){
 int Dynamic_slam::nextFrame() {
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::nextFrame"];// -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num<<" \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
-	predictFrame();					// updates pose2pose for next frame in cost volume.			//  Dynamic_slam::getFrameData_chk 0.  runcl.dataset_frame_num = 0
-	getFrameData();					// Loads GT depth of the new frame. NB depends on image.size from getFrame().
+	predictFrame();																															// updates pose2pose for next frame in cost volume.
+	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
 	use_GT_pose();
 	getFrame();
-	cout << "\nArtif_pose_err_bool = "<< obj["Artif_pose_err_bool"].asBool() << flush;
 	if(obj["Artif_pose_err_bool"].asBool() == true ) artificial_pose_error();
-
-	estimateSE3_LK(); 					// own thread ? num iter ?
-
-	//estimateCalibration(); 		// own thread, one iter.
-	report_GT_pose_error();
-	display_frame_resluts();
+	estimateSE3_LK(); 																														// own thread ? num iter ?
+	//estimateCalibration(); 																												// own thread, one iter.
+	if(verbosity>local_verbosity_threshold){
+		report_GT_pose_error();
+		display_frame_resluts();
+	}
 	////////////////////////////////// Test kernels
-
 	//runcl.atomic_test1();
-
 	////////////////////////////////// Parallax depth mapping
-
 	updateDepthCostVol();																													// Update cost vol with the new frame, and repeat optimization of the depth map.
 																																			// NB Cost vol needs to be initialized on a particular keyframe.
 																																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
 	runcl.costvol_frame_num++;
 	runcl.dataset_frame_num++;
-
 	return(0);																																// NB option to return an error that stops the main loop.
 };
 
@@ -172,7 +163,7 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 																																			// load a basic image in CV_8UC3, then convert on GPU to 'half'
 	runcl.cvt_color_space( );
 	runcl.blur_image();
-	runcl.mipmap_linear();																													// (uint num_reductions, uint gaussian_size)// TODO set these as params in conf.json
+	runcl.mipmap_linear();
 	runcl.img_variance();
 	runcl.img_gradients();
 																																			// # Get 1st & 2nd order image gradients of MipMap
@@ -206,11 +197,7 @@ cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose) {	// Matx44f pose, Matx44
 	inv_local_translation = - local_rotation.t() * local_translation;
 	for (int i=0; i<3; i++) local_inv_pose.operator()(i,3) = inv_local_translation.operator()(i,0);
 	for (int i=0; i<4; i++) local_inv_pose.operator()(3,i) =                  pose.operator()(3,i);
-																																			if(true){//verbosity>local_verbosity_threshold){
-																																				//cout << "\n\nlocal_translation =";		for (int i=0; i< 3; i++) cout << ", " <<     local_translation.operator()(i,0);
-																																				//cout << "\n\ninv_local_translation =";	for (int i=0; i< 3; i++) cout << ", " << inv_local_translation.operator()(i,0);
-																																				//cout << "\n\nlocal_inv_pose ="; 		for (int i=0; i<16; i++) cout << ", " <<        local_inv_pose.operator()(i/4,i%4);
-
+																																			if(verbosity>local_verbosity_threshold){
 																																				PRINT_MATX31F(local_translation,"Dynamic_slam::getInvPose(cv::Matx44f pose)" );
 																																				PRINT_MATX31F(inv_local_translation,"Dynamic_slam::getInvPose(cv::Matx44f pose)" );
 																																				PRINT_MATX44F(local_inv_pose, "Dynamic_slam::getInvPose(cv::Matx44f pose)" );
