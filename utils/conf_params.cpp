@@ -2,12 +2,15 @@
 
 /////// functions
 conf_params::conf_params(char * arg, Json::Value &val){
+
+	int local_verbosity_threshold = val["conf_params::conf_params"].asInt();
+
                                                                                 cout << "\nconf_params::conf_params(char * \""<<arg<<"\", arg, Json::Value &val) chk 1"<<flush;
 	ifstream ifs(arg);
 	Json::Reader reader;
 	Json::Value paths_obj, params_obj, verbosity_obj;
 
-    bool b = reader.parse(ifs, paths_obj); 										if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_2: NB lists .json file entries alphabetically: paths_obj = \n" << paths_obj ;}
+    bool b = reader.parse(ifs, paths_obj); 										if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_2: \tNB lists .json file entries alphabetically: \npaths_obj = \n" << paths_obj ;}
 
 	ifstream ifs_params(	paths_obj["source_filepath"].asString()	 +  paths_obj["params_conf"].asString() 	);	if (!ifs_params.is_open()) {
 																															cout << "\njson_params::json_params(char * arg):  ifs_params  is NOT open !"<< flush;
@@ -21,9 +24,9 @@ conf_params::conf_params(char * arg, Json::Value &val){
 																															exit(1);
 																													}
 
-	b = reader.parse(ifs_params, 	params_obj); 								if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_3: NB lists .json file entries alphabetically: params_obj = \n" << params_obj ;}
+	b = reader.parse(ifs_params, 	params_obj); 								if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_3: \tNB lists .json file entries alphabetically: \nparams_obj = \n" << params_obj ;}
 
-	b = reader.parse(ifs_verbosity, verbosity_obj); 							if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_4: NB lists .json file entries alphabetically: verbosity_obj = \n" << verbosity_obj ;}
+	b = reader.parse(ifs_verbosity, verbosity_obj); 							if (!b) { cout << "Error: " << reader.getFormattedErrorMessages(); exit(1) ;}   else {cout << "\nconf_params::conf_params(..) chk_4: \tNB lists .json file entries alphabetically: \nverbosity_obj = \n" << verbosity_obj ;}
 
 	//cout << "\v verbosity_obj = " << verbosity_obj << endl << flush;
 
