@@ -2,7 +2,7 @@
     // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NB Need to include classname. to prevent function name clashes between classes..... Or make it one list per class.
     // NB Also overlarded function names within a class.
-    "verbosity":-4,									// -1= none, 0=errors only, 1=basic, 2=lots.
+    "verbosity":0,									// -1= none, 0=errors only, 1=basic, 2=lots.
 
     // utils/ ###############################################################
     /////////////////////////////////////// convertAhandaPovRayToStandard.cpp
@@ -32,15 +32,15 @@
     // Dynaic_slam/ ##############################################
     /////////////////////////////////////// Dynamic_slam_class.cpp
     "~Dynamic_slam":1,
-    "Dynamic_slam::Dynamic_slam":-2,
-    "Dynamic_slam::initialize_resultsMat":-2,
-    "Dynamic_slam::initialize_camera":2,
-    "Dynamic_slam::nextFrame": -2,
-    "Dynamic_slam::getFrame": -1,
+    "Dynamic_slam::Dynamic_slam":1,
+    "Dynamic_slam::initialize_resultsMat":1,
+    "Dynamic_slam::initialize_camera":1,
+    "Dynamic_slam::nextFrame": 1,
+    "Dynamic_slam::getFrame": 1,
     "Dynamic_slam::getPose": 1,
     "Dynamic_slam::getInvPose": 1,
-    "Dynamic_slam::getFrameData": -2,
-    "Dynamic_slam::use_GT_pose": -1,
+    "Dynamic_slam::getFrameData": 1,
+    "Dynamic_slam::use_GT_pose": 1,
 
     //"generate_invPose": 1,
     "Dynamic_slam::estimateCalibration": 1,
@@ -50,27 +50,27 @@
     "Dynamic_slam::getResult": 1,
 
     /////////////////////////////////////// Dynamic_slam_keyframe.cpp
-    "Dynamic_slam::initialize_keyframe_from_GT": -1,
-    "Dynamic_slam::initialize_keyframe_from_tracking": -1,
-    "Dynamic_slam::initialize_new_keyframe": -1,
+    "Dynamic_slam::initialize_keyframe_from_GT": 1,
+    "Dynamic_slam::initialize_keyframe_from_tracking": 1,
+    "Dynamic_slam::initialize_new_keyframe": 1,
 
     /////////////////////////////////////// Dynamic_slam_mapping.cpp
     "Dynamic_slam::optimize_depth": 1,
-    "Dynamic_slam::updateDepthCostVol":-1,
+    "Dynamic_slam::updateDepthCostVol": 1,
 	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": 1,
     "Dynamic_slam::cacheGValues": 1,
     "Dynamic_slam::updateA": 1,
 
     /////////////////////////////////////// Dynamic_slam_tracking.cpp
-    "Dynamic_slam::report_GT_pose_error":-2,
-    "Dynamic_slam::display_frame_resluts":1,
-    "Dynamic_slam::artificial_pose_error": -2,
-    "Dynamic_slam::predictFrame": -2,
-    "Dynamic_slam::generate_invK_": 0,
-    "Dynamic_slam::generate_SE3_k2k": -2,
-    "Dynamic_slam::update_k2k": -3,
-    "Dynamic_slam::estimateSE3_LK": -1,
+    "Dynamic_slam::report_GT_pose_error": 2,
+    "Dynamic_slam::display_frame_resluts": 1,
+    "Dynamic_slam::artificial_pose_error": 1,
+    "Dynamic_slam::predictFrame": 1,
+    "Dynamic_slam::generate_invK_": 1,
+    "Dynamic_slam::generate_SE3_k2k": 1,
+    "Dynamic_slam::update_k2k": 1,
+    "Dynamic_slam::estimateSE3_LK": 1,
 
 	// RunCL/ ##############################################
 	/////////////////////////////////////// RunCL_class.cpp
@@ -83,9 +83,9 @@
 
 	"RunCL::convertToString": 1,
 	"RunCL::initialize_fp32_params": 1,
-	"RunCL::initialize_RunCL": -1,
+	"RunCL::initialize_RunCL": 1,
 
-	"RunCL::mipmap_call_kernel": -2,
+	"RunCL::mipmap_call_kernel": 1,
 	"RunCL::waitForEventAndRelease": 1,
 	"RunCL::allocatemem": 0,
 
@@ -123,32 +123,36 @@
 	"RunCL::DownloadAndSaveVolume": 1,
 
 	////////////////////////////////////// RunCL_load_image.cpp
-	"RunCL::loadFrame": -2,
+	"RunCL::loadFrame": 1,
 	"RunCL::cvt_color_space": 1,
-	"RunCL::img_variance": -1,
-	"RunCL::blur_image": -1,
-	"RunCL::mipmap_linear": -1,
-	"RunCL::img_gradients": -2,
+	"RunCL::img_variance": 1,
+	"RunCL::blur_image": 1,
+	"RunCL::mipmap_linear": 1,
+	"RunCL::img_gradients": 1,
 
-	"RunCL::load_GT_depth": -2,
+	"RunCL::load_GT_depth": 1,
 	"RunCL::convert_depth": 0,
 	"RunCL::mipmap_depthmap": 2,
 
 	/////////////////////////////////////// RunCL_tracking.cpp
-	"RunCL::precom_param_maps": -2,
-	"RunCL::se3_rho_sq": -1,
+	"RunCL::precom_param_maps": 2,
+	"RunCL::se3_rho_sq": 1,
 
-	"RunCL::estimateSE3_LK": -1,
-	"RunCL::read_Rho_sq": -1,
-	"RunCL::read_se3_weights": -1,
-	"RunCL::read_se3_incr": -1,
+	"RunCL::estimateSE3_LK": 1,
+	"RunCL::read_Rho_sq": 1,
+	"RunCL::read_se3_weights": 1,
+	"RunCL::read_se3_incr": 1,
 
-	"RunCL::tracking_result": -2,
+	"RunCL::tracking_result": 1,
 	"RelativeVel_Map": 1,
 	"RunCL::atomic_test1": 1,
 
 	/////////////////////////////////////// RunCL_mapping.cpp
-	"RunCL::updateDepthCostVol": -1,
+	"RunCL::updateDepthCostVol": 1,
+	"RunCL::updateDepthCostVol::cdatabuf": 0,		// bool
+	"RunCL::updateDepthCostVol::hdatabuf": 0,		// bool
+	"RunCL::updateDepthCostVol::cdatabuf_8chan": 0,	// bool
+
 	"RunCL::updateQD": -1,
 	"RunCL::updateG": -1,
 	"RunCL::updateA": -1,
@@ -161,8 +165,8 @@
 
 	/////////////////////////////////////// RunCL_mapping.cpp
 	"RunCL::estimateCalibration": 1,
-	"RunCL::transform_depthmap": 0,
-	"RunCL::initializeDepthCostVol": -2
+	"RunCL::transform_depthmap": 1,
+	"RunCL::initializeDepthCostVol": 1
 }
 
 

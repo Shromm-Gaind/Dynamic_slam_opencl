@@ -304,7 +304,7 @@ void RunCL::initialize_fp32_params(){
 
 void RunCL::initialize_RunCL(){
 	int local_verbosity_threshold = verbosity_mp["RunCL::initialize_RunCL"];// -1;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk0\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_RunCL_chk0\n\n" << flush;
 																																			if(baseImage.empty()){cout <<"\nError RunCL::initialize() : runcl.baseImage.empty()"<<flush; exit(0); }
 	image_size_bytes	= baseImage.total() * baseImage.elemSize();																			// Constant parameters of the base image
 	image_size_bytes_C1	= baseImage.total() * sizeof(float);
@@ -317,7 +317,7 @@ void RunCL::initialize_RunCL(){
 
 	mm_num_reductions	= obj["num_reductions"].asUInt();																					// Constant parameters of the mipmap, (as opposed to per-layer mipmap_buf)
 	mm_start			= 0;
-	mm_stop				= mm_num_reductions;																								if(verbosity>local_verbosity_threshold) cout << "\nRunCL::initialize_chk0.5,  mm_start="<<mm_start<<",  mm_stop="<<mm_stop<<" \n" << flush;
+	mm_stop				= mm_num_reductions;																								if(verbosity>local_verbosity_threshold) cout << "\nRunCL::initialize_RunCL_chk0.5,  mm_start="<<mm_start<<",  mm_stop="<<mm_stop<<" \n" << flush;
 	mm_gaussian_size	= obj["gaussian_size"].asUInt();
 	mm_margin			= obj["MipMap_margin"].asUInt() * mm_num_reductions;
 	mm_width 			= baseImage_width  + 2 * mm_margin;
@@ -333,7 +333,7 @@ void RunCL::initialize_RunCL(){
 	cv::Mat temp2(mm_height, mm_width, CV_32FC1);
 	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	mm_vol_size_bytes	= mm_size_bytes_C1 * costVolLayers;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_chk1  mm_gaussian_size="<<mm_gaussian_size<<" \n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::initialize_RunCL_chk1  mm_gaussian_size="<<mm_gaussian_size<<" \n\n" << flush;
 																																			// Get the maximum work group size for executing the kernel on the device ///////
 																																			// From https://github.com/rsnemmen/OpenCL-examples/blob/e2c34f1dfefbd265cfb607c2dd6c82c799eb322a/square_array/square.c
 	cl_int 				status;
@@ -363,7 +363,7 @@ void RunCL::initialize_RunCL(){
 																																				cout<<"\n"<<", temp.elemSize() ="<< temp.elemSize()   <<", temp2.elemSize()="<< temp2.elemSize() <<flush;
 																																				cout<<"\n"<<", temp.total() ="<< temp.total()         <<", temp2.total()="   << temp2.total()    <<flush;
 																																			}
-																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.8\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_RunCL_chk3.8\n\n" << flush;
 	uint_params[PIXELS]			= 	baseImage_height * baseImage_width ;
 	uint_params[ROWS]			= 	baseImage_height ;
 	uint_params[COLS]			= 	baseImage_width ;
@@ -374,7 +374,7 @@ void RunCL::initialize_RunCL(){
 	uint_params[MM_COLS]		= 	mm_width ;
 
 	initialize_fp32_params();																												// Requires uint_params[COSTVOL_LAYERS]	;
-																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_chk3.9\n\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::initialize_RunCL_chk3.9\n\n" << flush;
 	computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), fp32_params[SIGMA_Q], fp32_params[SIGMA_D] );
 																																			//computeSigmas( obj["epsilon"].asFloat(), obj["thetaStart"].asFloat(), obj["L"].asFloat(), cl_half_params[SIGMA_Q], cl_half_params[SIGMA_D] );
 																																			if(verbosity>local_verbosity_threshold){
@@ -496,7 +496,7 @@ void RunCL::initialize_RunCL(){
 
 	d_disp_sum_size			=  1 + ceil( (float)(MipMap[(mm_num_reductions+1) + MiM_READ_OFFSET]) / (float)local_work_size ) ;				// mm_size_bytes_C1 =	mm_size_bytes_C1	= temp2.total() * temp2.elemSize();
 	d_disp_sum_size_bytes	=  d_disp_sum_size * sizeof(float) * 4;
-																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_chk finished ############################################################\n"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_RunCL_chk finished ############################################################\n"<<flush;
 }
 
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size){

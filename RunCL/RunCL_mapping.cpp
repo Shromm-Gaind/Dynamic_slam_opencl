@@ -138,18 +138,20 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				cout << "\ncount = " << count << flush;
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
+																																				bool show = false;
+																																				bool exception_tiff = false;
 																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 			mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
-																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("HSV_grad_mem"),	mm_size_bytes_C8,   mm_Image_size,   CV_32FC(8),false, -1, 0 );
-																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); // a little more than the num images in costvol.
-																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 8); //params[COSTVOL_LAYERS]
-																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
-																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , fp32_params[MAX_INV_DEPTH]);
-
-																																				DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
-
-																																				DownloadAndSave_8Channel_volume(  cdatabuf_8chan, ss.str(), paths.at("cdatabuf_8chan"), mm_size_bytes_C8,	mm_Image_size,   CV_32FC1,  false , 1, costVolLayers );
-
-																																				DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  false , 0 /*TODO count*/ , false /*exception_tiff=false*/);
+																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("HSV_grad_mem"),	mm_size_bytes_C8,   mm_Image_size,   CV_32FC(8),show, -1, 0 );
+																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8); // a little more than the num images in costvol.
+																																				DownloadAndSave(		 	himem,  			ss.str(), paths.at("himem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8); //params[COSTVOL_LAYERS]
+																																				DownloadAndSave(		 	amem,   			ss.str(), paths.at("amem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , fp32_params[MAX_INV_DEPTH]);
+																																				DownloadAndSave(		 	dmem,   			ss.str(), paths.at("dmem"),   			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , fp32_params[MAX_INV_DEPTH]);
+																																				if (verbosity_mp["RunCL::updateDepthCostVol::cdatabuf"])
+																																					DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*TODO count*/ , exception_tiff /*exception_tiff=false*/);
+																																				if (verbosity_mp["RunCL::updateDepthCostVol::cdatabuf_8chan"])
+																																					DownloadAndSave_8Channel_volume( cdatabuf_8chan,ss.str(), paths.at("cdatabuf_8chan"),	mm_size_bytes_C8,	mm_Image_size,   CV_32FC1,  show , 1, costVolLayers );
+																																				if (verbosity_mp["RunCL::updateDepthCostVol::hdatabuf"])
+																																					DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), 		mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*TODO count*/ , exception_tiff /*exception_tiff=false*/);
 																																				if(verbosity>1) cout << "\ncostvol_frame_num="<<costvol_frame_num;
 																																				cout << "\nRunCL::updateDepthCostVol(..)_finished\n" << flush;
 																																			}

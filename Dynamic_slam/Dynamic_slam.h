@@ -81,6 +81,11 @@ class Dynamic_slam
     void initialize_camera();
     int  nextFrame();
     void getFrame();
+
+
+    typedef std::chrono::_V2::system_clock::time_point time_pt;
+    void getNextFrameProfile(time_pt step_0, time_pt step_1, time_pt step_2, time_pt step_3, time_pt step_4, time_pt step_5, time_pt step_6, time_pt step_7, time_pt step_8);
+
     cv::Matx44f getPose(cv::Mat R, cv::Mat T);
     cv::Matx44f getInvPose(cv::Matx44f pose);
     void getFrameData();

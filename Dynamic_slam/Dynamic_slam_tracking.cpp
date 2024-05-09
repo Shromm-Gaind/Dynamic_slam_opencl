@@ -275,7 +275,7 @@ void Dynamic_slam::estimateSE3_LK(){
 		float SE3_results[8][6][tracking_num_colour_channels] = {{{0}}};
 		float Rho_sq_results[8][tracking_num_colour_channels] = {{0}};
 
-		runcl.estimateSE3_LK(SE3_results, SE3_weights, Rho_sq_results, iter, runcl.mm_start, runcl.mm_stop);
+		runcl.estimateSE3_LK(SE3_results, SE3_weights, Rho_sq_results, iter, layer, layer+1);//runcl.mm_start, runcl.mm_stop);
 																																			if(verbosity>local_verbosity_threshold) {cout 	<< "\n###  Dynamic_slam::estimateSE3_LK()_chk 1.6.0:" << flush;
 																																				cout << endl;
 																																				for (int i=runcl.mm_start; i<=runcl.mm_stop; i++){ 							// SE3_results / (num_valid_px * img_variance)
@@ -335,10 +335,12 @@ void Dynamic_slam::estimateSE3_LK(){
 		// # Repeat SE3 fitting n-times. ? Damping factor adjustment ?
 	}
 																																			if(obj["sample_se3_incr"].asBool()==true) { cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 6.3, display and save ResultsMat\n" << flush;
-																																				cv::namedWindow( "Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , 0 );														// show runcl.resultsMat
-																																				cv::imshow("Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , runcl.resultsMat);
-																																				cv::waitKey(-1);
-																																				destroyWindow( "Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" );
+																																				if(obj["sample_se3_incr::display"].asBool()==true){
+																																					cv::namedWindow( "Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , 0 );														// show runcl.resultsMat
+																																					cv::imshow("Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" , runcl.resultsMat);
+																																					cv::waitKey(-1);
+																																					destroyWindow( "Dynamic_slam::estimateSE3_LK()_chk 6: writeToResultsMat" );
+																																				}
 																																				stringstream ss;																														// save runcl.resultsMat
 																																				ss <<  runcl.paths.at("SE3_rho_map_mem").string() << "resultsMat_"<<runcl.dataset_frame_num<<".png";
 																																				cv::imwrite( ss.str(), runcl.resultsMat );

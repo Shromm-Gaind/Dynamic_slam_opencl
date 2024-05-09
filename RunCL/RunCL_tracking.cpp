@@ -185,10 +185,12 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk3 ."<<flush;
 																																				stringstream ss;	ss << dataset_frame_num << "_iter_"<< count << "_estimateSE3_LK_";
                                                                                                                                                 stringstream ss_path;
-																																				bool display = false;
-																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 1, true, count, display );
-																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
-																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, false, -1, 6, true, count, display );
+																																				bool show 			= false;
+																																				bool display 		= false;
+																																				bool exception_tiff = false;
+																																				DownloadAndSave_3Channel_volume(  SE3_rho_map_mem,  	ss.str(), paths.at("SE3_rho_map_mem"),  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, show, -1, 1, exception_tiff, count, display );
+																																				DownloadAndSave_3Channel_volume(  SE3_weight_map_mem, 	ss.str(), paths.at("SE3_weight_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, show, -1, 6, exception_tiff, count, display );
+																																				DownloadAndSave_3Channel_volume(  SE3_incr_map_mem, 	ss.str(), paths.at("SE3_incr_map_mem"), 	mm_size_bytes_C4, mm_Image_size, CV_32FC4, show, -1, 6, exception_tiff, count, display );
 																																			}
 																																			if(obj["sample_se3_incr"].asBool()==true) {
 																																				PrepareResults_3Channel_volume(  SE3_rho_map_mem,  	mm_size_bytes_C4, mm_Image_size, CV_32FC4, -1, 1,  count );

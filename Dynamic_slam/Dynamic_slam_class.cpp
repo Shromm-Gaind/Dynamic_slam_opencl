@@ -107,12 +107,13 @@ void Dynamic_slam::initialize_camera(){
 int Dynamic_slam::nextFrame() {
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::nextFrame"];// -2;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::nextFrame_chk 0,  runcl.dataset_frame_num="<<runcl.dataset_frame_num<<" \n" << flush; //  runcl.frame_bool_idx="<<runcl.frame_bool_idx<<"
-	predictFrame();																															// updates pose2pose for next frame in cost volume.
-	getFrameData();																															// Loads GT depth of the new frame. NB depends on image.size from getFrame().
-	use_GT_pose();
-	getFrame();
-	if(obj["Artif_pose_err_bool"].asBool() == true ) artificial_pose_error();
-	estimateSE3_LK(); 																														// own thread ? num iter ?
+																					auto step_0 = high_resolution_clock::now();
+	predictFrame();																	auto step_1 = high_resolution_clock::now();				// updates pose2pose for next frame in cost volume.
+	getFrameData();																	auto step_2 = high_resolution_clock::now();				// Loads GT depth of the new frame. NB depends on image.size from getFrame().
+	if(obj["use_GT_pose"].asBool() == true )		{	use_GT_pose();	}			auto step_3 = high_resolution_clock::now();
+	getFrame();																		auto step_4 = high_resolution_clock::now();
+	if(obj["Artif_pose_err_bool"].asBool() == true ){ 	artificial_pose_error();}	auto step_5 = high_resolution_clock::now();
+	estimateSE3_LK(); 																auto step_6 = high_resolution_clock::now();			// own thread ? num iter ?
 	//estimateCalibration(); 																												// own thread, one iter.
 	if(verbosity>local_verbosity_threshold){
 		report_GT_pose_error();
@@ -121,16 +122,30 @@ int Dynamic_slam::nextFrame() {
 	////////////////////////////////// Test kernels
 	//runcl.atomic_test1();
 	////////////////////////////////// Parallax depth mapping
-	updateDepthCostVol();																													// Update cost vol with the new frame, and repeat optimization of the depth map.
+																					auto step_7 = high_resolution_clock::now();
+	updateDepthCostVol();															auto step_8 = high_resolution_clock::now();				// Update cost vol with the new frame, and repeat optimization of the depth map.
 																																			// NB Cost vol needs to be initialized on a particular keyframe.
-																																			// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
+	getNextFrameProfile(step_0, step_1, step_2, step_3, step_4, step_5, step_6, step_7, step_8);											// A previous depth map can be transfered, and the updated depth map after each frame, can be used to track the next frame.
 	runcl.costvol_frame_num++;
 	runcl.dataset_frame_num++;
 	return(0);																																// NB option to return an error that stops the main loop.
 };
 
-////
-
+void Dynamic_slam::getNextFrameProfile(time_pt step_0, time_pt step_1, time_pt step_2, time_pt step_3, time_pt step_4, time_pt step_5, time_pt step_6, time_pt step_7, time_pt step_8){
+	stringstream ss;
+	ss 	<<"\nExecution times:(microseconds)####################################################"
+		<<"\npredictFrame()                                    "	<<  duration_cast<microseconds>(step_1 - step_0).count()
+		<<"\ngetFrameData()...................................."	<<  duration_cast<microseconds>(step_2 - step_1).count()
+		<<"\nuse_GT_pose()                                     "	<<  duration_cast<microseconds>(step_3 - step_2).count()
+		<<"\ngetFrame()........................................"	<<  duration_cast<microseconds>(step_4 - step_3).count()
+		<<"\nartificial_pose_error()                           "	<<  duration_cast<microseconds>(step_5 - step_4).count()
+		<<"\nestimateSE3_LK()                                  "	<<  duration_cast<microseconds>(step_6 - step_5).count()
+		<<"\nreport_GT_pose_error() &  display_frame_resluts() "	<<  duration_cast<microseconds>(step_7 - step_6).count()
+		<<"\nupdateDepthCostVol()                              "	<<  duration_cast<microseconds>(step_8 - step_7).count()
+		<<"\nTotal                                             "	<<  duration_cast<microseconds>(step_8 - step_0).count()
+		<<"\n##################################################################################";
+	cout << ss.str() << flush;
+}
 
 void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB also need to change type CV_8UC3 -> CV_16FC3
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getFrame"];// -1;
@@ -170,7 +185,6 @@ void Dynamic_slam::getFrame() { // can load use separate CPU thread(s) ?  // NB 
 																																			// see CostVol::cacheGValues(), RunCL::cacheGValue2 & __kernel void CacheG3
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrame_chk 1  Finished\n" << flush;}
 }
-
 
 cv::Matx44f Dynamic_slam::getPose(Mat R, Mat T){																							// Mat R, Mat T, Matx44f& pose  // NB Matx::operator()() does not copy, but creates a submatrix. => would be updated when R & T are updated.
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getPose"];// 1;

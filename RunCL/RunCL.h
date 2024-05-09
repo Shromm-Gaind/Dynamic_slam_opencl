@@ -20,6 +20,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <jsoncpp/json/json.h>
+#include <chrono>								// For measuring time of execution.
+using namespace std::chrono;
 
 #include "../utils/conf_params.hpp"
 #include "../utils/convertTransforms.hpp"
