@@ -4,9 +4,15 @@ void RunCL::createFolders(){
 	int local_verbosity_threshold = verbosity_mp["RunCL::createFolders"];
 
 																																			if(verbosity>local_verbosity_threshold) cout << "\n createFolders_chk 0\n" << flush;
+	auto now = std::chrono::system_clock::now();
+	auto in_time_t = std::chrono::system_clock::to_time_t(now);
+	std::stringstream datetime;
+	datetime << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%X_%a");
+	std::string   out_dir = datetime.str();
+	//std::string   out_dir = std::asctime(std::localtime(&result));
+	//out_dir.pop_back(); 																													// req to remove new_line from end of string.
 	std::time_t   result  = std::time(nullptr);
-	std::string   out_dir = std::asctime(std::localtime(&result));
-	out_dir.pop_back(); 																													// req to remove new_line from end of string.
+
 
 	boost::filesystem::path 	out_path(boost::filesystem::current_path());
 	boost::filesystem::path 	conf_outpath( obj["out_path"].asString() );
@@ -88,6 +94,9 @@ void RunCL::createFolders(){
 										"HSV_grad_mem", "dmem_disparity" \
 	};
 	std::pair<std::string, boost::filesystem::path> tempPair;
+
+	tempPair = {"folder", out_path};																										// Top level output folder, used to std::out file.
+	paths.insert(tempPair);
 
 	for (std::string key : names){
 		temp_path = out_path;

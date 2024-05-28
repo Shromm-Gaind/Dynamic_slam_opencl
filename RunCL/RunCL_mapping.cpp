@@ -139,7 +139,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
 																																				bool show = false;
-																																				bool exception_tiff = false;
+																																				bool exception_tiff = true;
 																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 			mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
 																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("HSV_grad_mem"),	mm_size_bytes_C8,   mm_Image_size,   CV_32FC(8),show, -1, 0 );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8); // a little more than the num images in costvol.

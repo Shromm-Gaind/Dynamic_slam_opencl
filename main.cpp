@@ -19,10 +19,20 @@
 using namespace cv;
 using namespace std;
 
+
+void copy_conf(Json::String source_filepath,  Json::String infile,  string outfile   ){
+	filesystem::path in_path_verbosity(  source_filepath  +  infile  );
+	filesystem::path out_path_verbosity( outfile   );
+	out_path_verbosity.replace_filename( in_path_verbosity.filename() );
+	cerr << "\nin_path="<<in_path_verbosity<<",  out_path="<<out_path_verbosity<<endl<<flush;
+	filesystem::copy( in_path_verbosity , out_path_verbosity );
+}
+
 /////// main
 int main(int argc, char *argv[])
 {
 	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit(1); }
+
 	Json::Value obj;
 	conf_params j_params(argv[1], obj);
 	j_params.display_params();
@@ -39,6 +49,30 @@ int main(int argc, char *argv[])
 																			cout <<"\noutpath = " 		<< j_params.paths_mp["out_path"];
 
 	Dynamic_slam   dynamic_slam(obj, j_params.verbosity_mp);				// Instantiate Dynamic_slam object before while loop.
+
+	stringstream outfile;													// Redirecting cout to write to "output.txt"
+	outfile << dynamic_slam.runcl.paths.at("folder").c_str() <<  "Dynamic_slam_output.txt";
+    cout << "\nOutfile = " << outfile.str() << endl;
+    fflush (stdout);
+    freopen (outfile.str().c_str(), "w", stdout);
+	cout << "Dynamic_slam started. Objects created. Initializing.\n\n" << flush;
+
+	// save config files to output
+	//bool copy_file(const path& from, const path& to, copy_options options);   				 // Boost
+	//void copy( 	const std::filesystem::path& from	,  const std::filesystem::path& to 	);   // c++17 <filesystem>
+
+	// filesystem::path in_path_params(  obj["source_filepath"].asString()  +  obj["params_conf"].asString()  );
+	// filesystem::path out_path_params( outfile.str().c_str() );
+	// out_path_params.replace_filename( in_path_params.filename() );
+	// cerr << "\nin_path="<<in_path_params<<",  out_path="<<out_path_params<<endl<<flush;
+	// filesystem::copy( in_path_params , out_path_params );
+
+	copy_conf( obj["source_filepath"].asString(),  obj["params_conf"].asString(),		outfile.str().c_str()  );
+	copy_conf( obj["source_filepath"].asString(),  obj["verbosity_conf"].asString(),	outfile.str().c_str()  );
+	copy_conf( ""								,  argv[1],    							outfile.str().c_str()  );
+
+
+	//boost::filesystem::copy_file( obj["verbosity_conf"]  ,  outfile.str().c_str()      );
 																			if(verbosity_>0) cout << "\n main_chk 1\n" << flush;
 																			// New continuous while loop: load next (image + data), Dynamic_slam::nextFrame(..)
 																			// NB need to initialize the cost volume with a key frame, and tracking with a depth map.
@@ -51,7 +85,7 @@ int main(int argc, char *argv[])
 			ds_error = dynamic_slam.nextFrame();
 			frame_count ++;
 		}
-		//dynamic_slam.optimize_depth(); // Temporarily suspend mapping
+		dynamic_slam.optimize_depth(); // Temporarily suspend mapping
 		//																	if(verbosity_>0) dynamic_slam.runcl.saveCostVols(imagesPerCV);
 		
 		//dynamic_slam.initialize_keyframe_from_tracking();
@@ -60,6 +94,10 @@ int main(int argc, char *argv[])
 	}while(!ds_error && ((frame_count<max_frame_count) || (max_frame_count==-1)) );
 																			if(verbosity_>0) cout << "\n main_chk 3\n" << flush;
 	dynamic_slam.getResult();												// also calls RunCL::CleanUp()
+
+	cout << "\n\nDynamic_slam finished. Exiting."<<flush;
+	fflush (stdout);
+    fclose (stdout);
 	exit(0);																// guarantees class destructors are called.
 }
 

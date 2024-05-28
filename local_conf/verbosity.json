@@ -2,7 +2,7 @@
     // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NB Need to include classname. to prevent function name clashes between classes..... Or make it one list per class.
     // NB Also overlarded function names within a class.
-    "verbosity":0,									// -1= none, 0=errors only, 1=basic, 2=lots.
+    "verbosity":1,									// -1= none, 0=errors only, 1=basic, 2=lots.
 
     // utils/ ###############################################################
     /////////////////////////////////////// convertAhandaPovRayToStandard.cpp
@@ -59,8 +59,8 @@
     "Dynamic_slam::updateDepthCostVol": 1,
 	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": 1,
-    "Dynamic_slam::cacheGValues": 1,
-    "Dynamic_slam::updateA": 1,
+    "Dynamic_slam::cacheGValues": 0,
+    "Dynamic_slam::updateA": 0,
 
     /////////////////////////////////////// Dynamic_slam_tracking.cpp
     "Dynamic_slam::report_GT_pose_error": 2,
@@ -149,9 +149,9 @@
 
 	/////////////////////////////////////// RunCL_mapping.cpp
 	"RunCL::updateDepthCostVol": 1,
-	"RunCL::updateDepthCostVol::cdatabuf": 0,		// bool
-	"RunCL::updateDepthCostVol::hdatabuf": 0,		// bool
-	"RunCL::updateDepthCostVol::cdatabuf_8chan": 0,	// bool
+	"RunCL::updateDepthCostVol::cdatabuf": 1,		// bool
+	"RunCL::updateDepthCostVol::hdatabuf": 1,		// bool
+	"RunCL::updateDepthCostVol::cdatabuf_8chan": 1,	// bool
 
 	"RunCL::updateQD": -1,
 	"RunCL::updateG": -1,

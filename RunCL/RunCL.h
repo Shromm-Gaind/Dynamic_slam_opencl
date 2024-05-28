@@ -19,6 +19,7 @@
 #include <opencv2/highgui.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <filesystem>							// C++17 TODO <replace boost/filesystem>
 #include <jsoncpp/json/json.h>
 #include <chrono>								// For measuring time of execution.
 using namespace std::chrono;
