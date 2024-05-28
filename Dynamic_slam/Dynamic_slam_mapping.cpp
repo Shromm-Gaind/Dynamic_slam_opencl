@@ -20,6 +20,7 @@ void Dynamic_slam::optimize_depth(){
 
 	cacheGValues();															// initialize "keyframe_g1mem"" map of image edges.
 	do{
+																			cerr << "\nDynamic_slam::optimize_depth()  max_opt_count="<<max_opt_count<<",   opt_count="<<opt_count<<flush;
 		for (int i = 0; i < max_inner_opt_count; i++) updateQD();			// Optimize Q, D   (primal-dual)		/ *5* /
 		doneOptimizing = updateA();											// Optimize A      (pointwise exhaustive search)
 		opt_count ++;

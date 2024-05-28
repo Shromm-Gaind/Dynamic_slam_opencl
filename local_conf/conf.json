@@ -4,7 +4,7 @@
 
 
     // Debug options ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    "tiff":false,//true,//false
+    "tiff":true,//true,//false
     "png":true,
 
     // Setup openCL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +81,7 @@
     "":"",
     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
-    "sample_se3_incr":false,    //true false   //NB Expensive           // ### Displayed steps are _limited_ by choice of layer to process at _ Dynamic_slam_tracking.cpp _ void Dynamic_slam__estimateSE3_LK() _ line 287
+    "sample_se3_incr":true,    //true false   //NB Expensive           // ### Displayed steps are _limited_ by choice of layer to process at _ Dynamic_slam_tracking.cpp _ void Dynamic_slam__estimateSE3_LK() _ line 287
     "sample_se3_incr::display":false,
     "":""
 }

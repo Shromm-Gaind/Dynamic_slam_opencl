@@ -104,8 +104,9 @@ void RunCL::createFolders(){
 		tempPair = {key, temp_path};
 		paths.insert(tempPair);
 		boost::filesystem::create_directory(temp_path);
-		temp_path += "/png/";
+		temp_path += "/tiff/";									// "/png/";
 		boost::filesystem::create_directory(temp_path);
+
 	}
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\nRunCL::createFolders() chk1\n";			// print the folder paths
@@ -181,9 +182,10 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.3 finished ReadOutput\n\n"<<flush;
 		boost::filesystem::path folder_png = folder_tiff;
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.4 finished ReadOutput\n\n"<<flush;
+		folder_tiff += "/tiff/";
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
-		folder_png  += "/png/";
+		//folder_png  += "/png/";
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.5 finished ReadOutput\n\n"<<flush;
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
@@ -256,14 +258,16 @@ void RunCL::DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, bo
 		png_ss_u << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_U_" << count;
 		png_ss_v << "/" << folder_tiff.filename().string() << "layer_"<<layer<<"_V_" << count;
 
-		boost::filesystem::path folder_png_u = folder_tiff, folder_png_v = folder_tiff, folder_tiff_u = folder_tiff, folder_tiff_v = folder_tiff;
+		boost::filesystem::path folder_png_u = folder_tiff, folder_png_v = folder_tiff;
+		folder_tiff += "/tiff/";
+		boost::filesystem::path folder_tiff_u = folder_tiff, folder_tiff_v = folder_tiff;
 		folder_tiff_u += ss_u.str();
 		folder_tiff_u += ".tiff";
 
 		folder_tiff_v += ss_v.str();
 		folder_tiff_v += ".tiff";
 
-		folder_png_u  += "/png/";
+		//folder_png_u  += "/png/";
 		folder_png_u  += png_ss_u.str();
 		folder_png_u  += ".png";
 
@@ -352,10 +356,11 @@ void RunCL::DownloadAndSave_3Channel(cl_mem buffer, std::string count, boost::fi
 			destroyWindow( ss.str() );
 		}
 		boost::filesystem::path folder_png = folder_tiff;
-		folder_png  += "/png/";
+		//folder_png  += "/png/";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
 
+		folder_tiff += "/tiff/";
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 
@@ -666,10 +671,11 @@ void RunCL::SaveMat(cv::Mat temp_mat, int type_mat, boost::filesystem::path fold
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
-		folder_png  += "/png";
+		//folder_png  += "/png";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
 
+		folder_tiff += "/tiff/";
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 
@@ -720,10 +726,11 @@ void RunCL::SaveMat_1chan(cv::Mat temp_mat, int type_mat, boost::filesystem::pat
 			cv::imshow( ss.str(), temp);
 		}
 		boost::filesystem::path folder_png = folder_tiff;
-		folder_png  += "/png";
+		//folder_png  += "/png";
 		folder_png  += png_ss.str();
 		folder_png  += ".png";
 
+		folder_tiff += "/tiff/";
 		folder_tiff += ss.str();
 		folder_tiff += ".tiff";
 
@@ -858,6 +865,7 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 
 		boost::filesystem::path new_filepath = folder;
 		boost::filesystem::path folder_png   = folder;
+		new_filepath += "/tiff/";
 
 		string type_string = checkCVtype(type_mat);
 		stringstream ss;
@@ -871,7 +879,7 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		}
 		new_filepath += ss.str();
 		new_filepath += ".tiff";
-		folder_png += "/png/";
+		//folder_png += "/png/";
 		folder_png += png_ss.str();
 		folder_png += ".png";
 																																			if(verbosity>local_verbosity_threshold) cout << "\nnew_filepath.string() = "<<new_filepath.string() <<"\n";
