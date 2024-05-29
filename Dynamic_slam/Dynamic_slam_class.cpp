@@ -402,5 +402,17 @@ void Dynamic_slam::ExhaustiveSearch(){
 
 void Dynamic_slam::getResult(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getResult"];
+	if(verbosity>local_verbosity_threshold){
+		stringstream ss;
+		ss << "updateQD"<< runcl.save_index << "_QD_count_" << runcl.QD_count <<"_epsilon_"<<epsilon<<"_sigmaQ_"<<sigma_q<<"_D_"<<sigma_d<<"_theta_"<<theta;
+																																				//int this_count = save_index * 1000 + QD_count;
+																																				//ss << save_index << "_QD_count_" << QD_count;
+		cv::Size q_size( runcl.mm_Image_size.width, 2* runcl.mm_Image_size.height ); 			// 2x sized for qx and qy.
+		runcl.DownloadAndSave(runcl.dmem,   ss.str(), runcl.paths.at("dmem"),    runcl.mm_size_bytes_C1 , runcl.mm_Image_size , CV_32FC1, false ,    runcl.fp32_params[MAX_INV_DEPTH]  );
+		runcl.DownloadAndSave(runcl.amem,   ss.str(), runcl.paths.at("amem"),    runcl.mm_size_bytes_C1 , runcl.mm_Image_size , CV_32FC1, false ,    runcl.fp32_params[MAX_INV_DEPTH]  );
 
+		//DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );
+		//DownloadAndSave(qmem2,   ss.str(), paths.at("qmem2"),2*mm_size_bytes_C1 , q_size        , CV_32FC1, false , -1*fp32_params[MAX_INV_DEPTH]  );  // 1/uint_params[MM_PIXELS]
+		cout<<"\nRunCL::updateQD_chk3_finished\n"<<flush;
+	}
 };

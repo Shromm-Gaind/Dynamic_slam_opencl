@@ -47,7 +47,7 @@
     "Dynamic_slam::SpatialCostFns": 1,
     "Dynamic_slam::ParsimonyCostFns": 1,
     "Dynamic_slam::ExhaustiveSearch": 1,
-    "Dynamic_slam::getResult": 1,
+    "Dynamic_slam::getResult": -1,
 
     /////////////////////////////////////// Dynamic_slam_keyframe.cpp
     "Dynamic_slam::initialize_keyframe":1,
