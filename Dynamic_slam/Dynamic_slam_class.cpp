@@ -308,27 +308,30 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 	int r = runcl.baseImage.rows;  //image.rows;
     int c = runcl.baseImage.cols;  //image.cols;
 	depth_GT = loadDepthAhanda(verbosity_mp, depth[runcl.dataset_frame_num].string(), r,c,cameraMatrix);
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;}
-	stringstream ss;
-	stringstream png_ss;
-	boost::filesystem::path folder_tiff = runcl.paths.at("depth_GT");
-	string type_string = runcl.checkCVtype(depth_GT.type() );
-	ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num <<"type_"<<type_string;
-	png_ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num;
-	boost::filesystem::path folder_png = folder_tiff;
-	folder_tiff += ss.str();
-	folder_tiff += ".tiff";
-	folder_png  += "/png/";
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 3,"<<flush;//}
+																																				stringstream ss;
+																																				stringstream png_ss;
+																																				boost::filesystem::path folder_tiff = runcl.paths.at("depth_GT");
+																																				string type_string = runcl.checkCVtype(depth_GT.type() );
+																																				ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num <<"type_"<<type_string;
+																																				png_ss << "/" << folder_tiff.filename().string() << "_original_" << runcl.dataset_frame_num;
+																																				boost::filesystem::path folder_png = folder_tiff;
+																																				folder_tiff += "/tiff/";
+																																				folder_tiff += ss.str();
+																																				folder_tiff += ".tiff";
+																																				//folder_png  += "/png/";
 
-	folder_png  += png_ss.str();
-	folder_png  += ".png";
-																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 4,"<<flush;
+																																				folder_png  += png_ss.str();
+																																				folder_png  += ".png";
+
+																																			//if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::getFrameData_chk 4,"<<flush;
 																																				cout << "\n runcl.frame_num = " << runcl.dataset_frame_num << ",  depth[runcl.frame_num].string() = " << depth[runcl.dataset_frame_num].string() << flush;
 																																				cout << "\n depth_GT.size() = " << depth_GT.size() << ",  depth_GT.type() = "<< type_string << ",  depth_GT.empty() = " <<  depth_GT.empty()   << flush;
 																																				cout << "\n " << folder_png.string() << flush;
+
+																																				cv::imwrite(folder_png.string(), depth_GT );
+																																				cv::imwrite(folder_tiff.string(), depth_GT );
 																																			}
-	cv::imwrite(folder_png.string(), depth_GT );
-	cv::imwrite(folder_tiff.string(), depth_GT );
 
 	//runcl.loadFrameData(depth_GT, K2K, pose2pose);
 	runcl.load_GT_depth(depth_GT, invert_GT_depth);																							// loads to depth_mem_GT buffer.

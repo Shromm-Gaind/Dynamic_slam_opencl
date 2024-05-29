@@ -510,7 +510,7 @@ void RunCL::PrepareResults_3Channel_volume(cl_mem buffer, size_t image_size_byte
 	for (uint i=0; i<vol_layers; i++) {
 		PrepareResults_3Channel(buffer, image_size_bytes, size_mat, type_mat, &bufImg, max_range, i*image_size_bytes);
 
-		if (verbosity_mp["RunCL::PrepareResults_3Channel_volume"]){
+		if (verbosity> verbosity_mp["RunCL::PrepareResults_3Channel_volume"]){
 			cv::namedWindow( "RunCL::PrepareResults_3Channel_volume: bufImg" , 0 );
 			cv::imshow( "RunCL::PrepareResults_3Channel_volume: bufImg" , bufImg  );
 			cv::waitKey(-1);

@@ -319,7 +319,7 @@ void RunCL::measureDepthFit(uint start, uint stop){
 																																			if(verbosity>local_verbosity_threshold) {
 																																				stringstream ss;
 																																				ss << "measureDepthFit"<< save_index << "_A_count_" << A_count ;
-																																				DownloadAndSave_3Channel(dmem_disparity,   ss.str(), paths.at("dmem_disparity"),    mm_size_bytes_C4,   mm_Image_size, CV_32FC4,  false , 1.0,   0 ,  true); //  float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/)
+																																				DownloadAndSave_3Channel(dmem_disparity,   ss.str(), paths.at("dmem_disparity"),    mm_size_bytes_C4,   mm_Image_size, CV_32FC4,  false , 1.0,   0 ,  false); //  float max_range /*=1*/, uint offset /*=0*/, bool exception_tiff /*=false*/)
 																																			}
 	cv::Mat dmem_disparity_sum_mat = cv::Mat::zeros (d_disp_sum_size, 1, CV_32FC4); // cv::Mat::zeros (int rows, int cols, int type)		// NB the data returned is one float4 per group, for the base image, holding disparity (depth, ....) plus entry[3]=pixel count.
 	ReadOutput( dmem_disparity_sum_mat.data, var_sum_mem, d_disp_sum_size_bytes );                                                          // se3_sum_size_bytes
