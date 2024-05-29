@@ -431,12 +431,14 @@ __kernel void UpdateA(						// pointwise exhaustive search
 
 
 __kernel void MeasureDepthFit(						// measure the fit of the depthmap against the groud truth.
+	// inputs
 	__private	uint	mipmap_layer,				//0
 	__constant 	uint8*	mipmap_params,				//1
 	__constant 	uint*	uint_params,				//2
 	__global 	float*  fp32_params,				//3
 	__global 	float*  dpt,						//4		// dmem,     depth D
 	__global 	float*  dpt_GT,						//5
+	// outputs
 	__global 	float4* dpt_disparity,				//6
 	__local		float4*	local_sum_dpt_disparity,	//7
 	__global	float4*	global_sum_dpt_disparity	//8

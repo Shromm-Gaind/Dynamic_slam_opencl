@@ -77,8 +77,10 @@ int main(int argc, char *argv[])
 		cerr << "\n\nmain()  dynamic_slam.optimize_depth();"<<flush;
 		dynamic_slam.optimize_depth();
 																			if(verbosity_>0) dynamic_slam.runcl.saveCostVols(imagesPerCV);
+		dynamic_slam.initialize_keyframe();
+		//dynamic_slam.initialize_keyframe_from_GT();
 		//dynamic_slam.initialize_keyframe_from_tracking();
-		break; // TODO write new depthmap transformation based on bin sort from fluids_v3 & Morphogenesis.
+		//break; // TODO write new depthmap transformation based on bin sort from fluids_v3 & Morphogenesis.
 		
 	}while(!ds_error && ((frame_count<max_frame_count) || (max_frame_count==-1)) );
 																			if(verbosity_>0) cout << "\n main_chk 3\n" << flush;

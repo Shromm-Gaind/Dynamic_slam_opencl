@@ -5,6 +5,14 @@
 using namespace cv;
 using namespace std;
 
+void Dynamic_slam::initialize_keyframe(){
+	if( obj["initialize_keyframe_from_GT"].asBool() ){  	// j_params.bool_mp["initialize_keyframe_from_GT"];
+		initialize_keyframe_from_GT();
+	}else{
+		initialize_keyframe_from_tracking();
+	}
+}
+
 void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT depth map is for current GT pose.
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_GT"];// -1;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::initialize_keyframe_from_GT()_chk 0" << flush;}
@@ -38,16 +46,17 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 	keyframe_inv_K			= inv_K;
 
 	cv::Matx44f inv_pose2pose = getInvPose(keyframe_pose2pose);																				//cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose)
-	cv::Matx44f forward_keyframe2K  = K * inv_pose2pose * inv_old_K;
+	cv::Matx44f forward_keyframe2K  = K *inv_pose2pose * inv_old_K;		//  keyframe_pose2pose
 																																			if(verbosity>local_verbosity_threshold){
+																																				cout<<"\n\nDynamic_slam::initialize_keyframe_from_tracking"<<flush;
 																																				PRINT_MATX44F(K,);
 																																				PRINT_MATX44F(keyframe_pose2pose,);
 																																				PRINT_MATX44F(inv_pose2pose,);
 																																				PRINT_MATX44F(inv_old_K,);
 																																				PRINT_MATX44F(forward_keyframe2K,);
 																																			}
-	runcl.transform_depthmap(forward_keyframe2K, runcl.keyframe_depth_mem );																// NB runcl.transform_depthmap(..) must be used _before_ initializing the new cost_volume, because it uses keyframe_basemem.
-	runcl.initializeDepthCostVol( runcl.depth_mem );
+	runcl.transform_depthmap(forward_keyframe2K, runcl.keyframe_depth_mem );					// NB runcl.transform_depthmap(..) must be used _before_ initializing the new cost_volume, because it uses keyframe_basemem.
+	runcl.initializeDepthCostVol( runcl.keyframe_depth_mem /*runcl.depth_mem*/ );
 	initialize_new_keyframe();
 }
 

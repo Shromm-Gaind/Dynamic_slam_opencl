@@ -98,6 +98,7 @@ class Dynamic_slam
     void getResult();
 
     /////////////////////////////////////// Dynamic_slam_keyframe.cpp
+    void initialize_keyframe();
     void initialize_keyframe_from_GT();
     void initialize_keyframe_from_tracking();
     void initialize_new_keyframe();
