@@ -828,7 +828,7 @@ void RunCL::DownloadAndSave_8Channel_volume(cl_mem buffer, std::string count, bo
 		tempPair = {key, temp_path2};
 		channel_paths.insert(tempPair);
 		boost::filesystem::create_directory(temp_path2);																						// make new folders for each channel of this cost volume
-		temp_path2 += "/png/";
+		temp_path2 += "/tiff/";
 		boost::filesystem::create_directory(temp_path2);
 	}
 

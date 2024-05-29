@@ -28,7 +28,8 @@ void Dynamic_slam::display_frame_resluts(){
 	stringstream ss;
 	ss << "_p2p_error_" ;				for (int i=0; i<6; i++) ss << "," << pose2pose_error_algebra.operator()(i);
 	ss << "_cumulative_error_" ;		for (int i=0; i<6; i++) ss << "," << pose2pose_accumulated_error_algebra.operator()(i);
-	runcl.tracking_result( ss.str() );
+	cout << "\nDynamic_slam::display_frame_resluts "<< ss.str() << flush;
+	runcl.tracking_result( "Dynamic_slam::display_frame_resluts" );
 }
 
 void Dynamic_slam::artificial_pose_error(){
