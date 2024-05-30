@@ -90,7 +90,7 @@ void RunCL::createFolders(){
 										\
 										"basemem", "keyframe_basemem", "depth_mem", "keyframe_depth_mem", \
 										"key_frame_depth_map_src", "depth_GT", \
-										"dmem","amem","lomem","himem","qmem","qmem2","cdatabuf","cdatabuf_8chan","hdatabuf","img_sum_buf", \
+										"dmem","amem","lomem","himem","qmem","qmem2","cdatabuf","cdatabuf_8chan","hdatabuf","dbg_databuf","img_sum_buf", \
 										"HSV_grad_mem", "dmem_disparity" \
 	};
 	std::pair<std::string, boost::filesystem::path> tempPair;
@@ -871,7 +871,7 @@ void RunCL::DownloadAndSaveVolume(cl_mem buffer, std::string count, boost::files
 		stringstream ss;
 		stringstream png_ss;
 		ss << "/"<< folder.filename().string() << "_" << count << "_layer"<< i <<"_sum"<<sum<<"type_"<<type_string<< "min"<<minVal<<"max"<<maxVal;
-		png_ss << "/"<< folder.filename().string() << "_" << count << "_layer"<< i;
+		png_ss << "/"<< folder.filename().string() << "_" << count << "_layer_"<< setw(4) << setfill('0') << i;
 		if(show){
 			cv::Mat temp;
 			temp_mat.convertTo(temp, CV_8U);																								// NB need CV_U8 for imshow(..)

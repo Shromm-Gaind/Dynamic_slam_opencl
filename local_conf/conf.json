@@ -22,7 +22,7 @@
 
     "imagesPerCV":10,            //10,//20,//4,//30//4//7
     "max_frame_count":20,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
-    "max_opt_count":10,          //5,//60,
+    "max_opt_count":60,          //5,//60,
     "max_inner_opt_count":10,   //10,
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
 

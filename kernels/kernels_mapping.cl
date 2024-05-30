@@ -337,7 +337,7 @@ int set_end_layer(float di, float r, float far, float depthStep, int layers, int
 float get_Eaux(float theta, float di, float aIdx, float far, float depthStep, float lambda, float scale_Eaux, float costval)
 {
 	const float ai = far + aIdx*depthStep;
-	return scale_Eaux*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
+	return scale_Eaux*(0.5f/theta)*((di-ai)*(di-ai))  +  lambda*costval;
 	/*
 	// return (0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
 	// return 100*(0.5f/theta)*((di-ai)*(di-ai)) + lambda*costval;
@@ -356,7 +356,8 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	__global 	float*  lo,					//5
 	__global 	float*  hi,					//6
 	__global 	float*  apt,				//7		// amem,     auxilliary A
-	__global 	float*  dpt					//8		// dmem,     depth D
+	__global 	float*  dpt,				//8		// dmem,     depth D
+	__global 	float*  dbg_data			//9		// dbg_databuf
 		 )
 {
 	uint global_id_u 	= get_global_id(0);
@@ -397,7 +398,6 @@ __kernel void UpdateA(						// pointwise exhaustive search
 	int   min_layer	= 0;
 
 	const float depthStep 	= fp32_params[INV_DEPTH_STEP];			//(min_d - max_d) / (costvol_layers - 1);
-	//const int   layerStep 	= rows*cols;
 	const float r 			= sqrt( 2*theta*lambda*(hi[read_index] - lo[read_index]) );
 	const int 	start_layer = set_start_layer(d, r, max_d, depthStep, costvol_layers, u, v);  // 0;//
 	const int 	end_layer   = set_end_layer  (d, r, max_d, depthStep, costvol_layers, u, v);  // costvol_layers-1; //
@@ -406,7 +406,7 @@ __kernel void UpdateA(						// pointwise exhaustive search
 
 	for(int l = start_layer; l <= end_layer; l++) {
 		const float cost_total = get_Eaux(theta, d, (float)l, min_d, depthStep, lambda, scale_Eaux, cdata[read_index+l*layer_step]);
-		// apt[read_index+l*layerStep] = cost_total;  				// DTAM_Mapping collects an Eaux volume, for debugging.
+/**/	dbg_data[read_index + l*layer_step] = cost_total;  				// DTAM_Mapping collects an Eaux volume, for debugging.
 		if(cost_total < Eaux_min) {
 			Eaux_min = cost_total;
 			minl = l;

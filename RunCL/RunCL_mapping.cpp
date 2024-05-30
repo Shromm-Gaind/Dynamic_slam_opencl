@@ -139,7 +139,7 @@ void RunCL::updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint sto
 																																				stringstream ss;
 																																				ss << "buildDepthCostVol" << save_index;													// Save buffers to file ###########
 																																				bool show = false;
-																																				bool exception_tiff = true;
+																																				bool exception_tiff = false;
 																																				//DownloadAndSave_3Channel(	imgmem,  			ss.str(), paths.at("imgmem"), 			mm_size_bytes_C4,   mm_Image_size,   CV_32FC4, 	false );
 																																				DownloadAndSave_HSV_grad(  HSV_grad_mem/*imgmem*/, 	ss.str(), paths.at("HSV_grad_mem"),	mm_size_bytes_C8,   mm_Image_size,   CV_32FC(8),show, -1, 0 );
 																																				DownloadAndSave(			lomem,  			ss.str(), paths.at("lomem"),  			mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8); // a little more than the num images in costvol.
@@ -261,10 +261,12 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 	res = clSetKernelArg(updateA_kernel, 2, sizeof(cl_mem), &uint_param_buf); 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant 	uint*	uint_params,	//2
 	res = clSetKernelArg(updateA_kernel, 3, sizeof(cl_mem), &fp32_param_buf); 	if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  fp32_params,		//3
 	res = clSetKernelArg(updateA_kernel, 4, sizeof(cl_mem), &cdatabuf); 		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  cdata,				//4		//           cost volume
-	res = clSetKernelArg(updateA_kernel, 7, sizeof(cl_mem), &lomem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  lo,					//5
-	res = clSetKernelArg(updateA_kernel, 8, sizeof(cl_mem), &himem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  hi,					//6
-	res = clSetKernelArg(updateA_kernel, 5, sizeof(cl_mem), &amem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  apt,				//7		// amem,     auxilliary A
-	res = clSetKernelArg(updateA_kernel, 6, sizeof(cl_mem), &dmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  dpt					//8		// dmem,     depth D
+	res = clSetKernelArg(updateA_kernel, 5, sizeof(cl_mem), &lomem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  lo,					//5
+	res = clSetKernelArg(updateA_kernel, 6, sizeof(cl_mem), &himem);			if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  hi,					//6
+	res = clSetKernelArg(updateA_kernel, 7, sizeof(cl_mem), &amem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  apt,				//7		// amem,     auxilliary A
+	res = clSetKernelArg(updateA_kernel, 8, sizeof(cl_mem), &dmem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  dpt					//8		// dmem,     depth D
+
+	res = clSetKernelArg(updateA_kernel, 9, sizeof(cl_mem), &dbg_databuf);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	float*  dbg_data			//9		// dbg_databuf,   debugging buffer
 
 	status = clFlush(m_queue); 					if (status != CL_SUCCESS)	{ cout << "\nclFlush(m_queue) status = " << checkerror(status) <<"\n"<<flush; exit_(status);}
 	status = clFinish(m_queue); 				if (status != CL_SUCCESS)	{ cout << "\nclFinish(m_queue)="<<status<<" "<<checkerror(status)<<"\n"<<flush; exit_(status);}
@@ -284,6 +286,12 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 																																				DownloadAndSave(amem,   ss.str(), paths.at("amem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , -1*fp32_params[MAX_INV_DEPTH] ); //0.1
+
+																																				if (verbosity_mp["RunCL::updateA::dbg_databuf"]){
+																																					bool show = false;
+																																					bool exception_tiff = false;
+																																					DownloadAndSaveVolume(dbg_databuf, 	ss.str(), paths.at("dbg_databuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*TODO count*/ , exception_tiff );
+																																				}
 																																			}
 																																			if(verbosity>0) cout<<"\nRunCL::updateA_chk2_finished,   fp32_params[MAX_INV_DEPTH]="<<fp32_params[MAX_INV_DEPTH]<<flush;
 }

@@ -404,7 +404,7 @@ void Dynamic_slam::getResult(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::getResult"];
 	if(verbosity>local_verbosity_threshold){
 		stringstream ss;
-		ss << "updateQD"<< runcl.save_index << "_QD_count_" << runcl.QD_count <<"_epsilon_"<<epsilon<<"_sigmaQ_"<<sigma_q<<"_D_"<<sigma_d<<"_theta_"<<theta;
+		ss << "getResult"<< runcl.save_index << "_QD_count_" << runcl.QD_count <<"_epsilon_"<<epsilon<<"_sigmaQ_"<<sigma_q<<"_D_"<<sigma_d<<"_theta_"<<theta;
 																																				//int this_count = save_index * 1000 + QD_count;
 																																				//ss << save_index << "_QD_count_" << QD_count;
 		cv::Size q_size( runcl.mm_Image_size.width, 2* runcl.mm_Image_size.height ); 			// 2x sized for qx and qy.
