@@ -202,7 +202,7 @@ __kernel void se3_LK_grad(
 	__local		float4*	local_sum_grads,		//17	6 DoF, float 1 channels
 	__global	float4*	global_sum_grads,		//18
 
-	__private	uint 	wg_divisor				//19
+	__global	float8* g1p						//19	keyframe_g1mem
 	)
  {																														// find gradient wrt SE3 find global sum for each of the 6 DoF
 	uint  global_id_u 	= get_global_id(0);
@@ -274,7 +274,7 @@ __kernel void se3_LK_grad(
 		int idx 					= 0;																				// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
 																														// if(global_id_u == 10000  ){ printf("\n__kernel void se3_LK_grad (global_id_u == 10000 )  chk_3  , read_offset_=%u,  inv_depth=%f, SO3_multiplier=%f, ST3_multiplier=%f ",  read_offset_, inv_depth,  fp32_params[MAX_INV_DEPTH]/((inv_depth + 0.01) *5),  inv_depth/fp32_params[MAX_INV_DEPTH] ); }
 		new_px 						= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_); //   /reduction
-		rho 						= img_cur[read_index] - new_px;
+		rho 						= (img_cur[read_index] - new_px)*(1.0f - g1p[read_index].s3);						// g1.s3 = Value channel. Weight rho by edges.
 		rho.w 						= 1.0f; ///alpha;
 		float rho_a4[4];
 		vstore4(rho ,0, rho_a4);

@@ -178,7 +178,9 @@ void RunCL::estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels]
 
 	res = clSetKernelArg(se3_lk_grad_kernel,17, (local_work_size*6*4/wg_divisor)*sizeof(float), NULL);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__local		float4*		local_sum_grads					//17	6 DoF, float4 channels
 	res = clSetKernelArg(se3_lk_grad_kernel,18, sizeof(cl_mem), &se3_sum_mem);		 								if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 		float4*		global_sum_grads,				//18
-	res = clSetKernelArg(se3_lk_grad_kernel,19, sizeof(int), &wg_divisor);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__private		uint 		wg_divisor						//19
+
+	res = clSetKernelArg(se3_lk_grad_kernel,19, sizeof(cl_mem), &keyframe_g1mem);									if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 	float8*		g1p								//19
+	//res = clSetKernelArg(se3_lk_grad_kernel,19, sizeof(int), &wg_divisor);											if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__private		uint 		wg_divisor						//19
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::estimateSE3_LK(..)_chk1 ."<<flush;}
 	mipmap_call_kernel( se3_lk_grad_kernel, m_queue, start, stop, false, local_work_size/wg_divisor); 										// reduced worksize to allow for local memory limit 4kb on rtx 3030

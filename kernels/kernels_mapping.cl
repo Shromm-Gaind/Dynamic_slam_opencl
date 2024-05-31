@@ -320,6 +320,8 @@ __kernel void  UpdateG(
 
 	if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;
 	g1p[offset]= g1;
+
+	//if(offset%100000==0)printf("\n\nkenel UpdateG(..) offset=%u  g1=%f,%f, %f,%f, %f,%f, %f,%f,", offset,  g1.s0, g1.s1,   g1.s2, g1.s3,   g1.s4, g1.s5,   g1.s6, g1.s7 );
 }
 
 int set_start_layer(float di, float r, float far, float depthStep, int layers, int x, int y){ //( inverse_depth, r , min_inv_depth, inv_depth_step, num_layers )

@@ -219,7 +219,7 @@ void RunCL::updateG(int count, uint start, uint stop){
 	res = clSetKernelArg(updateG_kernel, 2, sizeof(cl_mem), &uint_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant uint*		uint_params		//2
 	res = clSetKernelArg(updateG_kernel, 3, sizeof(cl_mem), &fp32_param_buf);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant float*		fp32_params		//3
 	res = clSetKernelArg(updateG_kernel, 4, sizeof(cl_mem), &keyframe_imgmem_HSV_grad);		if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global   float8*	img,			//4
-	res = clSetKernelArg(updateG_kernel, 5, sizeof(cl_mem), &keyframe_g1mem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float4*	g1p				//5
+	res = clSetKernelArg(updateG_kernel, 5, sizeof(cl_mem), &keyframe_g1mem);				if(res!=CL_SUCCESS){cout<<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global 	 float8*	g1p				//5
 
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk2"<<flush;}
 	mipmap_call_kernel( updateG_kernel, m_queue, start, stop );
@@ -231,7 +231,8 @@ void RunCL::updateG(int count, uint start, uint stop){
 																																					cout << "\n" << ss_path.str() 			<<flush;
 																																					cout << "\n" << paths.at(ss_path.str()) <<flush;
 																																				*/
-																																				DownloadAndSave_HSV_grad(  keyframe_g1mem,	ss.str(), paths.at("keyframe_g1mem"), 	mm_size_bytes_C8, mm_Image_size,  CV_32FC(8),false, -1, 0 );	//  /* paths.at(ss_path.str()) */// CV_32FC4, 	false );
+																																				float max_range = 1.0;   // produce tiff with exact float values from the buffer.
+																																				DownloadAndSave_HSV_grad(  keyframe_g1mem,	ss.str(), paths.at("keyframe_g1mem"), 	mm_size_bytes_C8, mm_Image_size,  CV_32FC(8),false, max_range, 0 );	//  /* paths.at(ss_path.str()) */// CV_32FC4, 	false );
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::updateG(..)_chk4 Finished."<<flush;}
 }

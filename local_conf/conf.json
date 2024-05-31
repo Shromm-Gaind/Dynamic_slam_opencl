@@ -21,8 +21,8 @@
     // gaussian_size 3                                                  // Box blurr size. Actually using 5x5 box in the code.
 
     "imagesPerCV":10,            //10,//20,//4,//30//4//7
-    "max_frame_count":20,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
-    "max_opt_count":60,          //5,//60,
+    "max_frame_count":117,        //4,//30,//4,//140,//30,                // how many frames to run for. NB -1 -> run indefinitely.
+    "max_opt_count":20,          //5,//60,
     "max_inner_opt_count":10,   //10,
     "cameraMatrix":[481.20,   0.0,  319.5, 	0.0,  480.0,  239.5, 	0.0,    0.0,    1.0],
 
@@ -43,10 +43,13 @@
     "thetaStart":0.2,           //0.2;		//200.0*off;                // DTAM paper & DTAM_Mapping has Theta_start = 0.2
     "thetaMin":9.9e-8,          //1.0e-4;	//1.0*off;                  // DTAM paper NB theta depends on (i)photometric scale, (ii)num layers, (iii) inv_depth scale
     "thetaStep":0.87,
-
-    "beta_g": 1.5,              //my dtam_opencl 1.5                    // NB alpha_g & beta_g depend on image gradient &=> pixel value range. Here range 0.0-1.0
-    "alpha_g":15,               // can vary 15 to 0.15  // 0.015        // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001  
                                                                         // used in __kernel void CacheG4, with correction for CV_8UC3 -> CV_32FC3
+    "alpha_g":40,               // can vary 15 to 0.15  // 0.015        // NB alpha_g & beta_g depend on image gradient &=> pixel value range. Here range 0.0-1.0
+    "beta_g": 1.5,              //my dtam_opencl 1.5                    // DTAM paper beta for optimization, (not for g1 edges): beta=0.001 while theta>0.001, else beta=0.0001
+                                                                        // Need edges to be near zero.
+                                                                        // alpha_g makkes all edges darker
+                                                                        // beta_g increases contrast between edges.
+
     "epsilon":1.0e-4,                                                   // used in __kernel void UpdateQD	
     "lambda":1.0,                                                       // used in __kernel void UpdateA2
     "L":4.0,                                                            // used in CostVol computeSigmas
@@ -86,7 +89,7 @@
 
     // Results display //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     "sample_layer":2,                                                   // Generate composite image of multiple iterations, sampling this layer from the mipmap.
-    "sample_se3_incr":false,    //true false   //NB Expensive           // ### Displayed steps are _limited_ by choice of layer to process at _ Dynamic_slam_tracking.cpp _ void Dynamic_slam__estimateSE3_LK() _ line 287
+    "sample_se3_incr":true,    //true false   //NB Expensive           // ### Displayed steps are _limited_ by choice of layer to process at _ Dynamic_slam_tracking.cpp _ void Dynamic_slam__estimateSE3_LK() _ line 287
     "sample_se3_incr::display":false,
     "":""
 }
