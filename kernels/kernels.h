@@ -14,6 +14,8 @@ float8 nearest_neigbour (float8* img, float u_flt, float v_flt, int cols, int re
 
 float8 bilinear (__global float8* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
 
+float trilinear (__global float* vol, float u_flt, float v_flt, float layer_flt, int mm_pixels, int cols, int read_offset_, uint reduction);
+
 float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int cols, int read_offset_); //, , uint reduction, int i, int mm_pixels);
 
 float4 bilinear_flt4 (__global float4* img, float u_flt, float v_flt, int cols, int read_offset_);                                   // Used in tracking

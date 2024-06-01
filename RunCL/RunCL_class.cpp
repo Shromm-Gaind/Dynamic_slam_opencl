@@ -247,6 +247,8 @@ void RunCL::createKernels(){
 
 	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'convert_depth'  kernel not built.\n"			<<flush; exit(0);   }
 	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'transform_depthmap'  kernel not built.\n"		<<flush; exit(0);   }
+	transform_costvolume_kernel 	= clCreateKernel(m_program, "transform_cost_volume", 		&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'transform_cost_volume'  kernel not built.\n"	<<flush; exit(0);   }
+	
 	depth_cost_vol_kernel			= clCreateKernel(m_program, "DepthCostVol", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'DepthCostVol'  kernel not built.\n"				<<flush; exit(0);   }
 	updateQD_kernel 				= clCreateKernel(m_program, "UpdateQD", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'UpdateQD'  kernel not built.\n"					<<flush; exit(0);   }
 	updateG_kernel  				= clCreateKernel(m_program, "UpdateG", 						&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'UpdateG'  kernel not built.\n"					<<flush; exit(0);   }
@@ -787,6 +789,8 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 
 	status = clReleaseKernel(invert_depth_kernel);				if (status != CL_SUCCESS)	{ cout << "\ninvert_depth_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_59"<<flush;
 	status = clReleaseKernel(transform_depthmap_kernel);		if (status != CL_SUCCESS)	{ cout << "\ntransform_depthmap_kernel 		status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_60"<<flush;
+	status = clReleaseKernel(transform_costvolume_kernel);		if (status != CL_SUCCESS)	{ cout << "\ntransform_costvolume_kernel 	status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_60.5"<<flush;
+	
 	status = clReleaseKernel(depth_cost_vol_kernel);			if (status != CL_SUCCESS)	{ cout << "\ndepth_cost_vol_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_61"<<flush;
 	status = clReleaseKernel(updateQD_kernel);					if (status != CL_SUCCESS)	{ cout << "\nupdateQD_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_62"<<flush;
 	status = clReleaseKernel(updateG_kernel);					if (status != CL_SUCCESS)	{ cout << "\nupdateG_kernel 				status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_63"<<flush;

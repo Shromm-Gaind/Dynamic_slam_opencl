@@ -48,7 +48,7 @@ public:
 	cl_device_id		m_device_id;
 	cl_command_queue	m_queue, uload_queue, dload_queue, track_queue;
 	cl_program			m_program;
-	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
+	cl_kernel			convert_depth_kernel, invert_depth_kernel, transform_depthmap_kernel, transform_costvolume_kernel, depth_cost_vol_kernel, cost_kernel, cache3_kernel, cache4_kernel, updateQD_kernel, updateG_kernel, updateA_kernel, measureDepthFit_kernel;
 	cl_kernel			cvt_color_space_kernel, cvt_color_space_linear_kernel, img_variance_kernel, blur_image_kernel, reduce_kernel, mipmap_float4_kernel, mipmap_float_kernel, img_grad_kernel, se3_rho_sq_kernel, comp_param_maps_kernel;
 	cl_kernel			se3_lk_grad_kernel, atomic_test1_kernel;
 	
@@ -221,6 +221,7 @@ public:
 	/////////////////////////////////////// RunCL_mapping.cpp
 
 	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
+	void transform_costvolume(cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem  );
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
 	void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, uint start, uint stop);

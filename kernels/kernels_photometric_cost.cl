@@ -45,6 +45,34 @@ float8 bilinear (__global float8* img, float u_flt, float v_flt, int cols, int r
 	return c;
 }
 
+float trilinear (__global float* vol, float u_flt, float v_flt, float layer_flt, int mm_pixels, int cols, int read_offset_, uint reduction){
+	float c_upper, c_lower;
+	float 	c, c_000, c_001, c_010, c_011, c_100, c_101, c_110, c_111;
+	int coff_000, coff_001, coff_010, coff_011, coff_100, coff_101, coff_110, coff_111;
+	int int_u2 = ceil(u_flt);
+	int int_v2 = ceil(v_flt);
+	int int_l2 = ceil(layer_flt);
+																			// compute adjacent pixel indices & sample adjacent pixels
+	c_110 = vol[ read_offset_ + int_v2     * cols +  int_u2     +   mm_pixels * (int_l2 -1)  ];
+	c_100 = vol[ read_offset_ + (int_v2-1) * cols +  int_u2     +   mm_pixels * (int_l2 -1)  ];
+	c_010 = vol[ read_offset_ + int_v2     * cols + (int_u2 -1) +   mm_pixels * (int_l2 -1)  ];
+	c_000 = vol[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) +   mm_pixels * (int_l2 -1)  ];
+	
+	c_111 = vol[ read_offset_ + int_v2     * cols +  int_u2     +   mm_pixels * int_l2   ];
+	c_101 = vol[ read_offset_ + (int_v2-1) * cols +  int_u2     +   mm_pixels * int_l2   ];
+	c_011 = vol[ read_offset_ + int_v2     * cols + (int_u2 -1) +   mm_pixels * int_l2   ];
+	c_001 = vol[ read_offset_ + (int_v2-1) * cols + (int_u2 -1) +   mm_pixels * int_l2   ];
+	
+																			// weighting for bi-linear interpolation
+	float factor_x = fmod(u_flt,1);
+	float factor_y = fmod(v_flt,1);
+	float factor_z = fmod(layer_flt,1);
+	
+	c_lower = factor_y * (c_110*factor_x  +  c_010*(1-factor_x))   +   (1-factor_y) * (c_100*factor_x  + c_000*(1-factor_x));
+	c_upper = factor_y * (c_111*factor_x  +  c_011*(1-factor_x))   +   (1-factor_y) * (c_101*factor_x  + c_001*(1-factor_x));
+	
+	return c= factor_z * c_lower  +  (1 - factor_z) * c_upper;
+}
 
 float8 bilinear_SE3_grad (__global float8* img, float u_flt, float v_flt, int cols, int read_offset_){ 								//, uint reduction, int i, int mm_pixels){
 	float8 	c, c_00, c_01, c_10, c_11;

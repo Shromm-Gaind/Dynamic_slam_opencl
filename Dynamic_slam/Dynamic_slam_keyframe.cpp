@@ -59,11 +59,15 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 	if( obj["initialize_tracking_from_GT_depth"].asBool() ){  																				// j_params.bool_mp["initialize_keyframe_from_GT"];
 		runcl.transform_depthmap(forward_keyframe2K, runcl.keyframe_depth_mem );															// NB runcl.transform_depthmap(..) must be used _before_ initializing the new cost_volume, because it uses keyframe_basemem.
 		runcl.initializeDepthCostVol( runcl.keyframe_depth_mem );  																			// TODO  Need to boostrap from blank depthmap. ######################
+		initialize_new_keyframe();
 	}else{
 		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );
 		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
+		initialize_new_keyframe();
+		//transform_costvolume( cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       )
+		runcl.transform_costvolume( forward_keyframe2K , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       )    /// TODO need both new and old cdata and hdata bufs.
 	}
-	initialize_new_keyframe();
+	
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
