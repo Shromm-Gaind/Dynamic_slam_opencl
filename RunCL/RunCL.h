@@ -2,18 +2,19 @@
 #define RUNCL_H
 
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#define CL_HPP_MINIMUM_OPENCL_VERSION		200
-#define CL_TARGET_OPENCL_VERSION			200  // defined as 120, ie OpenCL 1.2 in CMakeLists.txt
-#define CL_HPP_TARGET_OPENCL_VERSION		200  // OpenCL 2.0
+#define CL_HPP_MINIMUM_OPENCL_VERSION		300
+#define CL_TARGET_OPENCL_VERSION			300  // defined as 120, ie OpenCL 1.2 in CMakeLists.txt
+#define CL_HPP_TARGET_OPENCL_VERSION		300  // OpenCL 2.0
 
 #include <CL/opencl.hpp>
+//#include <stdint.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
 #include <cstring>
-#include <iostream>
 #include <string>
 #include <fstream>
+#include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -54,7 +55,9 @@ public:
 	
 	//bool 				frame_bool_idx=0;
 	cl_mem 				basemem, imgmem,  imgmem_blurred, gxmem, gymem, g1mem,  k_map_mem, dist_map_mem, SE3_grad_map_mem, SE3_incr_map_mem;
-	cl_mem				cdatabuf, cdatabuf_8chan, hdatabuf, dbg_databuf, dmem, amem, qmem, qmem2, lomem, himem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
+	cl_mem				cdatabuf, new_cdatabuf, cdatabuf_8chan, hdatabuf, new_hdatabuf, dbg_databuf, 
+	cl_mem 				dmem, amem, qmem, qmem2, lomem, himem, mean_mem, img_sum_buf, depth_mem, depth_mem_GT;											// NB 'depth_mem' is that used by tracking & auto-calibration.
+	
 	cl_mem				k2kbuf, SO3_k2kbuf, SE3_k2kbuf, fp32_param_buf, uint_param_buf, mipmap_buf, gaussian_buf, img_stats_buf, SE3_map_mem, SE3_rho_map_mem, se3_sum_rho_sq_mem, SE3_weight_map_mem;	// param_map_mem,
 	cl_mem 				pix_sum_mem, var_sum_mem, se3_sum_mem, se3_sum2_mem, se3_weight_sum_mem;																										// reduce_param_buf;
 	cl_mem 				keyframe_imgmem, keyframe_imgmem_HSV_grad, keyframe_depth_mem, keyframe_g1mem, keyframe_SE3_grad_map_mem, keyframe_depth_mem_GT;							// keyframe_gxmem, keyframe_gymem, keyframe_basemem,
@@ -221,7 +224,8 @@ public:
 	/////////////////////////////////////// RunCL_mapping.cpp
 
 	void transform_depthmap(cv::Matx44f K2K_ , cl_mem depthmap_);																		// Cost volume
-	void transform_costvolume(cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem  );
+	void transform_costvolume(cv::Matx44f K2K_ , cl_mem old_cdata_mem =cdatabuf,  cl_mem new_cdata_mem =new_cdatabuf, cl_mem old_hdata_mem =hdatabuf,  cl_mem new_hdata_mem =new_hdatabuf      );
+	
 	void initializeDepthCostVol(cl_mem key_frame_depth_map_src);	// Depth costvol functions
 	void updateDepthCostVol(cv::Matx44f K2K_, int count, uint start, uint stop);
 	void updateQD(float epsilon, float theta, float sigma_q, float sigma_d, uint start, uint stop);

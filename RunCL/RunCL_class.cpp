@@ -65,7 +65,7 @@ RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){
 																																			/*Step 6: Build program.*////////////////////
 																																			/*Step 7: Create kernel objects.*////////////
 	createKernels();
-	basemem=imgmem=dbg_databuf=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=0;		// set device pointers to zero
+	basemem=imgmem=dbg_databuf=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=mean_mem=0;		// set device pointers to zero
 	createFolders( );																														if(verbosity>local_verbosity_threshold) cout << "RunCL_constructor finished ##########################\n" << flush;
 }
 
@@ -574,6 +574,8 @@ void RunCL::allocatemem(){
 	amem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 18= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // 'auxiliary variable to depth" in the mapping calculation.
 	lomem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 19= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	himem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 20= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	mean_mem			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_size_bytes_C1, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 20= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	
 	qmem				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 21= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	qmem2				= clCreateBuffer(m_context, CL_MEM_READ_WRITE						, 2 * mm_size_bytes_C1, 	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 21= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
@@ -746,7 +748,10 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 	status = clReleaseMemObject(amem);							if (status != CL_SUCCESS)	{ cout << "\namem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_22"<<flush;
 	status = clReleaseMemObject(lomem);							if (status != CL_SUCCESS)	{ cout << "\nlomem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_23"<<flush;
 	status = clReleaseMemObject(himem);							if (status != CL_SUCCESS)	{ cout << "\nhimem                          status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_24"<<flush;
-	status = clReleaseMemObject(qmem);							if (status != CL_SUCCESS)	{ cout << "\ndmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_25"<<flush;
+	status = clReleaseMemObject(mean_mem);						if (status != CL_SUCCESS)	{ cout << "\nmean_mem                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_24.5"<<flush;
+	
+	status = clReleaseMemObject(qmem);							if (status != CL_SUCCESS)	{ cout << "\nqmem                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_25"<<flush;
+	status = clReleaseMemObject(qmem2);							if (status != CL_SUCCESS)	{ cout << "\nqmem2                           status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_25.1"<<flush;
 
 	status = clReleaseMemObject(dbg_databuf);					if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_25.5"<<flush;
 	status = clReleaseMemObject(cdatabuf);						if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_26"<<flush;

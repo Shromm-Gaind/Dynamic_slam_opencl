@@ -88,8 +88,8 @@ void RunCL::transform_costvolume( cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_m
 	res = clSetKernelArg(transform_costvolume_kernel,  6, sizeof(cl_mem), &new_cdata_mem);			if(res!=CL_SUCCESS){cout<<"\nnew_cdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		new_cdata,			//6
 	res = clSetKernelArg(transform_costvolume_kernel,  7, sizeof(cl_mem), &old_hdata_mem);			if(res!=CL_SUCCESS){cout<<"\nold_hdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		old_hdata,			//7		hit count volume
 	res = clSetKernelArg(transform_costvolume_kernel,  8, sizeof(cl_mem), &new_hdata_mem);			if(res!=CL_SUCCESS){cout<<"\nnew_hdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		new_hdata,			//8
-	res = clSetKernelArg(transform_costvolume_kernel,  9, sizeof(cl_mem), &lo_mem);					if(res!=CL_SUCCESS){cout<<"\nlo_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		lo_,				//9		lo, hi, and mean of this ray of the cost volume.
-	res = clSetKernelArg(transform_costvolume_kernel, 10, sizeof(cl_mem), &hi_mem);					if(res!=CL_SUCCESS){cout<<"\nhi_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		hi_,				//10
+	res = clSetKernelArg(transform_costvolume_kernel,  9, sizeof(cl_mem), &lomem);					if(res!=CL_SUCCESS){cout<<"\nlo_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		lo_,				//9		lo, hi, and mean of this ray of the cost volume.
+	res = clSetKernelArg(transform_costvolume_kernel, 10, sizeof(cl_mem), &himem);					if(res!=CL_SUCCESS){cout<<"\nhi_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		hi_,				//10
 	res = clSetKernelArg(transform_costvolume_kernel, 11, sizeof(cl_mem), &mean_mem);				if(res!=CL_SUCCESS){cout<<"\nmean_mem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		mean_				//11
 	
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk1 ."<<flush;}
@@ -97,7 +97,13 @@ void RunCL::transform_costvolume( cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_m
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk3 ."<<flush;}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::transform_costvolume(..)_transform_costvolume_kernel\n" << flush;exit_(status);}
 
-	
+	// Swap pointers 
+	cl_mem temp_mem = old_cdata_mem;
+	old_cdata_mem	= new_cdata_mem;
+	new_cdata_mem	= temp_mem;
+	temp_mem 		= old_hdata_mem;
+	old_hdata_mem	= new_hdata_mem;
+	new_cdata_mem	= temp_mem;
 	
 }
 

@@ -1,4 +1,6 @@
 #include "Dynamic_slam.h"
+
+#include <iostream>
 #include <fstream>
 #include <iomanip>   // for std::setprecision, std::setw
 
@@ -64,8 +66,7 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );
 		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
 		initialize_new_keyframe();
-		//transform_costvolume( cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       )
-		runcl.transform_costvolume( forward_keyframe2K , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       )    /// TODO need both new and old cdata and hdata bufs.
+		runcl.transform_costvolume( forward_keyframe2K );
 	}
 	
 }

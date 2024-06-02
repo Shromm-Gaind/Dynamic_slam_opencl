@@ -100,8 +100,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         jsoncpp_lib
         )
 
-set_target_properties(${PROJECT_NAME} PROPERTIES C_STANDARD 11
+set_target_properties(${PROJECT_NAME} PROPERTIES C_STANDARD 17
                                                  C_STANDARD_REQUIRED ON
                                                  C_EXTENSIONS OFF)
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE CL_TARGET_OPENCL_VERSION=200) #200 #120) # i.e. OpenCL 1.2
+target_compile_definitions(${PROJECT_NAME} PRIVATE CL_TARGET_OPENCL_VERSION=300) #200 #120) # i.e. OpenCL 1.2
