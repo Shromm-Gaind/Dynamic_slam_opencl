@@ -60,9 +60,15 @@ void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){										
 
 
 
-void RunCL::transform_costvolume( cv::Matx44f K2K_ , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       ){												// NB must be used _after_ initializing the new cost_volume.
+void RunCL::transform_costvolume( cv::Matx44f K2K_)// , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       ){												// NB must be used _after_ initializing the new cost_volume.
+{
 	int local_verbosity_threshold = verbosity_mp["RunCL::costvolume"];// 0;
 																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk0 ."<<flush;}
+	cl_mem old_cdata_mem =cdatabuf;
+	cl_mem new_cdata_mem =new_cdatabuf;
+	cl_mem old_hdata_mem =hdatabuf;
+	cl_mem new_hdata_mem =new_hdatabuf;
+
 	cl_event writeEvt;
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
