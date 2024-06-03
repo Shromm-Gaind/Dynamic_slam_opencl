@@ -48,7 +48,7 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 	keyframe_inv_K			= inv_K;
 
 	cv::Matx44f inv_pose2pose = getInvPose(keyframe_pose2pose);																				//cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose)
-	cv::Matx44f forward_keyframe2K  = K *inv_pose2pose * inv_old_K;
+	cv::Matx44f forward_keyframe2K  = K * keyframe_pose2pose * inv_old_K;
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout<<"\n\nDynamic_slam::initialize_keyframe_from_tracking"<<flush;
 																																				PRINT_MATX44F(K,);
@@ -59,14 +59,21 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 																																			}
 
 	if( obj["initialize_tracking_from_GT_depth"].asBool() ){  																				// j_params.bool_mp["initialize_keyframe_from_GT"];
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout<<"\nobj[\"Dynamic_slam::initialize_keyframe_from_tracking(),  initialize_tracking_from_GT_depth\"].asBool() = true "<<flush;
+																																			}
 		runcl.transform_depthmap(forward_keyframe2K, runcl.keyframe_depth_mem );															// NB runcl.transform_depthmap(..) must be used _before_ initializing the new cost_volume, because it uses keyframe_basemem.
 		runcl.initializeDepthCostVol( runcl.keyframe_depth_mem );  																			// TODO  Need to boostrap from blank depthmap. ######################
 		initialize_new_keyframe();
 	}else{
-		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );
-		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
-		initialize_new_keyframe();
-		runcl.transform_costvolume( forward_keyframe2K );
+																																			if(verbosity>local_verbosity_threshold){
+																																				cout<<"\nobj[\"Dynamic_slam::initialize_keyframe_from_tracking(),  initialize_tracking_from_GT_depth\"].asBool() = false "<<flush;
+																																			}
+		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );																		// Sets new depth_mem used in tracking.
+		runcl.swap_costvol_pointers();																										// Swaps old cdatabuf and hdatabuf to temp_cdatabuf and temp_hdatabuf.
+		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Zeros buffers: cdatabuf, hdatabuf, lomem, himem) Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
+		initialize_new_keyframe();																											// runcl.initialize_fp32_params();  runcl.keyFrameCount++; runcl.dataset_frame_num++;
+		//runcl.transform_costvolume( forward_keyframe2K );
 	}
 	
 }

@@ -156,12 +156,14 @@ __kernel void transform_cost_volume(
 
 
 __kernel void transform_depthmap(
+	// inputs
 	__private	uint	mipmap_layer,			//0
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
 	__global 	float16*k2k,					//3
 	__global 	float4*	old_keyframe,			//4
 	__global	float* 	depth_map_in,			//5
+	// output
 	__global	float* 	depth_map_out			//6
 		)
 {

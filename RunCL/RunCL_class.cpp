@@ -65,7 +65,7 @@ RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){
 																																			/*Step 6: Build program.*////////////////////
 																																			/*Step 7: Create kernel objects.*////////////
 	createKernels();
-	basemem=imgmem=dbg_databuf=cdatabuf=hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=mean_mem=0;		// set device pointers to zero
+	basemem=imgmem=dbg_databuf=cdatabuf=hdatabuf=temp_cdatabuf=temp_hdatabuf=k2kbuf=dmem=amem=gxmem=gymem=g1mem=lomem=himem=mean_mem=0;		// set device pointers to zero
 	createFolders( );																														if(verbosity>local_verbosity_threshold) cout << "RunCL_constructor finished ##########################\n" << flush;
 }
 
@@ -582,12 +582,15 @@ void RunCL::allocatemem(){
 
 	dbg_databuf			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 22= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	cdatabuf			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 22= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	temp_cdatabuf		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 22= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	cdatabuf_8chan		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes*8,		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 22= "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// For investigating & tuning cost
 	hdatabuf 			= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 23= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	temp_hdatabuf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, mm_vol_size_bytes, 		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 23= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 	img_sum_buf 		= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 2 * mm_vol_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 24= "<<checkerror(res)<<"\n"<<flush;exit_(res);}	// float debug buffer.
 	fp32_param_buf		= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 25= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 	k2kbuf				= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 26= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	invk2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 16 * sizeof(float),  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 26= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 	SO3_k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 9*sizeof(float),  		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 27= "<<checkerror(res)<<"\n"<<flush;exit_(res);} // NB used in place of k2kbuf for RunCL::estimateSO3(..)
 	SE3_k2kbuf			= clCreateBuffer(m_context, CL_MEM_READ_ONLY  						, 6*16*sizeof(float),		0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 28= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
@@ -755,11 +758,17 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 
 	status = clReleaseMemObject(dbg_databuf);					if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_25.5"<<flush;
 	status = clReleaseMemObject(cdatabuf);						if (status != CL_SUCCESS)	{ cout << "\ncdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_26"<<flush;
+	status = clReleaseMemObject(temp_cdatabuf);					if (status != CL_SUCCESS)	{ cout << "\ntemp_cdatabuf                  status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_26.5"<<flush;
 	status = clReleaseMemObject(cdatabuf_8chan);				if (status != CL_SUCCESS)	{ cout << "\ncdatabuf_8chan                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_27"<<flush;
 	status = clReleaseMemObject(hdatabuf);						if (status != CL_SUCCESS)	{ cout << "\nhdatabuf                       status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_28"<<flush;
+	status = clReleaseMemObject(temp_hdatabuf);					if (status != CL_SUCCESS)	{ cout << "\ntemp_hdatabuf                  status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_28.5"<<flush;
+
+
 	status = clReleaseMemObject(img_sum_buf);					if (status != CL_SUCCESS)	{ cout << "\nimg_sum_buf                    status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_29"<<flush;
 	status = clReleaseMemObject(fp32_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nfp32_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_30"<<flush;
 	status = clReleaseMemObject(k2kbuf);						if (status != CL_SUCCESS)	{ cout << "\nk2kbuf                         status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_31"<<flush;
+	status = clReleaseMemObject(invk2kbuf);						if (status != CL_SUCCESS)	{ cout << "\ninvk2kbuf                      status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_31"<<flush;
+
 	status = clReleaseMemObject(SO3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSO3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_32"<<flush;
 	status = clReleaseMemObject(SE3_k2kbuf);					if (status != CL_SUCCESS)	{ cout << "\nSE3_k2kbuf                     status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_33"<<flush;
 	status = clReleaseMemObject(uint_param_buf);				if (status != CL_SUCCESS)	{ cout << "\nuint_param_buf                 status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_34"<<flush;
