@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.hpp"
 
 void RunCL::computeSigmas(float epsilon, float theta, float L, float &sigma_d, float &sigma_q ){
 	int local_verbosity_threshold = verbosity_mp["RunCL::computeSigmas"];

@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.hpp"
 
 /*
 void RunCL::predictFrame(){ //predictFrame();

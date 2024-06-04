@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.hpp"
 
 void RunCL::loadFrame(cv::Mat image){ //getFrame();
 	int local_verbosity_threshold = verbosity_mp["RunCL::loadFrame"];//-2;

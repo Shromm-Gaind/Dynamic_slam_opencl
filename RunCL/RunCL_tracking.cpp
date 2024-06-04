@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.hpp"
 
 void RunCL::precom_param_maps(float SE3_k2k[6*16]){ //  Compute maps of pixel motion for each SE3 DoF, and camera params // Derived from RunCL::mipmap
 	int local_verbosity_threshold = verbosity_mp["RunCL::precom_param_maps"];// -2;

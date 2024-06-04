@@ -1,4 +1,4 @@
-#include "RunCL.h"
+#include "RunCL.hpp"
 
 
 string  RunCL::checkerror(int input) {

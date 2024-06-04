@@ -128,7 +128,7 @@
 	"RunCL::cvt_color_space": 1,
 	"RunCL::img_variance": 1,
 	"RunCL::blur_image": 1,
-	"RunCL::mipmap_linear": 1,
+	"RunCL::mipmap_linear": -1,
 	"RunCL::img_gradients": 1,
 
 	"RunCL::load_GT_depth": 1,

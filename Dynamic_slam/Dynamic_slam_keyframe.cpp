@@ -1,4 +1,4 @@
-#include "Dynamic_slam.h"
+#include "Dynamic_slam.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -70,7 +70,7 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 																																				cout<<"\nobj[\"Dynamic_slam::initialize_keyframe_from_tracking(),  initialize_tracking_from_GT_depth\"].asBool() = false "<<flush;
 																																			}
 		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );																		// Sets new depth_mem used in tracking.
-		runcl.swap_costvol_pointers();																										// Swaps old cdatabuf and hdatabuf to temp_cdatabuf and temp_hdatabuf.
+		//runcl.swap_costvol_pointers();																										// Swaps old cdatabuf and hdatabuf to temp_cdatabuf and temp_hdatabuf.
 		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Zeros buffers: cdatabuf, hdatabuf, lomem, himem) Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
 		initialize_new_keyframe();																											// runcl.initialize_fp32_params();  runcl.keyFrameCount++; runcl.dataset_frame_num++;
 		//runcl.transform_costvolume( forward_keyframe2K );

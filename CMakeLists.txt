@@ -68,15 +68,15 @@ endif()
 add_executable(Dynamic_slam
         main.cpp
 
-         Dynamic_slam/Dynamic_slam.h
-         Dynamic_slam/Dynamic_slam_class.cpp
+         Dynamic_slam/Dynamic_slam.hpp
+         Dynamic_slam/Dynamic_slam.cpp
          Dynamic_slam/Dynamic_slam_keyframe.cpp
          Dynamic_slam/Dynamic_slam_mapping.cpp
          Dynamic_slam/Dynamic_slam_tracking.cpp
 
          kernels/kernels_macros.h
-         RunCL/RunCL.h
-         RunCL/RunCL_class.cpp
+         RunCL/RunCL.hpp
+         RunCL/RunCL.cpp
          RunCL/RunCL_DownloadAndSave.cpp
          RunCL/RunCL_load_image.cpp
          RunCL/RunCL_macro_conversion.cpp
@@ -90,7 +90,7 @@ add_executable(Dynamic_slam
          utils/print_functions.cpp
          utils/convertTransforms.hpp
          utils/convertAhandaPovRayToStandard.cpp
-         utils/convertAhandaPovRayToStandard.h
+         utils/convertAhandaPovRayToStandard.hpp
          )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 

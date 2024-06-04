@@ -4,8 +4,8 @@
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <set>
-#include "../utils/convertAhandaPovRayToStandard.h"
-#include "../RunCL/RunCL.h"
+#include "../utils/convertAhandaPovRayToStandard.hpp"
+#include "../RunCL/RunCL.hpp"
 
 #define BOOST_FILESYSTEM_VERSION          3
 #define BOOST_FILESYSTEM_NO_DEPRECATED 

@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string.h>
 #include <stdio.h>
-#include "convertAhandaPovRayToStandard.h"
+#include "convertAhandaPovRayToStandard.hpp"
 
 using namespace cv;
 using namespace std;

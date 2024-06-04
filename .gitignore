@@ -7,3 +7,4 @@ build/*
 #local_conf/*.json
 Notes_variables.cl
 *.diff
+Doxygen/*
