@@ -22,16 +22,20 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 	keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
 	keyframe_inv_K_GT		= generate_invK_(K_GT);
 
+	keyframe_old_pose		= old_pose_GT;
+	keyframe_old_K			= old_K_GT;
+
 	keyframe_pose 			= pose_GT;
 	keyframe_K				= K_GT;
 	keyframe_inv_pose 		= inv_pose_GT;
 	keyframe_inv_K			= inv_K_GT;
 
-	keyframe_old_K			= old_K_GT;
-	keyframe_old_pose		= old_pose_GT;
-
 	keyframe_K2K 			= K2K_GT;						// TODO chk wrt when this is called and what values it would hold.
-	keyframe_pose2pose 		= pose2pose_GT;
+															// d_slam.predictFrame() sets keyframe_K2K  = K * pose * keyframe_inv_pose * inv_old_K.
+															// d_slam.getFrameData() sets K2L_GT = old_K_GT * old_pose_GT * inv_pose_GT * inv_K_GT
+
+	keyframe_pose2pose 		= pose2pose_GT;					// d_slam.predictFrame() sets keyframe_pose2pose = pose2pose
+															// d_slam.getFrameData() sets pose2pose_GT = old_pose_GT * inv_pose_GT
 
 	runcl.initializeDepthCostVol( runcl.depth_mem_GT );
 
@@ -40,15 +44,23 @@ void Dynamic_slam::initialize_keyframe_from_GT(){																							// GT de
 
 void Dynamic_slam::initialize_keyframe_from_tracking(){																						// NB need to transform depth map from previous keyfrae to current pose.
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_keyframe_from_tracking"];// -1;
+	keyframe_pose_GT 		= pose_GT;
+	keyframe_inv_pose_GT 	= getInvPose(keyframe_pose_GT);
+	keyframe_inv_K_GT		= generate_invK_(K_GT);
+
 	keyframe_old_pose		= keyframe_pose;
 	keyframe_old_K			= keyframe_K;
+
 	keyframe_pose 			= pose;
 	keyframe_K				= K;
 	keyframe_inv_pose 		= inv_pose;
 	keyframe_inv_K			= inv_K;
 
-	cv::Matx44f inv_pose2pose = getInvPose(keyframe_pose2pose);																				//cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose)
-	cv::Matx44f forward_keyframe2K  = K * keyframe_pose2pose * inv_old_K;
+	// keyframe_K2K   		// d_slam.predictFrame() sets 	keyframe_K2K  		= K * pose * keyframe_inv_pose * inv_old_K.					// Projects keyframe pixel to current frame
+	// keyframe_pose2pose	// d_slam.predictFrame() sets 	keyframe_pose2pose 	= pose2pose
+
+	cv::Matx44f inv_pose2pose = getInvPose( keyframe_pose2pose );																			// cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose)
+	cv::Matx44f forward_keyframe2K  = K * keyframe_pose2pose * inv_old_K;																	// Projects new keyframe pixel to previous keyframe
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout<<"\n\nDynamic_slam::initialize_keyframe_from_tracking"<<flush;
 																																				PRINT_MATX44F(K,);

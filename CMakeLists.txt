@@ -66,31 +66,31 @@ endif()
 
 
 add_executable(Dynamic_slam
-        main.cpp
+        src/main.cpp
 
-         Dynamic_slam/Dynamic_slam.hpp
-         Dynamic_slam/Dynamic_slam.cpp
-         Dynamic_slam/Dynamic_slam_keyframe.cpp
-         Dynamic_slam/Dynamic_slam_mapping.cpp
-         Dynamic_slam/Dynamic_slam_tracking.cpp
+         src/Dynamic_slam/Dynamic_slam.hpp
+         src/Dynamic_slam/Dynamic_slam.cpp
+         src/Dynamic_slam/Dynamic_slam_keyframe.cpp
+         src/Dynamic_slam/Dynamic_slam_mapping.cpp
+         src/Dynamic_slam/Dynamic_slam_tracking.cpp
 
-         kernels/kernels_macros.h
-         RunCL/RunCL.hpp
-         RunCL/RunCL.cpp
-         RunCL/RunCL_DownloadAndSave.cpp
-         RunCL/RunCL_load_image.cpp
-         RunCL/RunCL_macro_conversion.cpp
-         RunCL/RunCL_mapping.cpp
-         RunCL/RunCL_setup_keyframe.cpp
-         RunCL/RunCL_tracking.cpp
+         src/kernels/kernels_macros.h
+         src/RunCL/RunCL.hpp
+         src/RunCL/RunCL.cpp
+         src/RunCL/RunCL_DownloadAndSave.cpp
+         src/RunCL/RunCL_load_image.cpp
+         src/RunCL/RunCL_macro_conversion.cpp
+         src/RunCL/RunCL_mapping.cpp
+         src/RunCL/RunCL_setup_keyframe.cpp
+         src/RunCL/RunCL_tracking.cpp
 
-         utils/conf_params.hpp
-         utils/conf_params.cpp
-         utils/print_functions.hpp
-         utils/print_functions.cpp
-         utils/convertTransforms.hpp
-         utils/convertAhandaPovRayToStandard.cpp
-         utils/convertAhandaPovRayToStandard.hpp
+         src/utils/conf_params.hpp
+         src/utils/conf_params.cpp
+         src/utils/print_functions.hpp
+         src/utils/print_functions.cpp
+         src/utils/convertTransforms.hpp
+         src/utils/convertAhandaPovRayToStandard.cpp
+         src/utils/convertAhandaPovRayToStandard.hpp
          )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 

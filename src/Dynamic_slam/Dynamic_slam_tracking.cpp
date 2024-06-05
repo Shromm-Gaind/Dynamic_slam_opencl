@@ -143,6 +143,7 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 																																				cout << "  obj[\"SO3_delta_theta\"] =  "      <<obj["SO3_delta_theta"].asFloat()		<<endl << flush;
 																																			}
 	//Identity =				(1,			0,			0,			0,  			0,			1,			0,			0,  			0,			0,			1,			0,  			0,	0,	0,	1);
+	cv::Matx44f transform[6];
 	transform[Rx] = cv::Matx44f(1,         0,          0,          0,\
 								0,         cos_theta, -sin_theta,  0,\
 								0,         sin_theta,  cos_theta,  0,\
