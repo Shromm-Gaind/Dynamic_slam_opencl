@@ -33,22 +33,29 @@ void copy_conf(Json::String source_filepath,  Json::String infile,  string outfi
 int main(int argc, char *argv[])
 {
 	if (argc !=2) { cout << "\n\nUsage : DTAM_OpenCL <config_file.json>\n\n" << flush; exit(1); }
-
+cout << "\nmain_chk_1" <<flush;
 	Json::Value obj;
+
+cout << "\n\nmain_chk_2" <<flush;
 	conf_params j_params(argv[1], obj);
+
+cout << "\n\nmain_chk_3" <<flush;
 	j_params.display_params();
 
+cout << "\n\nmain_chk_4" <<flush;
 	int verbosity_ 		= j_params.verbosity_mp["verbosity"]; 				// obj["verbosity"]["verbosity"].asInt() ;	// -1= none, 0=errors only, 1=basic, 2=lots.
 	int imagesPerCV 	= obj["imagesPerCV"].asUInt() ;						// j_params.int_mp["imagesPerCV"]; 			//
 	int max_frame_count = obj["max_frame_count"].asUInt();					// j_params.int_mp["max_frame_count"]; 		//
 	int frame_count 	= 0;
 	int ds_error 		= 0;
+
+cout << "\n\nmain_chk_5" <<flush;
 																			if(verbosity_>0) cout << "\n\n main_chk 0\n" << flush;
 																			cout <<"\nconf file = "		<< argv[1];
 																			cout <<"\nverbosity_ = "	<<verbosity_;
 																			cout <<"\nimagesPerCV = "	<<imagesPerCV;
 																			cout <<"\noutpath = " 		<< j_params.paths_mp["out_path"];
-
+cout << "\n\nmain_chk_6" <<flush;
 	Dynamic_slam   dynamic_slam(obj, j_params.verbosity_mp);				// Instantiate Dynamic_slam object before while loop.
 
 	stringstream outfile;													// Redirecting cout to write to "output.txt"

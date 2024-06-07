@@ -1,6 +1,6 @@
 {
                                                                                                     // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
-    "source_filepath":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/",
+    "source_filepath":"/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/src/",
 
     // other .json files
     "params_conf":"local_conf/conf.json",
@@ -11,7 +11,7 @@
 
      // Setup openCL //////////////////////////////////////////////////////////////////////////////
     "kernel_folder":"kernels/",
-    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/kernels/",  //   TODO reconstruct using source_filepath
+    "kernel_build_options": "-I/home/nick/Programming/OpenCV/MySLAM/Dynamic_slam_opencl/src/kernels/",  //   TODO reconstruct using source_filepath
 
     "opencl_platform":0,                                                                            // need platform & device GPU choices
     "opencl_device":0,
