@@ -50,10 +50,10 @@
     "Dynamic_slam::getResult": 1,
 
     /////////////////////////////////////// Dynamic_slam_keyframe.cpp
-    "Dynamic_slam::initialize_keyframe":1,
-    "Dynamic_slam::initialize_keyframe_from_GT": 1,
-    "Dynamic_slam::initialize_keyframe_from_tracking": 1,
-    "Dynamic_slam::initialize_new_keyframe": 1,
+    "Dynamic_slam::initialize_keyframe":-1,
+    "Dynamic_slam::initialize_keyframe_from_GT": -1,
+    "Dynamic_slam::initialize_keyframe_from_tracking": -1,
+    "Dynamic_slam::initialize_new_keyframe": -1,
 
     /////////////////////////////////////// Dynamic_slam_mapping.cpp
     "Dynamic_slam::optimize_depth": 1,
@@ -167,7 +167,7 @@
 
 	/////////////////////////////////////// RunCL_setup_keyframe.cpp
 	"RunCL::estimateCalibration": 1,
-	"RunCL::transform_depthmap": 1,
+	"RunCL::transform_depthmap": -1,
 	"RunCL::transform_costvolume":-1,
 	"RunCL::initializeDepthCostVol": -1
 }
