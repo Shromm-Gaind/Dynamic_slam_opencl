@@ -72,19 +72,23 @@ class Dynamic_slam
     cv::Matx44f old_K,              inv_old_K,              old_pose,               inv_old_pose,             old_K2K;                                                            // frame_data[current_frame-1]
     cv::Matx44f K,                  inv_K,                  pose,                   inv_pose,                 K2K,              pose2pose,            pose2pose_accumulated;      // frame_data[current_frame]
 
-    cv::Matx44f old_K_GT,           inv_old_K_GT,           old_pose_GT,            inv_old_pose_GT;                                                                              // frame_data_GT[current_frame-1]
+    cv::Matx44f old_K_GT,           inv_old_K_GT,           old_pose_GT,            inv_old_pose_GT,                            old_pose2pose;                                    // frame_data_GT[current_frame-1]
     cv::Matx44f K_GT,               inv_K_GT,               pose_GT,                inv_pose_GT,              K2K_GT,           pose2pose_GT;                                     // frame_data_GT[current_frame]
 
     // keyframe params
-    cv::Matx44f keyframe_old_K,     keyframe_inv_old_K,     keyframe_old_pose,      keyframe_inv_old_pose;                                                                        // frame_data[ keyframe_index[current_keyframe] -1 ]
+    cv::Matx44f keyframe_old_K,     keyframe_inv_old_K,     keyframe_old_pose,      keyframe_inv_old_pose,    keyframe_old_K2K, keyframe_old_pose2pose;                           // frame_data[ keyframe_index[current_keyframe] -1 ]
     cv::Matx44f keyframe_K,         keyframe_inv_K,         keyframe_pose,          keyframe_inv_pose,        keyframe_K2K,     keyframe_pose2pose,    pose2pose_accumulated_GT;  // frame_data[ keyframe_index[current_keyframe] ]
 
     cv::Matx44f keyframe_old_K_GT,  keyframe_inv_old_K_GT,  keyframe_old_pose_GT,   keyframe_inv_old_pose_GT;                                                                     // frame_data_GT[ keyframe_index[current_keyframe] -1 ]
     cv::Matx44f keyframe_K_GT,      keyframe_inv_K_GT,      keyframe_pose_GT,       keyframe_inv_pose_GT,     keyframe_K2K_GT,  keyframe_pose2pose_GT;                            // frame_data_GT[ keyframe_index[current_keyframe] ]
 
-    cv::Matx16f pose2pose_algebra;                                              // frame_data[current_frame]
-    cv::Matx16f pose2pose_GT_algebra;                                           // frame_data_GT[current_frame]
-    cv::Matx16f pose2pose_error_algebra, pose2pose_accumulated_error_algebra;   // error_data[current_frame]
+    cv::Matx16f pose2pose_algebra;                                                                // frame_data[current_frame]
+    cv::Matx16f pose2pose_GT_algebra;                                                             // frame_data_GT[current_frame]
+    cv::Matx16f pose2pose_error_algebra, pose2pose_accumulated_error_algebra;                     // error_data[current_frame]
+
+    cv::Matx16f keyframe_pose2pose_algebra;                                                       // frame_data[current_frame]
+    cv::Matx16f keyframe_pose2pose_GT_algebra;                                                    // frame_data_GT[current_frame]
+    cv::Matx16f keyframe_pose2pose_error_algebra, keyframe_pose2pose_accumulated_error_algebra;   // error_data[current_frame]
 
     // Memory between pose fitting iterations: place in sub-class
     cv::Matx16f pose2pose_algebra_0, pose2pose_algebra_1, pose2pose_algebra_2;

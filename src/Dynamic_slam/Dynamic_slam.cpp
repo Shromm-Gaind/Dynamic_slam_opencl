@@ -79,10 +79,11 @@ void Dynamic_slam::initialize_camera(){
 																																				PRINT_MATX44F(K,);
 																																				print_json_float_9(obj, "cameraMatrix");
 																																			}
-	R 				= cv::Mat::eye(3,3 , CV_32FC1);																							// intialize ground truth extrinsic data, NB Mat (int rows, int cols, int type)
-	T 				= cv::Mat::zeros(3,1 , CV_32FC1);
-	pose2pose		= Matx44f_eye;
-	K2K				= Matx44f_eye;
+	R 							= cv::Mat::eye(3,3 , CV_32FC1);																							// intialize ground truth extrinsic data, NB Mat (int rows, int cols, int type)
+	T 							= cv::Mat::zeros(3,1 , CV_32FC1);
+	keyframe_pose2pose 			= Matx44f_eye;
+	pose2pose					= Matx44f_eye;
+	K2K							= Matx44f_eye;
 																																			if (verbosity>local_verbosity_threshold) { cout << "\nDynamic_slam::initialize_camera_chk 1:" <<flush;
 																																				PRINT_MAT33F(R,);
 																																			}
@@ -341,22 +342,24 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
 void Dynamic_slam::use_GT_pose(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::use_GT_pose"];// -1;
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose_chk_0,"<<flush;
-	old_K		= old_K_GT;
-	inv_K		= inv_K_GT;
-	old_pose	= old_pose_GT;
-	inv_pose	= inv_pose_GT;
+	old_K				= old_K_GT;
+	inv_K				= inv_K_GT;
+	old_pose			= old_pose_GT;
+	inv_pose			= inv_pose_GT;
 
-	pose 		= pose_GT;
-	inv_pose	= inv_pose_GT;
-	K2K 		= keyframe_K2K_GT;
-	pose2pose 	= keyframe_pose2pose_GT;
+	pose 				= pose_GT;
+	inv_pose			= inv_pose_GT;
+	keyframe_K2K 		= keyframe_K2K_GT;
 
-	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);}
+	keyframe_pose2pose 	= keyframe_pose2pose_GT;
+	// pose2pose = keyframe_pose2pose_GT;
+
+	for (int i=0; i<16; i++){ runcl.fp32_k2keyframe[i] = keyframe_K2K.operator()(i/4, i%4);}
 																																			if(verbosity>local_verbosity_threshold){
 																																				PRINT_MATX44F(K,);
 																																				PRINT_MATX44F(inv_K,);
-																																				PRINT_MATX44F(pose2pose,);
-																																				PRINT_FLOAT_16(runcl.fp32_k2k,);
+																																				PRINT_MATX44F(keyframe_pose2pose,);
+																																				PRINT_FLOAT_16(runcl.fp32_k2keyframe,);
 																																			}
 																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::use_GT_pose finished,"<<flush;
 }

@@ -79,7 +79,7 @@ public:
 	
 	float				fp32_params[16]		= {0};
 	float				fp32_so3_k2k[9]		= {0};
-	float				fp32_k2k[16]		= {0};
+	//float				fp32_k2k[16]		= {0};
 	float 				fp32_k2keyframe[16]	= {0};
 	
 	uint	 			mm_num_reductions;				//	

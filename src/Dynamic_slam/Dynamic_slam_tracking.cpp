@@ -8,18 +8,18 @@ using namespace std;
 
 void Dynamic_slam::report_GT_pose_error(){ 																									// TODO this could be done in Max44f, without back and forth coversion.
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::report_GT_pose_error"];// -2;
-	pose2pose_accumulated_error_algebra = LieSub(PToLie(pose2pose_accumulated), PToLie(pose2pose_accumulated_GT) ); 						//pose2pose_accumulated_error_algebra 	= pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
-	pose2pose_error_algebra 			= LieSub(PToLie(pose2pose), PToLie(pose2pose_GT)); 													//pose2pose_error_algebra 				= pose2pose_algebra - pose2pose_GT_algebra;
+	pose2pose_accumulated_error_algebra = LieSub(PToLie(pose2pose_accumulated), PToLie(pose2pose_accumulated_GT) ); // TODO wrong fornula	//pose2pose_accumulated_error_algebra 	= pose2pose_accumulated_algebra - pose2pose_accumulated_GT_algebra;
+	keyframe_pose2pose_error_algebra 	= LieSub(PToLie(keyframe_pose2pose), PToLie(keyframe_pose2pose_GT)); 								//pose2pose_error_algebra 				= pose2pose_algebra - pose2pose_GT_algebra;
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::report_GT_error_chk 0\n" << flush;
 																																				PRINT_MATX44F(pose2pose_accumulated_GT,);
 																																				PRINT_MATX44F(pose2pose_accumulated,);
 																																				PRINT_MATX16F(pose2pose_accumulated_error_algebra,);
 																																				//
-																																				PRINT_MATX44F(pose2pose_GT,);
-																																				PRINT_MATX44F(pose2pose,);
-																																				PRINT_MATX16F(pose2pose_GT_algebra,);
-																																				PRINT_MATX16F(pose2pose_algebra,);
-																																				PRINT_MATX16F(pose2pose_error_algebra,);
+																																				PRINT_MATX44F(keyframe_pose2pose_GT,);
+																																				PRINT_MATX44F(keyframe_pose2pose,);
+																																				PRINT_MATX16F(keyframe_pose2pose_GT_algebra,);
+																																				PRINT_MATX16F(keyframe_pose2pose_algebra,);
+																																				PRINT_MATX16F(keyframe_pose2pose_error_algebra,);
 																																			}
 }
 
@@ -27,7 +27,7 @@ void Dynamic_slam::display_frame_resluts(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::display_frame_resluts"];// 1;																										if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::display_frame_resluts_chk 0\n" << flush;}
 	stringstream ss;
 	ss << "_p2p_error_" ;				for (int i=0; i<6; i++) ss << "," << pose2pose_error_algebra.operator()(i);
-	ss << "_cumulative_error_" ;		for (int i=0; i<6; i++) ss << "," << pose2pose_accumulated_error_algebra.operator()(i);
+	ss << "_cumulative_error_" ;		for (int i=0; i<6; i++) ss << "," << pose2pose_accumulated_error_algebra.operator()(i); // TODO wrong formula
 	cout << "\nDynamic_slam::display_frame_resluts "<< ss.str() << flush;
 	runcl.tracking_result( "Dynamic_slam::display_frame_resluts" );
 }
@@ -36,23 +36,59 @@ void Dynamic_slam::artificial_pose_error(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::artificial_pose_error"];//-2;																										if(verbosity>local_verbosity_threshold){ cout << "\n\nDynamic_slam::artificial_pose_error() chk_0"<<flush; }
 	Matx16f pose_step_algebra;
 	for (int SE3=0; SE3<6; SE3++)  pose_step_algebra.operator()(0,SE3) = obj["Artif_pose_err_algebra"][SE3].asFloat();
-	Matx44f poseStep 	= LieToP_Matx(pose_step_algebra);																					if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(poseStep,);	PRINT_MATX16F(pose_step_algebra,);	PRINT_MATX16F(PToLie(pose2pose),True);  }
-	pose2pose 			= pose2pose * poseStep;																								if(verbosity>local_verbosity_threshold){ PRINT_MATX16F(PToLie(pose2pose),Start); }
-	K2K 				= old_K * pose2pose * inv_K;																						if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(K2K,New);	PRINT_FLOAT_16(runcl.fp32_k2k,Old); }// Add error of one step in the 2nd SE3 DoF.
-	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] = K2K.operator()(i/4, i%4);  }																if(verbosity>local_verbosity_threshold){ PRINT_FLOAT_16(runcl.fp32_k2k,New); cout << "\nDynamic_slam::artificial_pose_error()_finish ##############################################" << flush;}
+	Matx44f poseStep 	= LieToP_Matx(pose_step_algebra);																					if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(poseStep,);	PRINT_MATX16F(pose_step_algebra,);	PRINT_MATX16F(PToLie(keyframe_pose2pose),True);  }
+	keyframe_pose2pose 	= keyframe_pose2pose * poseStep;																					if(verbosity>local_verbosity_threshold){ PRINT_MATX16F(PToLie(keyframe_pose2pose),Start); }
+	K2K 				= old_K * keyframe_pose2pose * inv_K;																				if(verbosity>local_verbosity_threshold){ PRINT_MATX44F(K2K,New);	PRINT_FLOAT_16(runcl.fp32_k2keyframe,Old); }// Add error of one step in the 2nd SE3 DoF.
+	for (int i=0; i<16; i++){ runcl.fp32_k2keyframe[i] = K2K.operator()(i/4, i%4);  }														if(verbosity>local_verbosity_threshold){ PRINT_FLOAT_16(runcl.fp32_k2keyframe,New); cout << "\nDynamic_slam::artificial_pose_error()_finish ##############################################" << flush;}
 }
 
 void Dynamic_slam::predictFrame(){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::predictFrame"];/* -2;*/														if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 0.  runcl.dataset_frame_num = "<< runcl.dataset_frame_num  << flush;
 																																				PRINT_MATX44F(K2K,Old);
 																																				PRINT_MATX44F(pose2pose,Old);
+																																				cout << "\nruncl.dataset_frame_num  = " << runcl.dataset_frame_num;
+																																				cout << "\nruncl.costvol_frame_num  = " << runcl.costvol_frame_num;
+																																				PRINT_MATX44F(keyframe_inv_old_pose,Old);
+																																				PRINT_MATX44F(pose2pose,Old);
+																																				PRINT_MATX44F(old_pose2pose,Old);
+																																				PRINT_MATX44F(keyframe_old_pose2pose,Old);
+																																				PRINT_MATX44F(keyframe_pose2pose,Old);
+																																				PRINT_MATX44F(keyframe_old_K2K,Old);
+																																				PRINT_MATX44F(K2K,Old);
+																																				PRINT_MATX44F(keyframe_K2K,Old);
 																																			}
-	old_K 					= keyframe_K;			//= K;
-	inv_old_K				= keyframe_inv_K;		//= inv_K;
-	old_pose				= keyframe_pose;		//= pose;
-	inv_old_pose			= keyframe_inv_pose;	//= inv_pose;
-	keyframe_pose2pose		= pose2pose;
-	pose2pose_algebra_2		= pose2pose_algebra_1;
+	keyframe_inv_old_pose 			= getInvPose(keyframe_pose2pose);
+	pose2pose 						= keyframe_inv_old_pose * keyframe_pose2pose;
+	if (runcl.costvol_frame_num>0)	{
+		pose2pose 					= pose2pose * getInvPose(old_pose2pose) * pose2pose;													// Only use accel if there are enough previous frames.
+	}
+	old_pose2pose					= pose2pose;
+	keyframe_old_pose2pose			= keyframe_pose2pose;
+	keyframe_pose2pose 				= keyframe_pose2pose * pose2pose;
+	keyframe_old_K2K 				= keyframe_K2K;
+	keyframe_K2K 					= K * keyframe_pose2pose * inv_old_K;
+																																			if(verbosity>local_verbosity_threshold){ cout << "\n Dynamic_slam::predictFrame_chk 1\n" << flush;
+																																				cout << "\nruncl.dataset_frame_num  = " << runcl.dataset_frame_num;
+																																				cout << "\nruncl.costvol_frame_num  = " << runcl.costvol_frame_num;
+																																				PRINT_MATX44F(keyframe_inv_old_pose,New);
+																																				PRINT_MATX44F(pose2pose,New);
+																																				PRINT_MATX44F(old_pose2pose,New);
+																																				PRINT_MATX44F(keyframe_old_pose2pose,New);
+																																				PRINT_MATX44F(keyframe_pose2pose,New);
+																																				PRINT_MATX44F(keyframe_old_K2K,New);
+																																				PRINT_MATX44F(K2K,New);
+																																				PRINT_MATX44F(keyframe_K2K,New);
+																																			}
+
+	////////////////////////////////////////////////////////////////////////////
+	// keyframe_old_K 					= keyframe_K;			//= K;
+	// keyframe_inv_old_K				= keyframe_inv_K;		//= inv_K;
+	// keyframe_old_pose				= keyframe_pose;		//= pose;
+	// keyframe_inv_old_pose			= keyframe_inv_pose;	//= inv_pose;
+
+
+	//keyframe_pose2pose		= pose2pose;
+	/*pose2pose_algebra_2		= pose2pose_algebra_1;
 	pose2pose_algebra_1		= PToLie(pose2pose);
 	Matx16f 	p2p_alg 	= LieSub(pose2pose_algebra_1, pose2pose_algebra_2);
 
@@ -74,7 +110,7 @@ void Dynamic_slam::predictFrame(){
 																																				PRINT_MATX44F(K2K,);
 																																				PRINT_MATX44F(keyframe_K2K,);
 																																			}
-	// kernel update DepthMap with RelVelMap
+	*/// kernel update DepthMap with RelVelMap
 
 	// kernel predict new frame
 };
@@ -213,27 +249,27 @@ void Dynamic_slam::generate_SE3_k2k( float _SE3_k2k[6*16] ) {																			
 void Dynamic_slam::update_k2k(Matx16f update_){
 	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::update_k2k"];// -3;
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 1, compute idealSE3Incr_algebra :" << flush;
-																																				PRINT_MATX44F(pose2pose,);		PRINT_MATX44F(pose2pose_GT,);
-																																				Matx16f pose2pose_alg_ 			= PToLie(pose2pose);							PRINT_MATX16F(pose2pose_alg_,update_k2k()_chk 1);
-																																				Matx16f pose2pose_GT_alg_ 		= PToLie(pose2pose_GT);							PRINT_MATX16F(pose2pose_GT_alg_,update_k2k()_chk 1);
-																																				Matx16f idealSE3Incr_alg_ 		= LieSub(pose2pose_alg_, pose2pose_GT_alg_);	PRINT_MATX16F(idealSE3Incr_alg_,update_k2k()_chk 1);
-																																				Matx44f idealSE3Incr_ 			= LieToP_Matx(idealSE3Incr_alg_);				PRINT_MATX44F(idealSE3Incr_,update_k2k()_chk 1);
+																																				PRINT_MATX44F(keyframe_pose2pose,);		PRINT_MATX44F(keyframe_pose2pose_GT,);
+																																				Matx16f keyframe_pose2pose_alg_ 		= PToLie(pose2pose);												PRINT_MATX16F(keyframe_pose2pose_alg_	,update_k2k()_chk 1);
+																																				Matx16f keyframe_pose2pose_GT_alg_ 		= PToLie(pose2pose_GT);												PRINT_MATX16F(keyframe_pose2pose_GT_alg_,update_k2k()_chk 1);
+																																				Matx16f idealSE3Incr_alg_ 				= LieSub(keyframe_pose2pose_alg_, keyframe_pose2pose_GT_alg_);		PRINT_MATX16F(idealSE3Incr_alg_			,update_k2k()_chk 1);
+																																				Matx44f idealSE3Incr_ 					= LieToP_Matx(idealSE3Incr_alg_);									PRINT_MATX44F(idealSE3Incr_				,update_k2k()_chk 1);
 
-																																				Matx44f pose2pose_inv 			= pose2pose.inv(); 								PRINT_MATX44F(pose2pose_inv,update_k2k()_chk 1);
-																																				Matx44f idealSE3Incr 			= pose2pose_GT * pose2pose_inv;					PRINT_MATX44F(idealSE3Incr,update_k2k()_chk 1);
-																																				Matx16f idealSE3Incr_algebra 	= PToLie(idealSE3Incr); 						PRINT_MATX16F(idealSE3Incr_algebra,update_k2k()_chk 1);
+																																				Matx44f keyframe_pose2pose_inv 			= keyframe_pose2pose.inv(); 										PRINT_MATX44F(keyframe_pose2pose_inv	,update_k2k()_chk 1);
+																																				Matx44f idealSE3Incr 					= keyframe_pose2pose_GT * keyframe_pose2pose_inv;					PRINT_MATX44F(idealSE3Incr				,update_k2k()_chk 1);
+																																				Matx16f idealSE3Incr_algebra 			= PToLie(idealSE3Incr); 											PRINT_MATX16F(idealSE3Incr_algebra		,update_k2k()_chk 1);
 																																			}
-	cv::Matx44f SE3Incr_matx = LieToP_Matx(update_); 								// 						= SE3_Matx44f(update_);
-	pose2pose 										= pose2pose *  SE3Incr_matx;
-	K2K 											= old_K * pose2pose * inv_K;
-	for (int i=0; i<16; i++){ runcl.fp32_k2k[i] 	= K2K.operator()(i/4, i%4);   }
+	cv::Matx44f SE3Incr_matx = LieToP_Matx(update_); 																						// 						= SE3_Matx44f(update_);
+	keyframe_pose2pose 									= keyframe_pose2pose *  SE3Incr_matx;
+	keyframe_K2K 										= old_K * keyframe_pose2pose * inv_K;
+	for (int i=0; i<16; i++){ runcl.fp32_k2keyframe[i] 	= keyframe_K2K.operator()(i/4, i%4);   }
 																																			if(verbosity>local_verbosity_threshold) { cout << "\n\n Dynamic_slam::update_k2k()_chk 2, compute K2K :" << flush;
-																																				PRINT_MATX16F(update_,update_k2k()_chk 2);
-																																				PRINT_MATX44F(SE3Incr_matx,update_k2k()_chk 2);
-																																				PRINT_MATX44F(K2K,update_k2k()_chk 2);
-																																				PRINT_MATX44F(pose2pose,update_k2k()_chk 2);
-																																				PRINT_MATX44F(old_K,update_k2k()_chk 2);
-																																				PRINT_MATX44F(inv_K,update_k2k()_chk 2);
+																																				PRINT_MATX16F(update_			,update_k2k()_chk 2);
+																																				PRINT_MATX44F(SE3Incr_matx		,update_k2k()_chk 2);
+																																				PRINT_MATX44F(K2K				,update_k2k()_chk 2);
+																																				PRINT_MATX44F(keyframe_pose2pose,update_k2k()_chk 2);
+																																				PRINT_MATX44F(old_K				,update_k2k()_chk 2);
+																																				PRINT_MATX44F(inv_K				,update_k2k()_chk 2);
 
 																																				cout << "\n####################################### finished Dynamic_slam::update_k2k(Matx16f update_)"<<flush;
 																																			}
@@ -351,7 +387,8 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				cout << "\nruncl.frame_num = "<<runcl.dataset_frame_num;
 																																				PRINT_MATX44F(pose2pose_accumulated,);
 																																				PRINT_MATX44F(pose2pose,);
+																																				PRINT_MATX44F(keyframe_pose2pose,);
 																																			}
-	if (runcl.dataset_frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose;
+	if (runcl.dataset_frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose; // TODO wrong formula.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 8  Finished ####################################\n" << flush;}
 }
