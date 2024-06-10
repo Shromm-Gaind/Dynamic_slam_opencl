@@ -2,7 +2,7 @@
     // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NB Need to include classname. to prevent function name clashes between classes..... Or make it one list per class.
     // NB Also overlarded function names within a class.
-    "verbosity":0,									// -1= none, 0=errors only, 1=basic, 2=lots.
+    "verbosity":-1,									// -1= none, 0=errors only, 1=basic, 2=lots.
 
     // utils/ ###############################################################
     /////////////////////////////////////// convertAhandaPovRayToStandard.cpp
@@ -61,7 +61,7 @@
 	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": -1,
     "Dynamic_slam::cacheGValues": -1,
-    "Dynamic_slam::updateA": -1,
+    "Dynamic_slam::updateA": -2,
 
     /////////////////////////////////////// Dynamic_slam_tracking.cpp
     "Dynamic_slam::report_GT_pose_error": -2,

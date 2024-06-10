@@ -247,6 +247,7 @@ void Dynamic_slam::getFrameData(){  // can load use separate CPU thread(s) ?
     std::strcpy (ch, str.c_str());
 	cv::Mat T_alt;
     convertAhandaPovRayToStandard(verbosity_mp, ch,R,T,cameraMatrix);
+	free(ch);
 																																			if(verbosity>local_verbosity_threshold) {
 																																				cout << "\nR=";
 																																				for (int i=0; i<3; i++){

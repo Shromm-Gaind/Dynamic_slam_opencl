@@ -294,7 +294,7 @@ void RunCL::updateA(float lambda, float theta,  uint start, uint stop){
 																																				DownloadAndSave(dmem,   ss.str(), paths.at("dmem"),    mm_size_bytes_C1,   mm_Image_size, CV_32FC1,  false , fp32_params[MAX_INV_DEPTH]);
 																																				DownloadAndSave(qmem,   ss.str(), paths.at("qmem"),  2*mm_size_bytes_C1,   q_size       , CV_32FC1,  false , -1*fp32_params[MAX_INV_DEPTH] ); //0.1
 
-																																				if (verbosity_mp["RunCL::updateA::dbg_databuf"]){
+																																				if ( verbosity > verbosity_mp["RunCL::updateA::dbg_databuf"] ){
 																																					bool show = false;
 																																					bool exception_tiff = false;
 																																					DownloadAndSaveVolume(dbg_databuf, 	ss.str(), paths.at("dbg_databuf"), 	mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*TODO count*/ , exception_tiff );

@@ -105,6 +105,8 @@ void convertAhandaPovRayToStandard(int_map verbosity_mp, const char *filepath,  
     };
     cameraMatrix = cv::Mat(3,3, CV_32FC1);
     for (int i=0; i<9; i++){ cameraMatrix.at<float>(i/3, i%3) = K[i]; }
+
+    cam_pars_file.close();
     																													if(verbosity>local_verbosity_threshold) cout << "\n convertAhandaPovRayToStandard_chk 5"<<flush;
 	
 }

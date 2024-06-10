@@ -133,10 +133,10 @@ __kernel void transform_cost_volume(
 		//if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,   wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,   uh2=%f,   vh2=%f,   wh2=%f,   k2k_pvt[11]=%f,   inv_depth=%f,    layer_flt=%f,   reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u ",
 		//	global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP], uh2, vh2, wh2, k2k_pvt[11], inv_depth, layer_flt, reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS] );
 
-		if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,    wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,    layer_flt=%f,       reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u    (u3_flt>=0)=%u (u3_flt<read_cols_  )=%u (v3_flt>=0)=%u  (v3_flt<read_rows_  )=%u (layer_flt>=0)=%u (layer_flt< uint_params[COSTVOL_LAYERS]=%u),    whole_bool=%u",
-			global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP],  layer_flt,   reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS], (u3_flt>=0), (u3_flt<read_cols_  ), (v3_flt>=0),  (v3_flt<read_rows_  ), (layer_flt>=0), (layer_flt< uint_params[COSTVOL_LAYERS]),
-			( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) )
-		);
+// 		if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,    wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,    layer_flt=%f,       reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u    (u3_flt>=0)=%u (u3_flt<read_cols_  )=%u (v3_flt>=0)=%u  (v3_flt<read_rows_  )=%u (layer_flt>=0)=%u (layer_flt< uint_params[COSTVOL_LAYERS]=%u),    whole_bool=%u",
+// 			global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP],  layer_flt,   reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS], (u3_flt>=0), (u3_flt<read_cols_  ), (v3_flt>=0),  (v3_flt<read_rows_  ), (layer_flt>=0), (layer_flt< uint_params[COSTVOL_LAYERS]),
+// 			( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) )
+// 		);
 
 
 																									// if the transformed voxel is within the  bounds of old volume.
