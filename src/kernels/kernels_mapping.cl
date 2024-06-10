@@ -69,13 +69,11 @@ __kernel void DepthCostVol(
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	uint lid 			= get_local_id(0);
-	uint group_size 	= get_local_size(0);
+
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];									// choose correct layer of the mipmap
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_		= mipmap_params_[MiM_READ_ROWS];
-	//uint margin 		= uint_params[MARGIN];
 
 	uint mm_cols		= uint_params[MM_COLS];
 	uint reduction		= mm_cols/read_cols_;

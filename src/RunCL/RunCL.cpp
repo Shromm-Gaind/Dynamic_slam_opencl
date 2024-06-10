@@ -648,7 +648,7 @@ void RunCL::allocatemem(){
 																																		if(verbosity>local_verbosity_threshold) cout <<"\n\nRunCL::allocatemem_chk4.2\n\n" << flush;
 	//float depth = 1/( obj["max_depth"].asFloat() - obj["min_depth"].asFloat() );
 	float zero  = 0;
-	//float one   = 1;
+	float one   = 1;
 	//																																	if(verbosity>local_verbosity_threshold) cout << "\n\nRunCL::allocatemem_chk4 \t Initial inverse depth = "<< depth <<"\n\n" << flush;
 
 	status = clEnqueueFillBuffer(uload_queue, gxmem, 				&zero, sizeof(float), 	0, mm_size_bytes_C4, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
@@ -660,7 +660,7 @@ void RunCL::allocatemem(){
 	status = clEnqueueFillBuffer(uload_queue, keyframe_depth_mem, 	&zero, sizeof(float),   0, mm_size_bytes_C1, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, keyframe_depth_mem_GT,&zero, sizeof(float),   0, mm_size_bytes_C1, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 
-	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 			&zero, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
+	status = clEnqueueFillBuffer(uload_queue, cdatabuf, 			&one, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	status = clEnqueueFillBuffer(uload_queue, cdatabuf_8chan, 		&zero, sizeof(float),   0, mm_vol_size_bytes*8, 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.8\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 
 	status = clEnqueueFillBuffer(uload_queue, hdatabuf, 			&zero, sizeof(float),   0, mm_vol_size_bytes, 		0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.9\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);

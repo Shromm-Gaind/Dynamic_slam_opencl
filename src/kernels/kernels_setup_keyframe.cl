@@ -84,20 +84,12 @@ __kernel void transform_cost_volume(
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	uint lid 			= get_local_id(0);
-
-	uint local_size 	= get_local_size(0);
-	uint group_size 	= local_size;
-	uint work_dim 		= get_work_dim();
-	uint global_size	= get_global_size(0);
-	float16 k2k_pvt		= k2k[0];
 
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+	if (global_id_u    	>= mipmap_params_[MiM_PIXELS]) return;
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
 	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
 	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
-	uint layer_pixels	= mipmap_params_[MiM_PIXELS];
-	//if (global_id_u    >= layer_pixels) return;
 
 	uint base_cols		= uint_params[COLS];
 	uint margin 		= uint_params[MARGIN];
@@ -111,6 +103,7 @@ __kernel void transform_cost_volume(
 	float v_flt			= v * reduction;
 	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
 	
+	float16 k2k_pvt		= k2k[0];
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 ;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1;
 	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1;
@@ -128,8 +121,8 @@ __kernel void transform_cost_volume(
 		//float rh3 = rh2 + k2k_pvt[15]*inv_depth; // rh3 = 0 + 1*inv_depth
 		//float h/z  = k2k_pvt[12]*u_flt + k2k_pvt[13]*v + k2k_pvt[14]*1; // +k2k_pvt[15]/z
 
-		float u3_flt		= uh3/wh3;																// 2D homogeneous pixel coordinaes
-		float v3_flt		= vh3/wh3;
+		float u3_flt		= uh3/(wh3*reduction);													// 2D homogeneous pixel coordinaes
+		float v3_flt		= vh3/(wh3*reduction);
 		float layer_flt		= wh3*inv_depth/fp32_params[INV_DEPTH_STEP];							// 3D depth by layer of old cost volume.
 		
 		int write_index 	= read_index + cv_layer * mm_pixels;
@@ -160,7 +153,7 @@ __kernel void transform_cost_volume(
 			new_cdata[ write_index] = voxel_c;
 			new_hdata[ write_index] = voxel_h;
 		}else{
-			new_cdata[ write_index] = 0; //layer_flt; //u3_flt; //0; 															// NB If new_hdata is zero, then new_cdata should be read as NULL.
+			new_cdata[ write_index] = 1.0f; //layer_flt; //u3_flt; //0; 								// NB If new_hdata is zero, then new_cdata should be read as NULL.
 			new_hdata[ write_index] = 0; //wh3;       //v3_flt; //0;
 		}
 	}
@@ -186,12 +179,6 @@ __kernel void transform_depthmap(
 {
 	uint global_id_u 	= get_global_id(0);
 	float global_id_flt = global_id_u;
-	uint lid 			= get_local_id(0);
-
-	uint local_size 	= get_local_size(0);
-	uint group_size 	= local_size;
-	uint work_dim 		= get_work_dim();
-	uint global_size	= get_global_size(0);
 	float16 k2k_pvt		= k2k[0];
 
 	uint8 mipmap_params_ = mipmap_params[mipmap_layer];

@@ -49,8 +49,8 @@ float trilinear (__global float* vol, float u_flt, float v_flt, float layer_flt,
 	float c_upper, c_lower;
 	float 	c, c_000, c_001, c_010, c_011, c_100, c_101, c_110, c_111;
 	int coff_000, coff_001, coff_010, coff_011, coff_100, coff_101, coff_110, coff_111;
-	int int_u2 = ceil(u_flt);
-	int int_v2 = ceil(v_flt);
+	int int_u2 = ceil(u_flt-0.5f);
+	int int_v2 = ceil(v_flt-0.5f);
 	int int_l2 = ceil(layer_flt);
 																			// compute adjacent pixel indices & sample adjacent pixels
 	c_110 = vol[ read_offset_ + int_v2     * cols +  int_u2     +   mm_pixels * (int_l2 -1)  ];

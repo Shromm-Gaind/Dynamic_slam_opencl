@@ -154,11 +154,11 @@
 	"RunCL::updateDepthCostVol::hdatabuf": -1,		// bool
 	"RunCL::updateDepthCostVol::cdatabuf_8chan": 1,	// bool
 
-	"RunCL::updateQD": 1,
-	"RunCL::updateG": 1,
+	"RunCL::updateQD": -1,
+	"RunCL::updateG": -1,
 	"RunCL::updateA": -2,
-	"RunCL::updateA::dbg_databuf":1,				// debug volume
-	"RunCL::computeSigmas": 1,
+	"RunCL::updateA::dbg_databuf":-1,				// debug volume
+	"RunCL::computeSigmas": -1,
 	"RunCL::measureDepthFit": -2,
 
 	"RunCL::SpatialCostFns": 1,
