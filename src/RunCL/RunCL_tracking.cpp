@@ -430,4 +430,63 @@ void RunCL::atomic_test1(){
 }
 
 
+void RunCL::atomic_test2(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::atomic_test2"];
 
+	cl_int res, status;
+	cl_event ev, writeEvt;
+	const 	int 	data_size 		= 4   *local_work_size;
+	const 	size_t 	num_threads 	= 2   *local_work_size;
+			int 	num_threads_int = 1.5 *local_work_size;
+
+
+
+
+	float number  = 0.674;
+	status = clEnqueueFillBuffer(uload_queue, atomic_test2_buf, &number, sizeof(int), 0, data_size*sizeof(float), 	0, NULL, &writeEvt);	if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: allocatemem_chk1.3\n" << endl;exit_(status);}
+
+	clFlush(uload_queue); status = clFinish(uload_queue); 																					if (status != CL_SUCCESS)	{ cout << "\nclFinish(uload_queue)=" << status << checkerror(status) <<"\n"  << flush; exit_(status);}
+
+	res = clSetKernelArg(atomic_test2_kernel, 0, sizeof(int), 		&num_threads_int);														if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	res = clSetKernelArg(atomic_test2_kernel, 1, sizeof(cl_mem), 	&atomic_test2_buf);														if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	/*
+	cl_int clEnqueueNDRangeKernel(
+									cl_command_queue 		command_queue,
+									cl_kernel 				kernel,
+									cl_uint 				work_dim,
+									const size_t* 			global_work_offset,
+									const size_t* 			global_work_size,
+									const size_t* 			local_work_size,
+									cl_uint 				num_events_in_wait_list,
+									const cl_event* 		event_wait_list,
+									cl_event* 				event
+									);
+	*/
+	res 	= clEnqueueNDRangeKernel(m_queue, atomic_test2_kernel, 1, 0, &num_threads, &local_work_size, 0, NULL, &ev);						if (res    != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
+	status 	= clFlush(m_queue);																												if (status != CL_SUCCESS)	{ cout << "\nRunCL::atomic_test1(),  clFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
+
+	float atomic_test_output[ data_size ];
+	for (int i = 0; i<data_size; i++) atomic_test_output[i] = -1;
+	cl_event readEvt;
+	status = clEnqueueReadBuffer(	dload_queue,			// command_queue
+									atomic_test2_buf,		// buffer
+									CL_FALSE,				// blocking_read
+									0,						// offset
+									data_size*sizeof(float),	// size
+									atomic_test_output,		// pointer
+									0,						// num_events_in_wait_list
+									NULL,					// event_waitlist				needs to know about preceeding events:
+									&readEvt				// event
+								 );
+													if (status != CL_SUCCESS) { cout << "\nclEnqueueReadBuffer(..) status=" << checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clFlush(dload_queue);					if (status != CL_SUCCESS) { cout << "\nclFlush(m_queue) status = " 		<< checkerror(status) <<"\n"<<flush; exit_(status);}
+	status = clWaitForEvents(1, &readEvt); 			if (status != CL_SUCCESS) { cout << "\nclWaitForEvents status="			<< checkerror(status) <<"\n"<<flush; exit_(status);}
+
+	cout << "\n\n void RunCL::atomic_test2(): \t  local_work_size = "<<local_work_size<<", \t (buffer size) data_size = "<<data_size<<", \t (num threards launched)  num_threads="<<num_threads<<", \t (num threards run) num_threads_int = "<<num_threads_int<<", \t  (";
+	int i=0;
+	for (; i< data_size; i++) cout << ", " << atomic_test_output[i];
+	cout << ") \t i="<< i<< "\n\n" << flush;
+
+
+
+}

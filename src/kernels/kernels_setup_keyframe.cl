@@ -150,12 +150,13 @@ __kernel void transform_cost_volume(
 			if(voxel_c < lo) lo = voxel_c;
 			mean += voxel_c; //new_cdata[ write_index];
 			count++;
-			new_cdata[ write_index] = voxel_c;
-			new_hdata[ write_index] = voxel_h;
-		}else{
-			new_cdata[ write_index] = 1.0f; //layer_flt; //u3_flt; //0; 								// NB If new_hdata is zero, then new_cdata should be read as NULL.
-			new_hdata[ write_index] = 0; //wh3;       //v3_flt; //0;
+			new_cdata[ write_index] += voxel_c;
+			new_hdata[ write_index] += voxel_h;
 		}
+		//else{
+			//new_cdata[ write_index] = 1.0f; //layer_flt; //u3_flt; //0; 								// NB If new_hdata is zero, then new_cdata should be read as NULL.
+			//new_hdata[ write_index] += 0; //wh3;       //v3_flt; //0;
+		//}
 	}
 																									// set hi_mem, lo_mem for new cost_vol
 	mean 				/= count;
@@ -165,7 +166,7 @@ __kernel void transform_cost_volume(
 }
 
 
-__kernel void transform_depthmap(
+__kernel void transform_depthmap(  // Needs to transform as a point cloud. Need to compare & swap the incomming points on the new depthmap.
 	// inputs
 	__private	uint	mipmap_layer,			//0
 	__constant 	uint8*	mipmap_params,			//1
@@ -224,7 +225,14 @@ __kernel void transform_depthmap(
 
 	float newdepth = alpha * depth_map_in[read_index_new];	// alpha *								// old_keyframe.alpha indicates if this pixel of new depth map has valid source in the old depth map.
 																									// could set a default value here.
-	depth_map_out[read_index] = newdepth;// vh2/(read_rows_*256);
+
+	// atomic compare and swap
+	atomic_maxf(&depth_map_out[read_index],  newdepth );//map holds inv_depth, hence atomic_minf	// NB depth_map may have occlusions when transformed.
+																									// Alternatives would be
+																									// (i) to raytrace theough the costvol
+																									// (ii) Import the Amem debug costvol.
+
+	//depth_map_out[read_index] = newdepth;// vh2/(read_rows_*256);
 	// uh2/(read_cols_*256); //v2_flt;// u2_flt;// vh2/read_cols_; // uh2/read_cols_; // ((float)read_index_new)/((float)mm_pixels); // newdepth; //depth_map_in[read_index]; //
 }
 

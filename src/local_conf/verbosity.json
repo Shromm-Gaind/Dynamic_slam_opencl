@@ -2,7 +2,7 @@
     // Local verbosity for each funtionm  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NB Need to include classname. to prevent function name clashes between classes..... Or make it one list per class.
     // NB Also overlarded function names within a class.
-    "verbosity":-1,									// -1= none, 0=errors only, 1=basic, 2=lots.
+    "verbosity": -1,									// -1= none, 0=errors only, 1=basic, 2=lots.
 
     // utils/ ###############################################################
     /////////////////////////////////////// convertAhandaPovRayToStandard.cpp
@@ -50,10 +50,10 @@
     "Dynamic_slam::getResult": 1,
 
     /////////////////////////////////////// Dynamic_slam_keyframe.cpp
-    "Dynamic_slam::initialize_keyframe":-1,
-    "Dynamic_slam::initialize_keyframe_from_GT": -1,
-    "Dynamic_slam::initialize_keyframe_from_tracking": -1,
-    "Dynamic_slam::initialize_new_keyframe": -1,
+    "Dynamic_slam::initialize_keyframe":-2,
+    "Dynamic_slam::initialize_keyframe_from_GT": -2,
+    "Dynamic_slam::initialize_keyframe_from_tracking": -2,
+    "Dynamic_slam::initialize_new_keyframe": -2,
 
     /////////////////////////////////////// Dynamic_slam_mapping.cpp
     "Dynamic_slam::optimize_depth": 1,
@@ -61,7 +61,7 @@
 	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": -1,
     "Dynamic_slam::cacheGValues": -1,
-    "Dynamic_slam::updateA": -2,
+    "Dynamic_slam::updateA": -1,
 
     /////////////////////////////////////// Dynamic_slam_tracking.cpp
     "Dynamic_slam::report_GT_pose_error": -2,
@@ -71,7 +71,7 @@
     "Dynamic_slam::generate_invK_": 1,
     "Dynamic_slam::generate_SE3_k2k": 1,
     "Dynamic_slam::update_k2k": -1,
-    "Dynamic_slam::estimateSE3_LK": -2,
+    "Dynamic_slam::estimateSE3_LK": -1,
 
 	// RunCL/ ##############################################
 	/////////////////////////////////////// RunCL_class.cpp
@@ -140,13 +140,14 @@
 	"RunCL::se3_rho_sq": 1,
 
 	"RunCL::estimateSE3_LK": -1,
-	"RunCL::read_Rho_sq": 1,
+	"RunCL::read_Rho_sq": -1,
 	"RunCL::read_se3_weights": 1,
 	"RunCL::read_se3_incr": 1,
 
 	"RunCL::tracking_result": 1,
 	"RelativeVel_Map": 1,
 	"RunCL::atomic_test1": 1,
+	"RunCL::atomic_test2": -2,
 
 	/////////////////////////////////////// RunCL_mapping.cpp
 	"RunCL::updateDepthCostVol": -1,
@@ -167,9 +168,9 @@
 
 	/////////////////////////////////////// RunCL_setup_keyframe.cpp
 	"RunCL::estimateCalibration": 1,
-	"RunCL::transform_depthmap": -1,
-	"RunCL::transform_costvolume":-1,
-	"RunCL::initializeDepthCostVol": -1
+	"RunCL::transform_depthmap": -2,
+	"RunCL::transform_costvolume":-2,
+	"RunCL::initializeDepthCostVol": -2
 }
 
 

@@ -244,6 +244,8 @@ void RunCL::createKernels(){
 	se3_lk_grad_kernel				= clCreateKernel(m_program, "se3_LK_grad", 					&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'se3_LK_grad'  kernel not built.\n"				<<flush; exit(0);   }
 
 	atomic_test1_kernel				= clCreateKernel(m_program, "atomic_test1", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'atomic_test1'  kernel not built.\n"				<<flush; exit(0);   }
+	atomic_test2_kernel				= clCreateKernel(m_program, "atomic_test2", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'atomic_test1'  kernel not built.\n"				<<flush; exit(0);   }
+
 
 	convert_depth_kernel			= clCreateKernel(m_program, "convert_depth", 				&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'convert_depth'  kernel not built.\n"			<<flush; exit(0);   }
 	transform_depthmap_kernel		= clCreateKernel(m_program, "transform_depthmap", 			&err_code);			if (err_code != CL_SUCCESS)  {cout << "\nError 'transform_depthmap'  kernel not built.\n"		<<flush; exit(0);   }
@@ -617,6 +619,7 @@ void RunCL::allocatemem(){
 	dmem_disparity_sum	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, d_disp_sum_size_bytes,	0, &res);			if(res!=CL_SUCCESS){cout<<"\nres 41= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 	atomic_test1_buf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 4*local_work_size*sizeof(int),	0, &res);	if(res!=CL_SUCCESS){cout<<"\nres 42= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
+	atomic_test2_buf	= clCreateBuffer(m_context, CL_MEM_READ_WRITE 						, 4*local_work_size*sizeof(float),	0, &res);	if(res!=CL_SUCCESS){cout<<"\nres 42= "<<checkerror(res)<<"\n"<<flush;exit_(res);}
 
 																																		if(verbosity>local_verbosity_threshold) {
 																																			cout << "\n\nRunCL::allocatemem_chk3\n\n" << flush;
@@ -789,6 +792,7 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 	status = clReleaseMemObject(dmem_disparity_sum);			if (status != CL_SUCCESS)	{ cout << "\ndmem_disparity_sum             status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_47"<<flush;
 
 	status = clReleaseMemObject(atomic_test1_buf);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_buf               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_48"<<flush;
+	status = clReleaseMemObject(atomic_test2_buf);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_buf               status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_48"<<flush;
 
 
 	// release kernels
@@ -813,6 +817,7 @@ RunCL::~RunCL(){  // TODO  ? Replace individual buffer clearance with the large 
 	status = clReleaseKernel(measureDepthFit_kernel);			if (status != CL_SUCCESS)	{ cout << "\nmeasureDepthFit_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_65"<<flush;
 
 	status = clReleaseKernel(atomic_test1_kernel);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_66"<<flush;
+	status = clReleaseKernel(atomic_test2_kernel);				if (status != CL_SUCCESS)	{ cout << "\natomic_test1_kernel			status = " << checkerror(status) <<"\n"<<flush; }		if(verbosity>local_verbosity_threshold) cout<<"\nRunCL::~RunCL_chk_66"<<flush;
 
 
 	// release command queues

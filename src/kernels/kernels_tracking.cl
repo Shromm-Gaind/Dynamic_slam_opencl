@@ -517,7 +517,7 @@ __kernel void reduce (																				// TODO use this for the second stage 
 __kernel void atomic_test1(
 	__private uint num_threads,
 	volatile __global int *var_array
-		)
+)
 {
 	uint gid = get_global_id(0);
 	if (gid>=num_threads) return;
@@ -547,4 +547,57 @@ __kernel void atomic_test2(
 
 //atomic_fetch_add_explicit(&acnt, 1, memory_order_relaxed);
 */
+
+/*
+inline void atomic_maxf(															  				// from https://ingowald.blog/2018/06/24/float-atomics-in-opencl/
+	volatile 	__global 	float 	*g_val,
+							float 	myValue
+){
+	float cur = FLT_MIN;
+	while (myValue > (cur = *g_val)) 		myValue 	= atomic_xchg( g_val,  fmax(cur,myValue) );
+}*/
+
+
+__kernel void atomic_test2(
+				__private 	uint 	num_threads,
+	volatile 	__global 	float 	*var_array
+){
+	uint gid 		= get_global_id(0);
+	if (gid>=num_threads) return;
+	float new_var 	=  gid + 0.36f;
+	var_array[gid] = ((float)gid)/100.0f;
+	//if (gid < 5) printf("\n__kernel void atomic_test2(..) before:   new_var = %f,   var_array[0] = %f,   &var_array[0]=%p  num_threads=%u",  new_var,  var_array[0],  &var_array[0], num_threads  );
+	atomic_maxf(&var_array[0],  new_var );										// int atomic_add(volatile __global int *p,  int val)
+	//if (gid < 5) printf("\n__kernel void atomic_test2(..) after: new_var = %f, var_array[0] = %f  ", new_var, var_array[0] );
+	//if (gid == 0) return;
+	//var_array[gid]	=	new_var;
+}
+
+
+/*
+static float atomicMax(float* address, float val)
+{
+    int* address_as_i = (int*) address;
+    int old = *address_as_i, assumed;
+    do {
+        assumed = old;
+        old = ::atomicCAS(     address_as_i,     assumed,     __float_as_int(::fmaxf(val, __int_as_float(assumed) ) ) );
+
+    } while (assumed != old);
+    return __int_as_float(old);
+}
+
+
+
+// Cuda implementation of float atomicMax(..)  from  https://stackoverflow.com/questions/17399119/how-do-i-use-atomicmax-on-floating-point-values-in-cuda
+__device__ static float atomicMax(float* address, float val)
+{
+    int* address_as_i = (int*) address;
+    int old = *address_as_i, assumed;
+    do {
+        assumed = old;
+         old = ::atomicCAS(     address_as_i,     assumed,     __float_as_int(::fmaxf(val, __int_as_float(assumed) ) ) );
+    } while (assumed != old);
+    return __int_as_float(old);
+}*/
 

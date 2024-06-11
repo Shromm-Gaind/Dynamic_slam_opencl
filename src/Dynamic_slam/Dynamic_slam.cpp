@@ -122,6 +122,7 @@ int Dynamic_slam::nextFrame() {
 	}
 	////////////////////////////////// Test kernels
 	//runcl.atomic_test1();
+	//runcl.atomic_test2();
 	////////////////////////////////// Parallax depth mapping
 																					auto step_7 = high_resolution_clock::now();
 	updateDepthCostVol();															auto step_8 = high_resolution_clock::now();				// Update cost vol with the new frame, and repeat optimization of the depth map.
