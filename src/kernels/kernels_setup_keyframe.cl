@@ -126,19 +126,15 @@ __kernel void transform_cost_volume(
 		float layer_flt		= wh3*inv_depth/fp32_params[INV_DEPTH_STEP];							// 3D depth by layer of old cost volume.
 		
 		int write_index 	= read_index + cv_layer * mm_pixels;
-
-
+/*
 		//if(global_id_u==10000  ) printf("\nkernel transform_cost_volume layer: global_id_u=%u,  inv_depth=%f,   cv_layer=%u  ", global_id_u, inv_depth, cv_layer    );
-
 		//if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,   wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,   uh2=%f,   vh2=%f,   wh2=%f,   k2k_pvt[11]=%f,   inv_depth=%f,    layer_flt=%f,   reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u ",
 		//	global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP], uh2, vh2, wh2, k2k_pvt[11], inv_depth, layer_flt, reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS] );
-
 // 		if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,    wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,    layer_flt=%f,       reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u    (u3_flt>=0)=%u (u3_flt<read_cols_  )=%u (v3_flt>=0)=%u  (v3_flt<read_rows_  )=%u (layer_flt>=0)=%u (layer_flt< uint_params[COSTVOL_LAYERS]=%u),    whole_bool=%u",
 // 			global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP],  layer_flt,   reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS], (u3_flt>=0), (u3_flt<read_cols_  ), (v3_flt>=0),  (v3_flt<read_rows_  ), (layer_flt>=0), (layer_flt< uint_params[COSTVOL_LAYERS]),
 // 			( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) )
 // 		);
-
-
+*/
 																									// if the transformed voxel is within the  bounds of old volume.
 		if ( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) ) { 
 			// trilinear (__global float* vol, float u_flt, float v_flt, float layer_flt, int mm_pixels, int cols, int read_offset_, uint reduction)
@@ -216,22 +212,20 @@ __kernel void transform_depthmap(  // Needs to transform as a point cloud. Need 
 
 	float u2_flt		= uh2/wh2;
 	float v2_flt		= vh2/wh2;
+	float newdepth		= wh2*inv_depth;															// 3D depth transformed to new keyframe.
+
 	int   u2			= floor((u2_flt/reduction)+0.5f) ;											// nearest neighbour interpolation
 	int   v2			= floor((v2_flt/reduction)+0.5f) ;											// NB this corrects the sparse sampling to the redued scales.
-	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
+	uint write_index 	= read_offset_ + v2 * mm_cols  + u2; // read_cols_
 	if (global_id_u >= layer_pixels  || u2<0 || u2>read_cols_ || v2<0 || v2>read_rows_ ) return;
 	////////////////////////////////////////////////////////
 																									// TODO should I use more sophisticated interpolation ?
-
-	float newdepth = alpha * depth_map_in[read_index_new];	// alpha *								// old_keyframe.alpha indicates if this pixel of new depth map has valid source in the old depth map.
-																									// could set a default value here.
-
-	// atomic compare and swap
-	atomic_maxf(&depth_map_out[read_index],  newdepth );//map holds inv_depth, hence atomic_minf	// NB depth_map may have occlusions when transformed.
+	if(alpha > 0){																					// alpha indicates if this pixel of new depth map has valid source in the old depth map.
+		atomic_maxf(&depth_map_out[write_index],  newdepth );//map holds inv_depth, hence atomic_maxf(..)	// NB depth_map may have occlusions when transformed.
 																									// Alternatives would be
 																									// (i) to raytrace theough the costvol
 																									// (ii) Import the Amem debug costvol.
-
+	}
 	//depth_map_out[read_index] = newdepth;// vh2/(read_rows_*256);
 	// uh2/(read_cols_*256); //v2_flt;// u2_flt;// vh2/read_cols_; // uh2/read_cols_; // ((float)read_index_new)/((float)mm_pixels); // newdepth; //depth_map_in[read_index]; //
 }
