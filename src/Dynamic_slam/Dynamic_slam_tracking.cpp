@@ -342,6 +342,11 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				if (isnormal(SE3_results[layer][5][channel])) cout << SE3_results[layer][5][channel]<<",\t"<< flush; else cout << "not_normal"<<flush;
 																																				cout << "), \tfactor="<<factor<<
 																																				flush;
+
+																																				cout << "\n";
+																																				cout << ",\tRho_sq_results["<<layer<<"]["<<channel<<"] = ";
+																																				if( isfinite(Rho_sq_results[layer][channel]) ) cout << Rho_sq_results[layer][channel] ;
+																																				cout << flush;
 																																			}
 																																			if(verbosity>local_verbosity_threshold) {		cout << "\n#### update = "; }
 		for (int SE3=0; SE3<6; SE3++) { //6
