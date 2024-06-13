@@ -149,7 +149,9 @@ class Dynamic_slam
     void generate_invK();
     void generate_SE3_k2k( float _SE3_k2k[96] );
     void update_k2k(Matx16f update_);
+    void update_k2k_3(Matx16f update_, float k2k_3_16[3][16] );
     void estimateSE3_LK();
+    void estimateSE3();                         // new version with adaptive step and halting
   
     // return the filenames of all files that have the specified extension
     // in the specified directory and all subdirectories

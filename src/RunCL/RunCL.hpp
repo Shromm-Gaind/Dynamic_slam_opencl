@@ -207,7 +207,7 @@ public:
 	
 	/////////////////////////////////////// RunCL_tracking.cpp
 	
-	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop);							 				// Tracking
+	void se3_rho_sq(float Rho_sq_results[8][4], const float count[4], uint start, uint stop, float k2k_3_16_[3][16]  );					// Tracking
 
 	void estimateSE3_LK(float SE3_results[8][6][tracking_num_colour_channels], float SE3_weights_results[8][6][tracking_num_colour_channels], float Rho_sq_results[8][4], int count, uint start, uint stop);
 

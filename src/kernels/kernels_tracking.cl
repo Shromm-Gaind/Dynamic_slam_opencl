@@ -61,7 +61,7 @@ __kernel void se3_Rho_sq(
 	__constant 	uint8*	mipmap_params,			//1
 	__constant 	uint*	uint_params,			//2
 	__constant  float*  fp32_params,			//3
-	__global	float16*k2k,					//4		// keyframe2K
+	__global	float16*k2k,					//4		// keyframe2K[3]
 	__global 	float4*	img_cur,				//5		// keyframe
 	__global 	float4*	img_new,				//6
 	__global	float* 	depth_map,				//7		// NB keyframe GT_depth, now stored as inv_depth
@@ -79,7 +79,7 @@ __kernel void se3_Rho_sq(
 	uint group_size 	= local_size;
 	uint work_dim 		= get_work_dim();
 	uint global_size	= get_global_size(0);
-	float16 k2k_pvt		= k2k[0];
+
 
 	uint8 mipmap_params_ = mipmap_params[layer];
 	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
@@ -104,16 +104,22 @@ __kernel void se3_Rho_sq(
 	float alpha			= img_cur[read_index].w;
 
 	float inv_depth 	= depth_map[read_index ]; 									//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept  //depth_index
-	float uh2 			= k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
-	float vh2 			= k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
-	float wh2 			= k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1+ k2k_pvt[11]*inv_depth;
-	//float h/z  		= k2k_pvt[12]*u_flt + k2k_pvt[13]*v + k2k_pvt[14]*1; // +k2k_pvt[15]/z
+	uint read_index_new[3];
 
-	float u2_flt		= uh2/wh2;
-	float v2_flt		= vh2/wh2;
-	int  u2				= floor((u2_flt/reduction)+0.5f) ;											// nearest neighbour interpolation
-	int  v2				= floor((v2_flt/reduction)+0.5f) ;											// NB this corrects the sparse sampling to the redued scales.
-	uint read_index_new = read_offset_ + v2 * mm_cols  + u2; // read_cols_
+	for (int sample=0; sample<3; sample**){
+		float16 k2k_pvt		= k2k[0];
+		float uh2 			= k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
+		float vh2 			= k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
+		float wh2 			= k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1+ k2k_pvt[11]*inv_depth;
+		//float h/z  		= k2k_pvt[12]*u_flt + k2k_pvt[13]*v + k2k_pvt[14]*1; // +k2k_pvt[15]/z
+
+		float u2_flt		= uh2/wh2;
+		float v2_flt		= vh2/wh2;
+		int  u2				= floor((u2_flt/reduction)+0.5f) ;											// nearest neighbour interpolation
+		int  v2				= floor((v2_flt/reduction)+0.5f) ;											// NB this corrects the sparse sampling to the redued scales.
+		read_index_new[sample] = read_offset_ + v2 * mm_cols  + u2; // read_cols_
+	}
+
 	uint num_DoFs 		= 6;
 	float4 new_px;
 
@@ -141,7 +147,7 @@ __kernel void se3_Rho_sq(
 		//if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
 	}
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
-	int max_iter = 9;//ceil(log2((float)(group_size)));
+	int max_iter = 9; 								//ceil(log2((float)(group_size)));
 	for (uint iter=0; iter<=max_iter ; iter++) {	// for log2(local work group size)				// problem : how to produce one result for each mipmap layer ?
 																									// NB kernels launched separately for each layer, but workgroup size varies between GPUs.
 		group_size   			/= 2;

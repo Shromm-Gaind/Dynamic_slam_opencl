@@ -57,7 +57,7 @@
 
     /////////////////////////////////////// Dynamic_slam_mapping.cpp
     "Dynamic_slam::optimize_depth": 1,
-    "Dynamic_slam::updateDepthCostVol": 1,
+    "Dynamic_slam::updateDepthCostVol": -2,
 	"Dynamic_slam::buildDepthCostVol_fast_peripheral": 1,
     "Dynamic_slam::updateQD": -1,
     "Dynamic_slam::cacheGValues": -1,
@@ -150,7 +150,7 @@
 	"RunCL::atomic_test2": 2,
 
 	/////////////////////////////////////// RunCL_mapping.cpp
-	"RunCL::updateDepthCostVol": -1,
+	"RunCL::updateDepthCostVol": -2,
 	"RunCL::updateDepthCostVol::cdatabuf": -1,		// bool
 	"RunCL::updateDepthCostVol::hdatabuf": -1,		// bool
 	"RunCL::updateDepthCostVol::cdatabuf_8chan": 1,	// bool
