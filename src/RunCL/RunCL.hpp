@@ -28,6 +28,7 @@ using namespace std::chrono;
 #include "../utils/conf_params.hpp"
 #include "../utils/convertTransforms.hpp"
 #include "../utils/print_functions.hpp"
+#include "../utils/CV_chk.hpp"
 #include "../kernels/kernels_macros.h"
 
 const uint tracking_num_colour_channels = 4;
@@ -43,7 +44,7 @@ public:
 
 	cv::Mat 			resultsMat;						// used to insert images for multiple iterations, and variables for comparison. Size set in itialization, from cnf.json data.
 	int					verbosity;
-	bool				tiff, png;
+	bool				tiff, png, vtp;
 	std::vector<cl_platform_id> 	m_platform_ids;
 	cl_context			m_context;
 	cl_device_id		m_device_id;
@@ -64,7 +65,7 @@ public:
 	cl_mem				HSV_grad_mem, dmem_disparity, dmem_disparity_sum;
 	cl_mem				atomic_test1_buf, atomic_test2_buf;
 	
-	cv::Mat 			baseImage;
+	cv::Mat 			baseImage, key_frame;
 	size_t  			global_work_size, mm_global_work_size, local_work_size, image_size_bytes, image_size_bytes_C1, mm_size_bytes_C1, mm_size_bytes_C3, mm_size_bytes_C4, mm_size_bytes_C8, mm_size_bytes_half4, mm_vol_size_bytes;
 	size_t 				so3_sum_size, so3_sum_size_bytes, mm_se3_sum_size, se3_sum_size, se3_sum_size_bytes, se3_sum2_size_bytes, pix_sum_size, pix_sum_size_bytes;
 	size_t 				d_disp_sum_size, d_disp_sum_size_bytes;
@@ -148,6 +149,9 @@ public:
 	void ReadOutput(uchar* outmat) ;
 	void ReadOutput(uchar* outmat, cl_mem buf_mem, size_t data_size, size_t offset=0) ;
 	void saveCostVols(float max_range);
+
+	void Store_keyframe();	// Required for Save_vtk(..), used for amem, demem etc.
+	void Save_vtk(cv::Mat mat, cv::Mat keyframe, boost::filesystem::path folder );
 
 	void DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range=1 );
 	void DownloadAndSave_2Channel_volume(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range, uint vol_layers );

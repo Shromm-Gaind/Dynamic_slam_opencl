@@ -7,7 +7,8 @@ RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){
 	int local_verbosity_threshold 	= verbosity_mp["RunCL::RunCL"];
 	tiff 							= obj["tiff"].asBool();
 	png 							= obj["png"].asBool();
-																																			if(verbosity>local_verbosity_threshold) {
+	vtp 							= obj["vtp"].asBool();
+	if(verbosity>local_verbosity_threshold) {
 																																				cout << "\nRunCL_chk 0\n" << flush;
 																																				cout << "\nverbosity = "<<verbosity<< flush;
 																																			}

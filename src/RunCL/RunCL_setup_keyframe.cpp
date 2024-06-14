@@ -160,6 +160,8 @@ void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 								
 	status = clEnqueueCopyBuffer( m_queue, HSV_grad_mem, 	keyframe_imgmem_HSV_grad, 	0, 0, mm_size_bytes_C8, 0, NULL, &writeEvt);		if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_keyframe_imgmem_HSV_grad\n" 	<< flush;exit_(status);}
 	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::initializeDepthCostVol(..)_clFinish(m_queue)_keyframe_imgmem, keyframe_imgmem_HSV_grad\n" 	<< flush;exit_(status);}
 
+	/*if(vtp==true)*/ Store_keyframe();
+
 	stringstream ss;
 	ss << "__buildDepthCostVol";
 	save_index = keyFrameCount*1000 + costvol_frame_num;

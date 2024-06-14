@@ -41,6 +41,7 @@ endif()
 find_package(OpenCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(jsoncpp REQUIRED)
+#find_package(vtk REQUIRED)
 
 if( OpenCV_FOUND )
   # Additional Include Directories
@@ -84,6 +85,8 @@ add_executable(Dynamic_slam
          src/RunCL/RunCL_setup_keyframe.cpp
          src/RunCL/RunCL_tracking.cpp
 
+         src/utils/CV_chk.hpp
+         src/utils/CV_chk.cpp
          src/utils/conf_params.hpp
          src/utils/conf_params.cpp
          src/utils/print_functions.hpp
@@ -98,6 +101,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         ${OpenCV_LIBS} 
         Boost::filesystem
         jsoncpp_lib
+
         )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES C_STANDARD 17

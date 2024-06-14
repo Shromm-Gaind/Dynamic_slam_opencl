@@ -106,7 +106,7 @@ __kernel void se3_Rho_sq(
 	float inv_depth 	= depth_map[read_index ]; 									//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept  //depth_index
 	uint read_index_new[3];
 
-	for (int sample=0; sample<3; sample**){
+	for (int sample=0; sample<3; sample++){
 		float16 k2k_pvt		= k2k[0];
 		float uh2 			= k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 		float vh2 			= k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;
@@ -118,33 +118,34 @@ __kernel void se3_Rho_sq(
 		int  u2				= floor((u2_flt/reduction)+0.5f) ;											// nearest neighbour interpolation
 		int  v2				= floor((v2_flt/reduction)+0.5f) ;											// NB this corrects the sparse sampling to the redued scales.
 		read_index_new[sample] = read_offset_ + v2 * mm_cols  + u2; // read_cols_
-	}
 
-	uint num_DoFs 		= 6;
-	float4 new_px;
 
-	local_sum_rho_sq[lid] = 0;																		// Essential to zero local mem.
-/*
-	if (global_id_u==1){
-		printf("\nkernel se3_Rho_sq(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  u2_flt=%f,  v2_flt=%f,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
-		,u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   )  ;
-	}
-*/
-	float4 rho 											= {0.0f,0.0f,0.0f,0.0f};
-																									// Exclude all out-of-bounds threads:
-	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
+		uint num_DoFs 		= 6;
+		float4 new_px;
 
-	if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
-		int idx 										= 0;										// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
-		new_px 											= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);
-		rho 											= img_cur[read_index] - new_px;
-		rho[3] 											= alpha;
+		local_sum_rho_sq[lid] = 0;																		// Essential to zero local mem.
+	/*
+		if (global_id_u==1){
+			printf("\nkernel se3_Rho_sq(..): u=%i,  v=%i,   inv_depth=%f, u2=%f,  v2=%f,  u2_flt=%f,  v2_flt=%f,    k2k_pvt=(%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f    ,%f,%f,%f,%f)"\
+			,u, v, inv_depth, u_flt, v_flt, u2_flt, v2_flt,  k2k_pvt[0],k2k_pvt[1],k2k_pvt[2],k2k_pvt[3],   k2k_pvt[4],k2k_pvt[5],k2k_pvt[6],k2k_pvt[7],   k2k_pvt[8],k2k_pvt[9],k2k_pvt[10],k2k_pvt[11],   k2k_pvt[12],k2k_pvt[13],k2k_pvt[14],k2k_pvt[15]   )  ;
+		}
+	*/
+		float4 rho 											= {0.0f,0.0f,0.0f,0.0f};
+																										// Exclude all out-of-bounds threads:
+		float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels);
 
-		Rho_[read_index] 								= rho;										// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
-		float4 rho_sq 									= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
-		local_sum_rho_sq[lid] 							= rho_sq;									// Also compute global Rho^2.
+		if (  intersection  ) {																			// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
+			int idx 										= 0;										// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);
+			new_px 											= bilinear_flt4(img_new, u2_flt/reduction, v2_flt/reduction, mm_cols, read_offset_);
+			rho 											= img_cur[read_index] - new_px;
+			rho[3] 											= alpha;
 
-		//if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
+			Rho_[read_index] 								= rho;										// save pixelwise photometric error map to buffer. NB Outside if(){}, to zero non-overlapping pixels.
+			float4 rho_sq 									= {rho.x*rho.x,  rho.y*rho.y,  rho.z*rho.z, rho.w};
+			local_sum_rho_sq[lid] 							= rho_sq;									// Also compute global Rho^2.
+// TODO  [sample] index on local mem and final buffer.
+			//if (layer==5) printf(",(%u,%f)", global_id_u ,inv_depth);									// debug chk on value of inv_depth
+		}
 	}
 	////////////////////////////////////////////////////////////////////////////////////////		// Reduction
 	int max_iter = 9; 								//ceil(log2((float)(group_size)));
@@ -236,6 +237,10 @@ __kernel void se3_LK_grad(
 	uint mm_cols		= uint_params[MM_COLS];
 	uint mm_pixels		= uint_params[MM_PIXELS];
 
+	float inv_d_step 	= fp32_params[INV_DEPTH_STEP];
+	float min_inv_depth = fp32_params[MIN_INV_DEPTH] + inv_d_step;
+	float max_inv_depth = fp32_params[MAX_INV_DEPTH] - inv_d_step;
+
 	uint reduction		= mm_cols/read_cols_;
 	uint v 				= global_id_u / read_cols_;																		// read_row
 	uint u 				= fmod(global_id_flt, read_cols_);																// read_column
@@ -274,7 +279,7 @@ __kernel void se3_LK_grad(
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////							// Exclude all out-of-bounds threads:
-	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels) ;
+	float intersection = (u>2) && (u<=read_cols_-2) && (v>2) && (v<=read_rows_-2) && (u2>2) && (u2<=read_cols_-2) && (v2>2) && (v2<=read_rows_-2)  &&  (global_id_u<=layer_pixels) && (inv_depth>min_inv_depth) && (inv_depth<max_inv_depth);
 
 	if (  intersection  ) {																								// if (not cleanly within new frame) skip  Problem u2&v2 are wrong.
 		int idx 					= 0;																				// float4 bilinear_flt4(__global float4* img, float u_flt, float v_flt, int cols, int read_offset_, uint reduction);

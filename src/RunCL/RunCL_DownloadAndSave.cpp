@@ -158,6 +158,113 @@ void RunCL::saveCostVols(float max_range){
 																				if(verbosity>local_verbosity_threshold) cout <<"\ncostvol_frame_num="<<costvol_frame_num << "\ncalcCostVol chk13_finished\n" << flush;
 }
 
+void RunCL::Store_keyframe(){
+	int local_verbosity_threshold = verbosity_mp["RunCL::DownloadAndSave"];
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Store_keyframe chk0"<<flush;
+	cv::Mat temp(uint_params[MM_ROWS], uint_params[MM_ROWS],  CV_32FC4);
+	temp.copyTo(key_frame);
+	ReadOutput(key_frame.data, keyframe_imgmem,  image_size_bytes);		// NB need to check this still holds data after the function finishes.
+}
+
+void RunCL::Save_vtk(cv::Mat mat, cv::Mat keyframe, boost::filesystem::path folder ){														// NB very slow. To examine depth maps for debugging only.
+	int local_verbosity_threshold = verbosity_mp["RunCL::DownloadAndSave"];
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk chk0"<<flush;
+	// check mat types
+	if (mat.type() 		!=CV_32FC1) 		{cout << "\n\nError RunCL::Save_vtk  (mat.type() !=CV_32FC1)  "				<< flush; exit(1);}
+	if (keyframe.type() !=CV_32FC4) 		{cout << "\n\nError RunCL::Save_vtk  (keyframe.type() !=CV_32FC4)  keyframe.type() = "<<  CV_chk(keyframe.type())	<< flush; return;}
+	if (mat.total() != keyframe.total() )	{cout << "\n\nError RunCL::Save_vtk  (mat.total() "<<mat.total()<<" != keyframe.total() "<<keyframe.total()<<" )  "	<< flush; return;}
+
+	// generate filename, by inserting folder "/csv", and adding ".csv" suffix
+	folder.parent_path() += "/vtp/";
+
+	// make csv folder, if necessary
+	if(boost::filesystem::create_directory(folder.parent_path() )) { if(verbosity>-2) std::cerr<< "Directory Created: "<<folder.parent_path()<<std::endl;}
+
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk chk1"<<flush;
+	// open file
+	ofstream vtp_file_stream;
+	vtp_file_stream.open(folder);
+
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk chk2"<<flush;
+	vtp_file_stream << "<?xml version=\"1.0\"?>\n";
+	vtp_file_stream << "<VTKFile type=\"PolyData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt32\" compressor=\"vtkZLibDataCompressor\">\n";
+	vtp_file_stream << "<Piece NumberOfPoints=\""<<mat.total()<<"\" NumberOfVerts=\"0\" NumberOfLines=\"0\" NumberOfStrips=\"0\" NumberOfPolys=\"0\">\n";
+	vtp_file_stream << "<PointData>\n";
+	vtp_file_stream << "<DataArray type=\"UInt32\" Name=\"FCLR\" NumberOfComponents=\"4\" format=\"ascii\" \">\n"; // RangeMin=\"0\" RangeMax=\""<<4278203136<<"
+	for(int col=0; col<mat.cols ; col ++ ){
+		for(int row=0; row<mat.rows ; row ++ ){
+			cv::Vec4f clr =  keyframe.at<cv::Vec4f>(col,row);
+			vtp_file_stream << clr[0] <<" "<< clr[1]  <<" "<<clr[2]  <<" "<<clr[3] <<"\n";
+		}
+	}
+
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk chk3"<<flush;
+	vtp_file_stream << "</DataArray>\n";
+	vtp_file_stream << "</PointData>\n";
+	vtp_file_stream << "<Points>\n";
+	vtp_file_stream << "<DataArray type=\"Float32\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\" \n"; // RangeMin=\"0\" RangeMax=\""<<30<<"\">
+	for(int col=0; col<mat.cols ; col ++ ){
+		for(int row=0; row<mat.rows ; row ++ ){
+			float depth =  mat.at<float>(col,row);
+			if (depth>0 && isfinite(depth) ) depth = 1/depth;
+			vtp_file_stream << col <<" "<< row  <<" "<< depth <<"\n";
+		}
+	}
+	vtp_file_stream << "</DataArray>\n";
+	vtp_file_stream << "</Points>\n";
+	vtp_file_stream << "</Piece>\n";
+	vtp_file_stream << "</PolyData>\n";
+	vtp_file_stream << "</VTKFile>\n";
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk chk4"<<flush;
+	// close file
+	vtp_file_stream.close();
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nRunCL::Save_vtk finished"<<flush;
+}
+
+/*
+// void CostVol::writePointCloud(cv::Mat depthMap)
+// {
+// 	cv::Mat tempImage = 255 * baseImage.reshape(0, rows*cols);
+//
+// 	cv::Mat pointCloud(depthMap.size(), CV_32FC3);
+// 	if(verbosity>0) cout <<"\na)pointCloud.size = " << pointCloud.size() << "\n"<<flush;
+//
+// 	for (int u=0; u<rows ; u++){
+// 		for (int v=0; v<cols ; v++){
+// 			cv::Vec4f homogeneousPoint = inv_K * cv::Vec4f( u, v, 1, depthMap.at<float>(u,v) );
+// 			pointCloud.at<Vec3f>(u,v) = cv::Vec3f(homogeneousPoint[0], homogeneousPoint[1], homogeneousPoint[2]) /homogeneousPoint[3];
+// 		}
+// 	}
+// 	if(verbosity>0) cv::imshow("pointCloud depthmap", pointCloud );
+// 	pointCloud = pointCloud.reshape(0, rows*cols);
+//
+// 	if(verbosity>0) cout << "\nb)pointCloud.size() = " << pointCloud.size() << "\tinv_K.size() = ‘class cv::Matx<float, 4, 4>’\n"<<flush;
+//
+// 	boost::filesystem::path folder_results  =  cvrc.paths.at("amem");
+// 	stringstream ss;
+// 	ss << folder_results.parent_path().string() << "/depthmap.pts"  ;
+// 	if(verbosity>0) cout << "\nDepthmap file : " << ss.str() << "\n" << flush;
+// 	char buf[256];
+//     sprintf ( buf, "%s", ss.str().data() ); // /depthmap.xyz   folder_results.parent_path().string()
+// 	if(verbosity>0) cout << "buf"<< buf << "\n" << flush;
+// 	FILE* fp = fopen ( buf, "w" );
+// 	if (fp == NULL) {
+//         cout << "\nvoid CostVol::writePointCloud(cv::Mat depthMap)  Could not open file "<< fp <<"\n"<< std::flush;
+//         assert(0);
+//     }
+//     fprintf(fp, "%u\n", rows*cols);
+// 	for (int i=0; i<rows*cols; i++){		// (x,y,z) coordinates,  "intensity"{0-255},  "color" (rgb){0-255}.
+// 		fprintf(fp, "%f %f %f %i %i %i %i\n", pointCloud.at<Vec3f>(i)[0], pointCloud.at<Vec3f>(i)[1], pointCloud.at<Vec3f>(i)[2], 100, (int)(0.5+tempImage.at<Vec3f>(i)[2]), (int)(0.5+tempImage.at<Vec3f>(i)[1]), (int)(0.5+tempImage.at<Vec3f>(i)[1]) );
+// 	}
+// 	fclose ( fp );
+//     fflush ( fp );
+// 	if(verbosity>0) cout << "\nwritePointCloud(..) finished\n" << flush;
+// }
+*/
+
+
+
+
 
 void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem::path folder_tiff, size_t image_size_bytes, cv::Size size_mat, int type_mat, bool show, float max_range ){
 	int local_verbosity_threshold = verbosity_mp["RunCL::DownloadAndSave"];// 1;
@@ -202,17 +309,18 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 		}else{ temp_mat /=max_range;}
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk4 filename = ["<<ss.str()<<"]"<<flush;
 		if(tiff==true) cv::imwrite(folder_tiff.string(), temp_mat );
-																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk5 filename = ["<<ss.str()<<"]"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk5 filename = ["<<ss.str()<<"]"<<flush;
+		if(vtp==true) Save_vtk(temp_mat, key_frame, folder_png );
 
 		temp_mat *= 256*256;
 		temp_mat.convertTo(outMat, CV_16UC1);
-																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk6 filename = ["<<ss.str()<<"]"<<flush;
+																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk6 filename = ["<<ss.str()<<"]"<<flush;
 
 		if(png==true) cv::imwrite(folder_png.string(), outMat );
-																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk7 filename = ["<<ss.str()<<"],  show="<<show<<flush;
+																																			//if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk7 filename = ["<<ss.str()<<"],  show="<<show<<flush;
 
 		if(show==true) {cv::imshow( ss.str(), outMat );}
-																																			if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk finished filename = ["<<ss.str()<<"]"<<flush;
+																																			//if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk finished filename = ["<<ss.str()<<"]"<<flush;
 		return;
 }
 

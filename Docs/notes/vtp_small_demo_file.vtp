@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<VTKFile type="PolyData" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <PolyData>
+    <Piece NumberOfPoints="840" NumberOfVerts="0" NumberOfLines="3340" NumberOfStrips="0" NumberOfPolys="0">
+      <PointData>
+       <DataArray type="UInt32" Name="FCLR" format="ascii" RangeMin="0" RangeMax="4278203136">
+          4278203136 4278203136 4278203136 4278203136 4278203136 4278203136
+          4278203136 4278203136 4278203136 4278203136 4278203136 4278203136
+          ...
+       </DataArray>
+      </PointData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0" RangeMax="30">
+          6.375924110412598 9.463987350463867 3.482146978378296 4.1676859855651855 7.179537773132324 3.2019169330596924
+          5.498205184936523 10.794525146484375 5.371828079223633 5.228763103485107 9.872228622436523 5.645247936248779
+          3.912795066833496 7.6445631980896 4.6673102378845215 5.623909950256348 8.01839828491211 4.042627811431885
+          ....
+        </DataArray>
+      </Points>
+    </Piece>
+  </PolyData>
+</VTKFile>

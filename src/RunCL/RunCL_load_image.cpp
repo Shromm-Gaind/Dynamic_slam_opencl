@@ -360,7 +360,7 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
     status = clEnqueueWriteBuffer(uload_queue, depth_mem, 		CL_FALSE, 0, image_size_bytes_C1,	 GT_depth.data, 0, NULL, &writeEvt);
 																									if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::load_GT_depth(..)_chk_2\n" << endl;exit_(status);}	clFlush(uload_queue); status = clFinish(uload_queue);
 	ss << "__0";
-	status = clFlush( uload_queue );																								if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer clFlush( uload_queue ) status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
+	status = clFlush( uload_queue );																							if (status != CL_SUCCESS)	{ cout << "\nclEnqueueWriteBuffer clFlush( uload_queue ) status = " << checkerror(status) <<"\n"<<flush; exit_(status); }
 	waitForEventAndRelease( &writeEvt );
 	status = clFinish(uload_queue);
 																																		if(verbosity>local_verbosity_threshold+1)
@@ -376,8 +376,14 @@ void RunCL::load_GT_depth(cv::Mat GT_depth, bool invert){ //getFrameData();, cv:
 	mipmap_depthmap(depth_mem_GT);
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::load_GT_depth(..)_chk_2:"<<flush;
 	ss << "__2";
-																																		if(verbosity>local_verbosity_threshold)
-																																			{ DownloadAndSave( depth_mem_GT,   	ss.str(),   paths.at("depth_GT"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 1.0);	cout << "\nDownloadAndSave (.. depth_mem_GT ..)\n"<<flush;}
+																																		//if(verbosity>local_verbosity_threshold) {
+																																		if(costvol_frame_num > 0){
+																																			bool old_vtp = vtp;
+																																			vtp = true;
+																																			DownloadAndSave( depth_mem_GT,   	ss.str(),   paths.at("depth_GT"),   	mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	false , 1.0);	cout << "\nDownloadAndSave (.. depth_mem_GT ..)\n"<<flush;
+																																			vtp = old_vtp;
+																																		}
+
 																																		if(verbosity>local_verbosity_threshold) cout << "\nRunCL::load_GT_depth(..)_chk_finished:##########################################################"<<flush;
 }
 
