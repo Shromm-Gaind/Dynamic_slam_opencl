@@ -14,7 +14,7 @@ void RunCL::estimateCalibration(){ //estimateCalibration(); 		// own thread, one
 
 void RunCL::transform_depthmap( cv::Matx44f K2K_ , cl_mem depthmap_ ){																		// NB must be used _before_ initializing the new cost_volume, because it uses keyframe_imgmem.
 	int local_verbosity_threshold = verbosity_mp["RunCL::transform_depthmap"];// 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_depthmap(..)_chk0 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_depthmap(..)_chk0 .   runcl.dataset_frame_num="<< dataset_frame_num<<flush;}
 	cl_event writeEvt;
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
@@ -84,7 +84,7 @@ void RunCL::swap_costvol_pointers()
 void RunCL::transform_costvolume( cv::Matx44f K2K_)// , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       ){												// NB must be used _after_ initializing the new cost_volume.
 {
 	int local_verbosity_threshold = verbosity_mp["RunCL::transform_costvolume"];// 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk0 ."<<flush;}
+																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk0 .    runcl.dataset_frame_num="<< dataset_frame_num<<flush;}
 	cl_event writeEvt;
 	cl_int status;
 	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
@@ -136,7 +136,7 @@ void RunCL::transform_costvolume( cv::Matx44f K2K_)// , cl_mem old_cdata_mem,  c
 																																				stringstream ss;
 																																				ss << "transform_costvolume" << save_index;													// Save buffers to file ###########
 																																				bool show = false;
-																																				bool exception_tiff = true;
+																																				bool exception_tiff = false;
 																																				DownloadAndSave(	lomem,  ss.str(), paths.at("lomem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8);	// a little more than the num images in costvol.
 																																				DownloadAndSave(	himem,  ss.str(), paths.at("himem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8);	//params[COSTVOL_LAYERS]
 

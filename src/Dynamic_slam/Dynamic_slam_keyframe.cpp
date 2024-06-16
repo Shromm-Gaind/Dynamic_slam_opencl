@@ -100,6 +100,6 @@ void Dynamic_slam::initialize_new_keyframe(){
 
 	//cacheGValues();			// TODO may not be needed here.
 								// TODO   keyframe_K2K_GT, keyframe_K2K etc ?
-	runcl.keyFrameCount++;
-	runcl.dataset_frame_num++;
+	//runcl.keyFrameCount++;
+	//runcl.dataset_frame_num++;
 }

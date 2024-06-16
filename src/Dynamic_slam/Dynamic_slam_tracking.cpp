@@ -477,6 +477,8 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				for(int i=0;i<5;i++){cout<<" ( "; for(int j=0;j<3;j++) {cout<<", ["<<i<<"]["<<j<<"]"<<SE3_Rho_sq_threshold[i][j];}	cout << " ) "; }
 																																				cout << ",\t layer = "<<layer<< ",\t factor = "<<factor << endl << flush;
 																																			}
+	//if( runcl.costvol_frame_num  >0 ) runcl.update_tracking_depthmap(); // TODO later put this at the end of updateDepthCostVol(); OR just use amem for tracking, and therefore update amem in RunCL::transform_depthmap(..).
+
 	for (int iter = 0; iter<SE_iter; iter++){ 																								// TODO step down layers if fits well enough, and out if fits before iteration limit. Set iteration limit param in config.json file.
 																																			if(verbosity>local_verbosity_threshold) {cout << "\n###  Dynamic_slam::estimateSE3_LK_LK()_chk 1.0" << "\t  iter = " << iter <<
 																																				",\t layer = "<<layer<< ",\t factor = "<<factor<<flush;
@@ -570,11 +572,13 @@ void Dynamic_slam::estimateSE3_LK(){
 																																				ss <<  runcl.paths.at("SE3_rho_map_mem").string() << "resultsMat_"<<runcl.dataset_frame_num<<".png";
 																																				cv::imwrite( ss.str(), runcl.resultsMat );
 																																			}
-																																			if(verbosity>local_verbosity_threshold) { cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 7\n" << flush;
+																																			if(verbosity>local_verbosity_threshold) { cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 7,   runcl.dataset_frame_num="<<runcl.dataset_frame_num<<"\n" << flush;
 																																				cout << "\nruncl.frame_num = "<<runcl.dataset_frame_num;
 																																				PRINT_MATX44F(pose2pose_accumulated,);
 																																				PRINT_MATX44F(pose2pose,);
 																																				PRINT_MATX44F(keyframe_pose2pose,);
+																																				Matx16f keyframe_pose2pose_algebra = PToLie(keyframe_pose2pose);
+																																				PRINT_MATX16F (keyframe_pose2pose_algebra   ,  );
 																																			}
 	if (runcl.dataset_frame_num > 0 ) pose2pose_accumulated = pose2pose_accumulated * pose2pose; // TODO wrong formula.
 																																			if(verbosity>local_verbosity_threshold){ cout << "\n###  Dynamic_slam::estimateSE3_LK()_chk 8  Finished ####################################\n" << flush;}
