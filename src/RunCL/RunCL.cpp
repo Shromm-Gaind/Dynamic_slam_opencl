@@ -504,29 +504,68 @@ void RunCL::initialize_RunCL(){
 	d_disp_sum_size_bytes	=  d_disp_sum_size * sizeof(float) * 4;
 																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_RunCL_chk finished ############################################################\n"<<flush;
 }
+void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size) {
+    int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_call_kernel"];
+    cl_event ev;
+    cl_int res, status;
+    size_t num_threads_size = sizeof(num_threads) / sizeof(num_threads[0]);
 
-void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size){
-	int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_call_kernel"];// -2;
-																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  cl_command_queue "<<queue_to_call<<",   start="<<start<<",   stop="<<stop<<
-																																				", layers_sequential="<<layers_sequential<<",  local_work_size="<<local_work_size<<" )_chk0"<<flush;
-																																				//cout <<"\nmm_num_reductions+1="<<mm_num_reductions+1<< ",  start="<<start<<",  stop="<<stop <<flush;
-																																			}
-	cl_event						ev;
-	cl_int							res, status;
-	for(uint reduction = start; reduction <= stop; reduction++) {
-																																			if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk1,  reduction="<<reduction<<",  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
-		//if (reduction>=start && reduction<stop){																							// compute num threads to launch & num_pixels in reduction
-																																			//if(verbosity>local_verbosity_threshold) { cout<<"\nRunCL::mipmap_call_kernel(..)_chk2 :  num_threads[reduction]="<<num_threads[reduction]<<"  local_work_size="<<local_work_size<<flush; }
-			res 	= clSetKernelArg(kernel_to_call, 0, sizeof(int), &reduction);							if (res    !=CL_SUCCESS)	{ cout <<"\nres = "<<checkerror(res)<<"\n"<<flush;exit_(res);}	;
-			res 	= clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &num_threads[reduction], &local_work_size, 0, NULL, &ev); // run mipmap_float4_kernel, NB wait for own previous iteration.
-																											if (res    != CL_SUCCESS)	{ cout << "\nres = " << checkerror(res) <<"\n"<<flush; exit_(res);}
-			status 	= clFlush(queue_to_call);																if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<",  clFlush(queue_to_call) status  = "<<status<<" "<< checkerror(status) <<"\n"<<flush; exit_(status);}
-			if (layers_sequential==true) status 	= clWaitForEvents (1, &ev);								if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<") for loop,  clWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
+    // Verify num_threads array and print its values for debugging
+    for (uint reduction = start; reduction <= stop; reduction++) {
+        if (reduction >= num_threads_size) {
+            std::cerr << "Error: reduction index " << reduction << " is out of bounds for num_threads array of size " << num_threads_size << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::cout << "num_threads[" << reduction << "] = " << num_threads[reduction] << std::endl;
+    }
 
-		//} 																																	// TODO execute layers in asynchronous parallel. i.e. relax clWaitForEvents.
-	}if (layers_sequential==false) status 	= clWaitForEvents (1, &ev);										if (status != CL_SUCCESS)	{ cout << "\nRunCL::mipmap_call_kernel( cl_kernel "<<kernel_to_call<<") final,  clWaitForEventsh(1, &ev) ="	<<status<<" "<<checkerror(status)  <<"\n"<<flush; exit_(status);}
+    for (uint reduction = start; reduction <= stop; reduction++) {
+        // Check that the reduction value is within a valid range
+        if (reduction >= num_threads_size) {
+            std::cerr << "Error: reduction index " << reduction << " is out of bounds for num_threads array of size " << num_threads_size << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        res = clSetKernelArg(kernel_to_call, 0, sizeof(int), &reduction);
+        if (res != CL_SUCCESS) {
+            std::cerr << "Error setting kernel argument for reduction " << reduction << ": " << checkerror(res) << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // Ensure that num_threads[reduction] and local_work_size are appropriate
+        size_t global_work_size = num_threads[reduction];
+        std::cout << "Launching kernel with global_work_size = " << global_work_size << ", local_work_size = " << local_work_size << std::endl;
+
+        res = clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &global_work_size, &local_work_size, 0, NULL, &ev);
+        if (res != CL_SUCCESS) {
+            std::cerr << "Error enqueuing kernel for reduction " << reduction << ": " << checkerror(res) << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        status = clFlush(queue_to_call);
+        if (status != CL_SUCCESS) {
+            std::cerr << "Error flushing queue for reduction " << reduction << ": " << checkerror(status) << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (layers_sequential == true) {
+            status = clWaitForEvents(1, &ev);
+            if (status != CL_SUCCESS) {
+                std::cerr << "Error waiting for event in sequential layers for reduction " << reduction << ": " << checkerror(status) << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    if (layers_sequential == false) {
+        status = clWaitForEvents(1, &ev);
+        if (status != CL_SUCCESS) {
+            std::cerr << "Error waiting for event in non-sequential layers: " << checkerror(status) << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
 }
+
 
 int RunCL::waitForEventAndRelease(cl_event *event){
 	int local_verbosity_threshold = verbosity_mp["RunCL::waitForEventAndRelease"];
