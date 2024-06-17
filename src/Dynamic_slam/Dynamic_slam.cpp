@@ -5,66 +5,128 @@
 using namespace cv;
 using namespace std;
 
-Dynamic_slam::~Dynamic_slam(){ };
+Dynamic_slam::~Dynamic_slam() {}
 
-Dynamic_slam::Dynamic_slam( Json::Value obj_, int_map verbosity_mp_  ):   runcl( obj_ ,  verbosity_mp_ ) {   //    //     //// conf_params j_params
-	obj = obj_;																																// NB save obj_ to class member obj, so that it persists within this Dynamic_slam object.
-	verbosity_mp = verbosity_mp_;
-	verbosity 					= verbosity_mp["verbosity"];						//	obj["verbosity"]["verbosity"].asInt();
-	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::Dynamic_slam"];		// verbosity_mp["Dynamic_slam"];
+Dynamic_slam::Dynamic_slam(Json::Value obj_, int_map verbosity_mp_) : runcl(obj_, verbosity_mp_) {
+    std::cerr << "Dynamic_slam constructor started" << std::endl;
 
-	runcl.dataset_frame_num 	= obj["data_file_offset"].asUInt();			//	j_params.int_mp["data_file_offset"];		//
-	invert_GT_depth  			= obj["invert_GT_depth"].asBool();			//	j_params.bool_mp["invert_GT_depth"];		//
+    try {
+        // Save the input parameters to class members
+        obj = obj_;
+        verbosity_mp = verbosity_mp_;
+        verbosity = verbosity_mp["verbosity"];  // Set verbosity level
+        int local_verbosity_threshold = verbosity_mp["Dynamic_slam::Dynamic_slam"];  // Local verbosity threshold
 
-	SE3_start_layer 			= obj["SE3_start_layer"].asInt();			//	j_params.int_mp["SE3_start_layer"];			//
-    SE3_stop_layer 				= obj["SE3_stop_layer"].asInt();			//	j_params.int_mp["SE3_stop_layer"];			//
-	SE_iter_per_layer 			= obj["SE_iter_per_layer"].asInt();			//	j_params.int_mp["SE_iter_per_layer"];		//
-    SE_iter 					= obj["SE_iter"].asInt();					//	j_params.int_mp["SE_iter"];					//
-	SE_factor					= obj["SE_factor"].asFloat();				//	j_params.float_mp["SE_factor"];				//
+        std::cerr << "Setting runcl.dataset_frame_num" << std::endl;
+        runcl.dataset_frame_num = obj["data_file_offset"].asUInt();
+        std::cerr << "Setting invert_GT_depth" << std::endl;
+        invert_GT_depth = obj["invert_GT_depth"].asBool();
 
-	for (int layer=0; layer<MAX_LAYERS; layer++){for (int chan=0; chan<3; chan++)	SE3_Rho_sq_threshold[layer][chan]  	= obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();  }	//j_params.float_vecvec_mp["SE3_Rho_sq_threshold"][layer][chan]; }		//
-	for (int se3=0; se3<8; se3++)													SE3_update_dof_weights[se3] 		= obj["SE3_update_dof_weights"][se3].asFloat();				//j_params.float_vec_mp["SE3_update_dof_weights"][se3];					//
-    for (int layer=0; layer<MAX_LAYERS; layer++) 									SE3_update_layer_weights[layer] 	= obj["SE3_float update_layer_weights"][layer].asFloat();	//j_params.float_vec_mp["SE3_float update_layer_weights"][layer];		//
+        std::cerr << "Setting SE3 parameters" << std::endl;
+        SE3_start_layer = obj["SE3_start_layer"].asInt();
+        SE3_stop_layer = obj["SE3_stop_layer"].asInt();
+        SE_iter_per_layer = obj["SE_iter_per_layer"].asInt();
+        SE_iter = obj["SE_iter"].asInt();
+        SE_factor = obj["SE_factor"].asFloat();
 
-																																			if(verbosity>local_verbosity_threshold) {cout << "\n Dynamic_slam::Dynamic_slam_chk 0,  SE3_Rho_sq_threshold[i][j] = ";
-																																				for (int i=0; i<5; i++){cout << "( "; for (int j=0; j<3; j++) {cout << ", ["<<i<<"]["<<j<<"]" << SE3_Rho_sq_threshold[i][j]; }   cout << " )";}
-																																				cout << ",\t SE_factor = "<<SE_factor;
-																																				cout << endl << flush;
-																																			}
-	stringstream  ss0;
-	ss0 << obj["data_path"].asString()  <<  obj["data_file"].asString();	// j_params.paths_mp["data_path"]   <<  j_params.paths_mp["data_file"];  //
-	rootpath 	= ss0.str();
-	root 		= rootpath;
+        std::cerr << "Setting SE3_Rho_sq_threshold" << std::endl;
+        for (int layer = 0; layer < 5; layer++) {
+            for (int chan = 0; chan < 3; chan++) {
+                if (obj["SE3_Rho_sq_threshold"].isValidIndex(layer) && obj["SE3_Rho_sq_threshold"][layer].isValidIndex(chan)) {
+                    std::cerr << "Reading SE3_Rho_sq_threshold[" << layer << "][" << chan << "]: " << obj["SE3_Rho_sq_threshold"][layer][chan].asFloat() << " (float)" << std::endl;
+                    SE3_Rho_sq_threshold[layer][chan] = obj["SE3_Rho_sq_threshold"][layer][chan].asFloat();
+                } else {
+                    throw std::runtime_error("Invalid index for SE3_Rho_sq_threshold");
+                }
+            }
+        }
 
-	if ( exists(root)==false )		{ cout << "Data folder "<< ss0.str()  <<" does not exist.\n" <<flush; exit(0); }
-	if ( is_directory(root)==false ){ cout << "Data folder "<< ss0.str()  <<" is not a folder.\n"<<flush; exit(0); }
-	if ( empty(root)==true )		{ cout << "Data folder "<< ss0.str()  <<" is empty.\n"		 <<flush; exit(0); }
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 1\n" << flush;
-	get_all(root, ".txt",   txt);																											// Get lists of files. Gathers all filepaths with each suffix, into c++ vectors.
-	get_all(root, ".png",   png);
-	get_all(root, ".depth", depth);
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << flush;
-																																			if(verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam(): "<< png.size()  <<" .png images found in data folder.\t"<<"png[runcl.dataset_frame_num].string()="<< png[runcl.dataset_frame_num].string()  <<flush;
-	runcl.baseImage 	= imread(png[runcl.dataset_frame_num].string());																	// Set image params, ref for dimensions and data type.
-																																			if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 3: runcl.baseImage.size() = "<< runcl.baseImage.size() \
-																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-																																			if(verbosity>1) { imshow("runcl.baseImage",runcl.baseImage); cv::waitKey(-1); }
-	runcl.initialize_RunCL();
-	runcl.allocatemem();																													if (verbosity>local_verbosity_threshold) cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = "<< runcl.baseImage.size() \
-																																				<<" runcl.baseImage.type() = " << runcl.baseImage.type() << "\t"<< runcl.checkCVtype(runcl.baseImage.type()) <<flush;
-	initialize_camera();
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::Dynamic_slam_ finished\n" << flush;
-};
+        std::cerr << "Setting SE3_update_dof_weights" << std::endl;
+        if (obj["SE3_update_dof_weights"].size() != 6) {
+            throw std::runtime_error("SE3_update_dof_weights does not contain 6 elements.");
+        }
+        for (int se3 = 0; se3 < 6; se3++) {
+            std::cerr << "Reading SE3_update_dof_weights[" << se3 << "]: " << obj["SE3_update_dof_weights"][se3].asFloat() << " (float)" << std::endl;
+            SE3_update_dof_weights[se3] = obj["SE3_update_dof_weights"][se3].asFloat();
+        }
 
-void Dynamic_slam::initialize_resultsMat(){	// need to take layer 2, or read it from .json .
-	int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_resultsMat"];// verbosity_mp[""];//-2;																										if(verbosity>local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
+        std::cerr << "Setting SE3_update_layer_weights" << std::endl;
+        if (obj.isMember("SE3_float update_layer_weights")) {
+            int update_layer_weights_size = obj["SE3_float update_layer_weights"].size();
+            std::cerr << "SE3_float update_layer_weights size: " << update_layer_weights_size << std::endl;
 
-	uint reduction 		= obj["sample_layer"].asUInt();		//j_params.int_mp["sample_layer"]; 	//
-	uint SE_iter 		= obj["SE_iter"].asUInt();			//j_params.int_mp["SE_iter"];  		//
-	int rows 			= 7 * ( runcl.MipMap[reduction*8 + MiM_READ_ROWS] +  runcl.mm_margin );
-	int cols 			= SE_iter * ( runcl.MipMap[reduction*8 + MiM_READ_COLS] +  runcl.mm_margin );										if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 3: rows = "	<<rows<<", cols = "<<cols<< flush;
-	runcl.resultsMat 	= cv::Mat::zeros ( rows, cols , CV_8UC4);																			if(verbosity>local_verbosity_threshold) cout << ",  runcl.resultsMat.size() = "<< runcl.resultsMat.size() 	<< flush;
-																																			if(verbosity>local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk  finished\n" 	<< flush;
+            for (int layer = 0; layer < 5; layer++) {
+                if (layer < update_layer_weights_size) {
+                    std::cerr << "Reading SE3_float update_layer_weights[" << layer << "]: " << obj["SE3_float update_layer_weights"][layer].asFloat() << " (float)" << std::endl;
+                    SE3_update_layer_weights[layer] = obj["SE3_float update_layer_weights"][layer].asFloat();
+                } else {
+                    std::cerr << "Setting default value for SE3_float update_layer_weights[" << layer << "]" << std::endl;
+                    SE3_update_layer_weights[layer] = 0.0f;
+                }
+            }
+        } else {
+            throw std::runtime_error("SE3_float update_layer_weights key is missing in the JSON object.");
+        }
+
+        std::cerr << "Setting data paths" << std::endl;
+        stringstream ss0;
+        ss0 << obj["data_path"].asString() << obj["data_file"].asString();
+        rootpath = ss0.str();
+        root = rootpath;
+
+        std::cerr << "Checking data paths" << std::endl;
+        if (!exists(root)) {
+            throw std::runtime_error("Data folder " + ss0.str() + " does not exist.");
+        }
+        if (!is_directory(root)) {
+            throw std::runtime_error("Data folder " + ss0.str() + " is not a folder.");
+        }
+        if (empty(root)) {
+            throw std::runtime_error("Data folder " + ss0.str() + " is empty.");
+        }
+
+        if (verbosity > local_verbosity_threshold) std::cout << "\n Dynamic_slam::Dynamic_slam_chk 1\n" << std::flush;
+        std::cerr << "Getting all files with extensions .txt, .png, and .depth" << std::endl;
+        get_all(root, ".txt", txt);
+        get_all(root, ".png", png);
+        get_all(root, ".depth", depth);
+
+        if (verbosity > local_verbosity_threshold) std::cout << "\n Dynamic_slam::Dynamic_slam_chk 2\n" << std::flush;
+        if (verbosity > local_verbosity_threshold) std::cout << "\nDynamic_slam::Dynamic_slam(): " << png.size() << " .png images found in data folder.\t" << "png[runcl.dataset_frame_num].string()=" << png[runcl.dataset_frame_num].string() << std::flush;
+
+        std::cerr << "Reading base image" << std::endl;
+        runcl.baseImage = imread(png[runcl.dataset_frame_num].string());
+        if (verbosity > local_verbosity_threshold) std::cout << "\nDynamic_slam::Dynamic_slam_chk 3: runcl.baseImage.size() = " << runcl.baseImage.size() << " runcl.baseImage.type() = " << runcl.baseImage.type() << "\t" << runcl.checkCVtype(runcl.baseImage.type()) << std::flush;
+        if (verbosity > 1) { imshow("runcl.baseImage", runcl.baseImage); cv::waitKey(-1); }
+
+        std::cerr << "Initializing OpenCL" << std::endl;
+        runcl.initialize_RunCL();
+        runcl.allocatemem();
+        if (verbosity > local_verbosity_threshold) std::cout << "\nDynamic_slam::Dynamic_slam_chk 4: runcl.baseImage.size() = " << runcl.baseImage.size() << " runcl.baseImage.type() = " << runcl.baseImage.type() << "\t" << runcl.checkCVtype(runcl.baseImage.type()) << std::flush;
+
+        std::cerr << "Initializing camera" << std::endl;
+        initialize_camera();
+        if (verbosity > local_verbosity_threshold) std::cout << "\n Dynamic_slam::Dynamic_slam_ finished\n" << std::flush;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during initialization: " << e.what() << std::endl;
+        throw;
+    }
+    std::cerr << "Dynamic_slam constructor finished" << std::endl;
+}
+
+
+void Dynamic_slam::initialize_resultsMat() {  // need to take layer 2, or read it from .json .
+    int local_verbosity_threshold = verbosity_mp["Dynamic_slam::initialize_resultsMat"];  // verbosity_mp[""];//-2;
+    if (verbosity > local_verbosity_threshold) cout << "\n\n Dynamic_slam::initialize_resultsMat()_chk 1" << flush;
+
+    uint reduction = obj["sample_layer"].asUInt();  // j_params.int_mp["sample_layer"];  //
+    uint SE_iter = obj["SE_iter"].asUInt();  // j_params.int_mp["SE_iter"];  //
+    int rows = 7 * (runcl.MipMap[reduction * 8 + MiM_READ_ROWS] + runcl.mm_margin);
+    int cols = SE_iter * (runcl.MipMap[reduction * 8 + MiM_READ_COLS] + runcl.mm_margin);
+    if (verbosity > local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk 3: rows = " << rows << ", cols = " << cols << flush;
+    runcl.resultsMat = cv::Mat::zeros(rows, cols, CV_8UC4);
+    if (verbosity > local_verbosity_threshold) cout << ", runcl.resultsMat.size() = " << runcl.resultsMat.size() << flush;
+    if (verbosity > local_verbosity_threshold) cout << "\n Dynamic_slam::initialize_resultsMat()_chk finished\n" << flush;
 }
 
 void Dynamic_slam::initialize_camera(){

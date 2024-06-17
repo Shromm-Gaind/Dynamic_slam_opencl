@@ -1,0 +1,25 @@
+{
+  // Can add either relative or absolute path. NB Uses BoostFileSystem for OS portablitity.
+  "source_filepath":"/home/eflinspy/Dynamic_slam_opencl/src/",
+
+  // other .json files
+  "params_conf":"local_conf/conf.json",
+  "verbosity_conf":"local_conf/verbosity.json",
+
+  // filepaths for a particular host machine ////////////////////////////////////////////////////
+  "out_path":"/home/eflinspy/Dynamic_slam_opencl",
+
+  // Setup openCL //////////////////////////////////////////////////////////////////////////////
+  "kernel_folder":"kernels/",
+  "kernel_build_options": "-I/home/eflinspy/Dynamic_slam_opencl/src/kernels/",  //   TODO reconstruct using source_filepath
+
+  "opencl_platform":0,                                                                            // need platform & device GPU choices
+  "opencl_device":0,
+
+  // Input data ////////////////////////////////////////////////////////////////////////////////
+  "data_path":"/home/eflinspy/Dynamic_slam_opencl/data/",
+
+  "data_file":"200fps/200fps_GT_sample",
+  "data_file_increment":1,
+  "data_file_offset":0       //475;//10;//46;//462;//380;//0;
+}
