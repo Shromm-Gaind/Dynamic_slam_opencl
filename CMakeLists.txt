@@ -87,13 +87,18 @@ add_executable(Dynamic_slam
 
          src/utils/CV_chk.hpp
          src/utils/CV_chk.cpp
+         src/utils/time_utils.hpp
+         src/utils/time_utils.cpp
          src/utils/conf_params.hpp
          src/utils/conf_params.cpp
+         src/utils/opencl_utils.hpp
+         src/utils/opencl_utils.cpp
          src/utils/print_functions.hpp
          src/utils/print_functions.cpp
          src/utils/convertTransforms.hpp
-         src/utils/convertAhandaPovRayToStandard.cpp
          src/utils/convertAhandaPovRayToStandard.hpp
+         src/utils/convertAhandaPovRayToStandard.cpp
+
          )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 

@@ -2,17 +2,8 @@
 
 void RunCL::createFolders(){
 	int local_verbosity_threshold = verbosity_mp["RunCL::createFolders"];
-
 																																			if(verbosity>local_verbosity_threshold) cout << "\n createFolders_chk 0\n" << flush;
-	auto now = std::chrono::system_clock::now();
-	auto in_time_t = std::chrono::system_clock::to_time_t(now);
-	std::stringstream datetime;
-	datetime << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%X_%a");
-	std::string   out_dir = datetime.str();
-	//std::string   out_dir = std::asctime(std::localtime(&result));
-	//out_dir.pop_back(); 																													// req to remove new_line from end of string.
-	std::time_t   result  = std::time(nullptr);
-
+	std::string   out_dir = date_time_string();
 
 	boost::filesystem::path 	out_path(boost::filesystem::current_path());
 	boost::filesystem::path 	conf_outpath( obj["out_path"].asString() );
@@ -284,8 +275,10 @@ void RunCL::DownloadAndSave(cl_mem buffer, std::string count, boost::filesystem:
 		string type_string = checkCVtype(type_mat);
 		stringstream ss;
 		stringstream png_ss;
+		std::string  date_time_str = date_time_string();
+
 		ss << "/" << folder_tiff.filename().string() << "_" << count <<"_sum"<<sum<<"type_"<<type_string<<"min"<<minVal<<"max"<<maxVal<<"maxRange"<<max_range;
-		png_ss << "/" << folder_tiff.filename().string() << "_" << count;
+		png_ss << "/" << folder_tiff.filename().string() << "_" << count << date_time_str;
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.3 finished ReadOutput\n\n"<<flush;
 		boost::filesystem::path folder_png = folder_tiff;
 																																		//	if(verbosity>local_verbosity_threshold) cout<<"\n\nDownloadAndSave chk1.4 finished ReadOutput\n\n"<<flush;

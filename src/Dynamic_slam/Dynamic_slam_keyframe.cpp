@@ -55,10 +55,10 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 	keyframe_K				= K;
 	keyframe_inv_pose 		= inv_pose;
 	keyframe_inv_K			= inv_K;
-
+/*
 	// keyframe_K2K   		// d_slam.predictFrame() sets 	keyframe_K2K  		= K * pose * keyframe_inv_pose * inv_old_K.					// Projects keyframe pixel to current frame
 	// keyframe_pose2pose	// d_slam.predictFrame() sets 	keyframe_pose2pose 	= pose2pose
-
+*/
 	cv::Matx44f inv_pose2pose = getInvPose( keyframe_pose2pose );																			// cv::Matx44f Dynamic_slam::getInvPose(cv::Matx44f pose)
 	cv::Matx44f forward_keyframe2K  = K * inv_pose2pose * inv_K;	// TODO auto calibration												// Projects new keyframe pixel to previous keyframe
 																																			if(verbosity>local_verbosity_threshold){
@@ -81,13 +81,12 @@ void Dynamic_slam::initialize_keyframe_from_tracking(){																						// 
 																																			if(verbosity>local_verbosity_threshold){
 																																				cout<<"\nobj[\"Dynamic_slam::initialize_keyframe_from_tracking(),  initialize_tracking_from_GT_depth\"].asBool() = false "<<flush;
 																																			}
-		runcl.transform_depthmap(forward_keyframe2K, runcl.depth_mem );																		// Sets new depth_mem used in tracking.
+		runcl.transform_depthmap(forward_keyframe2K, runcl.amem );		// runcl.depth_mem );																	// Sets new depth_mem used in tracking.
 		runcl.swap_costvol_pointers();																										// Swaps old cdatabuf and hdatabuf to temp_cdatabuf and temp_hdatabuf.
-		runcl.initializeDepthCostVol( runcl.depth_mem );																					// Zeros buffers: cdatabuf, hdatabuf, lomem, himem) Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
+		runcl.initializeDepthCostVol( runcl.amem );		// runcl.depth_mem );																// Zeros buffers: cdatabuf, hdatabuf, lomem, himem) Also copies  runcl.depth_mem -> runcl.keyframe_depth_mem
 		initialize_new_keyframe();																											// runcl.initialize_fp32_params();  runcl.keyFrameCount++; runcl.dataset_frame_num++;
 		runcl.transform_costvolume( forward_keyframe2K );
 	}
-	
 }
 
 void Dynamic_slam::initialize_new_keyframe(){
@@ -100,6 +99,6 @@ void Dynamic_slam::initialize_new_keyframe(){
 
 	//cacheGValues();			// TODO may not be needed here.
 								// TODO   keyframe_K2K_GT, keyframe_K2K etc ?
-	//runcl.keyFrameCount++;
+	runcl.keyFrameCount++;
 	//runcl.dataset_frame_num++;
 }

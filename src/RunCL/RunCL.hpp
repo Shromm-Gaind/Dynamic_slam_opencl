@@ -29,6 +29,8 @@ using namespace std::chrono;
 #include "../utils/convertTransforms.hpp"
 #include "../utils/print_functions.hpp"
 #include "../utils/CV_chk.hpp"
+#include "../utils/time_utils.hpp"
+#include "../utils/opencl_utils.hpp"
 #include "../kernels/kernels_macros.h"
 
 const uint tracking_num_colour_channels = 4;
