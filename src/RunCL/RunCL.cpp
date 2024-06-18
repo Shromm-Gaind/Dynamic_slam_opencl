@@ -1,4 +1,8 @@
 #include "RunCL.hpp"
+#include <vector>
+#include <iostream>
+#include <CL/cl.h>
+
 
 RunCL::RunCL( Json::Value obj_ , int_map verbosity_mp_ ){
 	obj 		 	= obj_;																													// NB save obj_ to class member obj, so that it persists within this RunCL object.
@@ -504,11 +508,25 @@ void RunCL::initialize_RunCL(){
 	d_disp_sum_size_bytes	=  d_disp_sum_size * sizeof(float) * 4;
 																																			if(verbosity>local_verbosity_threshold) cout <<"\nRunCL::initialize_RunCL_chk finished ############################################################\n"<<flush;
 }
+
+// Function to get the kernel name
+std::string getKernelName(cl_kernel kernel) {
+    size_t kernel_name_size;
+    clGetKernelInfo(kernel, CL_KERNEL_FUNCTION_NAME, 0, NULL, &kernel_name_size);
+
+    std::vector<char> kernel_name(kernel_name_size);
+    clGetKernelInfo(kernel, CL_KERNEL_FUNCTION_NAME, kernel_name_size, kernel_name.data(), NULL);
+
+    return std::string(kernel_name.begin(), kernel_name.end());
+}
+
 void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_to_call, uint start, uint stop, bool layers_sequential, const size_t local_work_size) {
     int local_verbosity_threshold = verbosity_mp["RunCL::mipmap_call_kernel"];
     cl_event ev;
     cl_int res, status;
     size_t num_threads_size = sizeof(num_threads) / sizeof(num_threads[0]);
+
+    std::string kernel_name = getKernelName(kernel_to_call);
 
     // Verify num_threads array and print its values for debugging
     for (uint reduction = start; reduction <= stop; reduction++) {
@@ -534,24 +552,24 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 
         // Ensure that num_threads[reduction] and local_work_size are appropriate
         size_t global_work_size = num_threads[reduction];
-        std::cout << "Launching kernel with global_work_size = " << global_work_size << ", local_work_size = " << local_work_size << std::endl;
+        std::cout << "Launching kernel '" << kernel_name << "' with global_work_size = " << global_work_size << ", local_work_size = " << local_work_size << " for reduction " << reduction << std::endl;
 
         res = clEnqueueNDRangeKernel(queue_to_call, kernel_to_call, 1, 0, &global_work_size, &local_work_size, 0, NULL, &ev);
         if (res != CL_SUCCESS) {
-            std::cerr << "Error enqueuing kernel for reduction " << reduction << ": " << checkerror(res) << std::endl;
+            std::cerr << "Error enqueuing kernel '" << kernel_name << "' for reduction " << reduction << ": " << checkerror(res) << std::endl;
             exit(EXIT_FAILURE);
         }
 
         status = clFlush(queue_to_call);
         if (status != CL_SUCCESS) {
-            std::cerr << "Error flushing queue for reduction " << reduction << ": " << checkerror(status) << std::endl;
+            std::cerr << "Error flushing queue for kernel '" << kernel_name << "' for reduction " << reduction << ": " << checkerror(status) << std::endl;
             exit(EXIT_FAILURE);
         }
 
         if (layers_sequential == true) {
             status = clWaitForEvents(1, &ev);
             if (status != CL_SUCCESS) {
-                std::cerr << "Error waiting for event in sequential layers for reduction " << reduction << ": " << checkerror(status) << std::endl;
+                std::cerr << "Error waiting for event in sequential layers for kernel '" << kernel_name << "' for reduction " << reduction << ": " << checkerror(status) << std::endl;
                 exit(EXIT_FAILURE);
             }
         }
@@ -560,7 +578,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
     if (layers_sequential == false) {
         status = clWaitForEvents(1, &ev);
         if (status != CL_SUCCESS) {
-            std::cerr << "Error waiting for event in non-sequential layers: " << checkerror(status) << std::endl;
+            std::cerr << "Error waiting for event in non-sequential layers for kernel '" << kernel_name << "': " << checkerror(status) << std::endl;
             exit(EXIT_FAILURE);
         }
     }

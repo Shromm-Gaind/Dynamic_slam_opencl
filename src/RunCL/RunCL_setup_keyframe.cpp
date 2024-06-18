@@ -81,73 +81,96 @@ void RunCL::swap_costvol_pointers()
 }
 
 
-void RunCL::transform_costvolume( cv::Matx44f K2K_)// , cl_mem old_cdata_mem,  cl_mem new_cdata_mem, cl_mem old_hdata_mem,  cl_mem new_hdata_mem       ){												// NB must be used _after_ initializing the new cost_volume.
-{
-	int local_verbosity_threshold = verbosity_mp["RunCL::transform_costvolume"];// 0;
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk0 ."<<flush;}
-	cl_event writeEvt;
-	cl_int status;
-	float K2K_arry[16]; for (int i=0; i<16;i++){ K2K_arry[i] = K2K_.operator()(i/4,i%4); }
+void RunCL::transform_costvolume(cv::Matx44f K2K_) {
+    int local_verbosity_threshold = verbosity_mp["RunCL::transform_costvolume"];
+    if (verbosity > local_verbosity_threshold) { cout << "\n\nRunCL::transform_costvolume(..)_chk0 ." << flush; }
 
-	status = clEnqueueWriteBuffer(uload_queue, invk2kbuf,	CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 	0, NULL, &writeEvt);				if (status != CL_SUCCESS)	{ cout << "\nstatus = " << checkerror(status) <<"\n"<<flush; cout << "Error: RunCL::transform_costvolume(..)_chk1\n" << endl;exit_(status); }
-	clFlush(uload_queue); status = clFinish(uload_queue);
-																																			if(verbosity>local_verbosity_threshold) {
-																																				cout<<"\n\nRunCL::transform_costvolume(..)_  K2K_arry[16] = "<<flush;
-																																				for (int i=0; i<16;i++){
-																																					if (i%4==0) cout << "\n";
-																																					cout << ",  " << K2K_arry[i] ;
-																																				}cout << "\n";
-																																			}
-	cl_int res;
-	// inputs
-	//     __private	 uint layer, set in mipmap_call_kernel(..) below																																//__private	    uint	    layer,				//0
-	res = clSetKernelArg(transform_costvolume_kernel,  1, sizeof(cl_mem), &mipmap_buf);				if(res!=CL_SUCCESS){cout<<"\nmipmap_buf = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant    uint*	    mipmap_params,		//1
-	res = clSetKernelArg(transform_costvolume_kernel,  2, sizeof(cl_mem), &uint_param_buf);			if(res!=CL_SUCCESS){cout<<"\nuint_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		uint_params,		//2
-	res = clSetKernelArg(transform_costvolume_kernel,  3, sizeof(cl_mem), &fp32_param_buf);			if(res!=CL_SUCCESS){cout<<"\nfp32_param_buf = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__constant	uint*		fp32_params,		//3
-	res = clSetKernelArg(transform_costvolume_kernel,  4, sizeof(cl_mem), &invk2kbuf);				if(res!=CL_SUCCESS){cout<<"\nk2kbuf = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float16* 	k2k,				//4
-	res = clSetKernelArg(transform_costvolume_kernel,  5, sizeof(cl_mem), &temp_cdatabuf);			if(res!=CL_SUCCESS){cout<<"\nold_cdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		old_cdata,			//5		photometric cost volume
-	res = clSetKernelArg(transform_costvolume_kernel,  6, sizeof(cl_mem), &temp_hdatabuf);			if(res!=CL_SUCCESS){cout<<"\nold_hdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		old_hdata,			//7		hit count volume
-	// outputs
-	res = clSetKernelArg(transform_costvolume_kernel,  7, sizeof(cl_mem), &cdatabuf);				if(res!=CL_SUCCESS){cout<<"\nnew_cdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		new_cdata,			//6
-	res = clSetKernelArg(transform_costvolume_kernel,  8, sizeof(cl_mem), &hdatabuf);				if(res!=CL_SUCCESS){cout<<"\nnew_hdata_mem = "		<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		new_hdata,			//8
-	res = clSetKernelArg(transform_costvolume_kernel,  9, sizeof(cl_mem), &lomem);					if(res!=CL_SUCCESS){cout<<"\nlo_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		lo_,				//9		lo, hi, and mean of this ray of the cost volume.
-	res = clSetKernelArg(transform_costvolume_kernel, 10, sizeof(cl_mem), &himem);					if(res!=CL_SUCCESS){cout<<"\nhi_mem = "				<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		hi_,				//10
-	res = clSetKernelArg(transform_costvolume_kernel, 11, sizeof(cl_mem), &mean_mem);				if(res!=CL_SUCCESS){cout<<"\nmean_mem = "			<<checkerror(res)<<"\n"<<flush;exit_(res);}		//__global		float*		mean_				//11
-	
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk1 ."<<flush;}
-/*
-																																			if(verbosity>local_verbosity_threshold ) {
-																																				stringstream ss;
-																																				ss << "tempbufs before_transform_costvolume" << save_index;													// Save buffers to file ###########
-																																				bool show = false;
-																																				bool exception_tiff = false;
-																																				if (verbosity_mp["RunCL::updateDepthCostVol::cdatabuf"])																// divisor max_range = 0 -> val/max_val.   max_range <0 -> grey=0
-																																					DownloadAndSaveVolume(		temp_cdatabuf, 			ss.str(), paths.at("cdatabuf"), mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 , exception_tiff );
-																																				if (verbosity_mp["RunCL::updateDepthCostVol::hdatabuf"])
-																																					DownloadAndSaveVolume(		temp_hdatabuf, 			ss.str(), paths.at("hdatabuf"), mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 , exception_tiff );
-																																			}
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk2 ."<<flush;}
-*/
-	mipmap_call_kernel( transform_costvolume_kernel, m_queue );
-																																			if(verbosity>local_verbosity_threshold) {cout<<"\n\nRunCL::transform_costvolume(..)_chk3 ."<<flush;}
-	clFlush(m_queue); status = clFinish(m_queue);																							if(status!= CL_SUCCESS){cout << " status = " << checkerror(status) <<", Error: RunCL::transform_costvolume(..)_transform_costvolume_kernel\n" << flush;exit_(status);}
+    cl_event writeEvt;
+    cl_int status;
+    float K2K_arry[16];
+    for (int i = 0; i < 16; i++) { K2K_arry[i] = K2K_.operator()(i / 4, i % 4); }
 
-																																			if(verbosity>local_verbosity_threshold ) {
-																																				stringstream ss;
-																																				ss << "transform_costvolume" << save_index;													// Save buffers to file ###########
-																																				bool show = false;
-																																				bool exception_tiff = true;
-																																				DownloadAndSave(	lomem,  ss.str(), paths.at("lomem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8);	// a little more than the num images in costvol.
-																																				DownloadAndSave(	himem,  ss.str(), paths.at("himem"),  mm_size_bytes_C1,   mm_Image_size,   CV_32FC1, 	show , 8);	//params[COSTVOL_LAYERS]
+    status = clEnqueueWriteBuffer(uload_queue, invk2kbuf, CL_FALSE, 0, 16 * sizeof(float), K2K_arry, 0, NULL, &writeEvt);
+    if (status != CL_SUCCESS) {
+        cout << "\nstatus = " << checkerror(status) << "\n" << flush;
+        cout << "Error: RunCL::transform_costvolume(..)_chk1\n" << endl;
+        exit_(status);
+    }
+    clFlush(uload_queue);
+    status = clFinish(uload_queue);
 
-																																				if (verbosity_mp["RunCL::updateDepthCostVol::cdatabuf"])																// divisor max_range = 0 -> val/max_val.   max_range <0 -> grey=0
-																																					DownloadAndSaveVolume(		cdatabuf, 			ss.str(), paths.at("cdatabuf"), mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*float max_range*/ , exception_tiff );
-																																				if (verbosity_mp["RunCL::updateDepthCostVol::hdatabuf"])
-																																					DownloadAndSaveVolume(		hdatabuf, 			ss.str(), paths.at("hdatabuf"), mm_size_bytes_C1,	mm_Image_size,   CV_32FC1,  show , 0 /*float max_range*/ , exception_tiff );
-																																			}
-	
+    if (verbosity > local_verbosity_threshold) {
+        cout << "\n\nRunCL::transform_costvolume(..)_  K2K_arry[16] = " << flush;
+        for (int i = 0; i < 16; i++) {
+            if (i % 4 == 0) cout << "\n";
+            cout << ",  " << K2K_arry[i];
+        }
+        cout << "\n";
+    }
+
+    cl_int res;
+    res = clSetKernelArg(transform_costvolume_kernel, 1, sizeof(cl_mem), &mipmap_buf);
+    if (res != CL_SUCCESS) { cout << "\nmipmap_buf = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 2, sizeof(cl_mem), &uint_param_buf);
+    if (res != CL_SUCCESS) { cout << "\nuint_param_buf = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 3, sizeof(cl_mem), &fp32_param_buf);
+    if (res != CL_SUCCESS) { cout << "\nfp32_param_buf = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 4, sizeof(cl_mem), &invk2kbuf);
+    if (res != CL_SUCCESS) { cout << "\nk2kbuf = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 5, sizeof(cl_mem), &temp_cdatabuf);
+    if (res != CL_SUCCESS) { cout << "\nold_cdata_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 6, sizeof(cl_mem), &temp_hdatabuf);
+    if (res != CL_SUCCESS) { cout << "\nold_hdata_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 7, sizeof(cl_mem), &cdatabuf);
+    if (res != CL_SUCCESS) { cout << "\nnew_cdata_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 8, sizeof(cl_mem), &hdatabuf);
+    if (res != CL_SUCCESS) { cout << "\nnew_hdata_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 9, sizeof(cl_mem), &lomem);
+    if (res != CL_SUCCESS) { cout << "\nlo_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 10, sizeof(cl_mem), &himem);
+    if (res != CL_SUCCESS) { cout << "\nhi_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    res = clSetKernelArg(transform_costvolume_kernel, 11, sizeof(cl_mem), &mean_mem);
+    if (res != CL_SUCCESS) { cout << "\nmean_mem = " << checkerror(res) << "\n" << flush; exit_(res); }
+
+    if (verbosity > local_verbosity_threshold) { cout << "\n\nRunCL::transform_costvolume(..)_chk1 ." << flush; }
+
+    // Added debug information before kernel call
+    cout << "Calling mipmap_call_kernel with transform_costvolume_kernel" << endl;
+    mipmap_call_kernel(transform_costvolume_kernel, m_queue);
+
+    if (verbosity > local_verbosity_threshold) { cout << "\n\nRunCL::transform_costvolume(..)_chk3 ." << flush; }
+
+    clFlush(m_queue);
+    status = clFinish(m_queue);
+    if (status != CL_SUCCESS) {
+        cout << " status = " << checkerror(status) << ", Error: RunCL::transform_costvolume(..)_transform_costvolume_kernel\n" << flush;
+        exit_(status);
+    }
+
+    if (verbosity > local_verbosity_threshold) {
+        stringstream ss;
+        ss << "transform_costvolume" << save_index;
+        bool show = false;
+        bool exception_tiff = true;
+        DownloadAndSave(lomem, ss.str(), paths.at("lomem"), mm_size_bytes_C1, mm_Image_size, CV_32FC1, show, 8);
+        DownloadAndSave(himem, ss.str(), paths.at("himem"), mm_size_bytes_C1, mm_Image_size, CV_32FC1, show, 8);
+
+        if (verbosity_mp["RunCL::updateDepthCostVol::cdatabuf"])
+            DownloadAndSaveVolume(cdatabuf, ss.str(), paths.at("cdatabuf"), mm_size_bytes_C1, mm_Image_size, CV_32FC1, show, 0, exception_tiff);
+        if (verbosity_mp["RunCL::updateDepthCostVol::hdatabuf"])
+            DownloadAndSaveVolume(hdatabuf, ss.str(), paths.at("hdatabuf"), mm_size_bytes_C1, mm_Image_size, CV_32FC1, show, 0, exception_tiff);
+    }
 }
-
 
 void RunCL::initializeDepthCostVol( cl_mem key_frame_depth_map_src){			 															// Uses the current frame as the keyframe for a new depth cost volume.
 																																			// Dynamic_slam::initialize_from_GT(), Dynamic_slam::initialize_new_keyframe();
