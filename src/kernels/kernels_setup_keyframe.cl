@@ -63,103 +63,131 @@ __kernel void normalize_inv_depth(
 
 
 }
-
-
 __kernel void transform_cost_volume(
-	// inputs
-	__private	uint	mipmap_layer,		//0
-	__constant 	uint8*	mipmap_params,		//1
-	__constant 	uint*	uint_params,		//2
-	__global 	float*  fp32_params,		//3
-	__global 	float16*k2k,				//4
-	__global	float*	old_cdata,			//5		photometric cost volume
-	__global	float*	old_hdata,			//6		hit count volume
-	// outputs
-	__global	float*	new_cdata,			//7
-	__global	float*	new_hdata,			//8
-	__global	float*	lo_,				//9		lo, hi, and mean of this ray of the cost volume.
-	__global	float*	hi_,				//10
-	__global	float*	mean_				//11
-			  )
+    // inputs
+    __private uint mipmap_layer,        //0
+    __constant uint8* mipmap_params,    //1
+    __constant uint* uint_params,       //2
+    __global float* fp32_params,        //3
+    __global float16* k2k,              //4
+    __global float* old_cdata,          //5 photometric cost volume
+    __global float* old_hdata,          //6 hit count volume
+    // outputs
+    __global float* new_cdata,          //7
+    __global float* new_hdata,          //8
+    __global float* lo_,                //9 lo, hi, and mean of this ray of the cost volume.
+    __global float* hi_,                //10
+    __global float* mean_               //11
+)
 {
-	uint global_id_u 	= get_global_id(0);
-	float global_id_flt = global_id_u;
+    uint global_id_u = get_global_id(0);
+    float global_id_flt = global_id_u; // Declare global_id_flt before use
 
-	uint8 mipmap_params_ = mipmap_params[mipmap_layer];
-	if (global_id_u    	>= mipmap_params_[MiM_PIXELS]) return;
-	uint read_offset_ 	= mipmap_params_[MiM_READ_OFFSET];
-	uint read_cols_ 	= mipmap_params_[MiM_READ_COLS];
-	uint read_rows_ 	= mipmap_params_[MiM_READ_ROWS];
+    uint8 mipmap_params_ = mipmap_params[mipmap_layer];
+    if (global_id_u >= mipmap_params_[MiM_PIXELS]) return;
+    uint read_offset_ = mipmap_params_[MiM_READ_OFFSET];
+    uint read_cols_ = mipmap_params_[MiM_READ_COLS];
+    uint read_rows_ = mipmap_params_[MiM_READ_ROWS];
 
-	uint base_cols		= uint_params[COLS];
-	uint margin 		= uint_params[MARGIN];
-	uint mm_cols		= uint_params[MM_COLS];
-	uint mm_pixels		= uint_params[MM_PIXELS];
-	
-	uint reduction		= mm_cols/read_cols_;
-	uint v    			= global_id_u / read_cols_;													// read_row
-	uint u 				= fmod(global_id_flt, read_cols_);											// read_column
-	float u_flt			= u * reduction;															// NB this causes sparse sampling of the original space, to use the same k2k at every scale.
-	float v_flt			= v * reduction;
-	uint read_index 	= read_offset_  +  v  * mm_cols  + u ;
-	
-	float16 k2k_pvt		= k2k[0];
-	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 ;
-	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1;
-	float wh2 = k2k_pvt[8]*u_flt + k2k_pvt[9]*v_flt + k2k_pvt[10]*1;
-	//float rh2 = k2k_pvt[12]*u_flt + k2k_pvt[13]*v_flt + k2k_pvt[14]*1;  // always zeero.
-	
-	float hi, lo, mean, count;
-	hi=0; mean=0;
-	lo=-1;
-	
-	for(int cv_layer=0; cv_layer<  uint_params[COSTVOL_LAYERS] ; cv_layer++){						// For each layer of this ray in the new cost volume.
-		float inv_depth = (float)cv_layer * fp32_params[INV_DEPTH_STEP]  ;
-		float uh3 = uh2 + k2k_pvt[3]*inv_depth;
-		float vh3 = vh2 + k2k_pvt[7]*inv_depth;
-		float wh3 = wh2 + k2k_pvt[11]*inv_depth;
-		//float rh3 = rh2 + k2k_pvt[15]*inv_depth; // rh3 = 0 + 1*inv_depth
-		//float h/z  = k2k_pvt[12]*u_flt + k2k_pvt[13]*v + k2k_pvt[14]*1; // +k2k_pvt[15]/z
+    uint mm_cols = uint_params[MM_COLS];
+    uint mm_pixels = uint_params[MM_PIXELS]; // Ensure mm_pixels is declared
+    uint reduction = mm_cols / read_cols_;
+    uint v = global_id_u / read_cols_;   // read_row
+    uint u = global_id_u % read_cols_;   // read_column
+    float u_flt = u * reduction;         // NB this causes sparse sampling of the original space, to use the same k2k at every scale.
+    float v_flt = v * reduction;
+    uint read_index = read_offset_ + v * mm_cols + u;
 
-		float u3_flt		= uh3/(wh3*reduction);													// 2D homogeneous pixel coordinaes
-		float v3_flt		= vh3/(wh3*reduction);
-		float layer_flt		= wh3*inv_depth/fp32_params[INV_DEPTH_STEP];							// 3D depth by layer of old cost volume.
-		
-		int write_index 	= read_index + cv_layer * mm_pixels;
-/*
-		//if(global_id_u==10000  ) printf("\nkernel transform_cost_volume layer: global_id_u=%u,  inv_depth=%f,   cv_layer=%u  ", global_id_u, inv_depth, cv_layer    );
-		//if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,   wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,   uh2=%f,   vh2=%f,   wh2=%f,   k2k_pvt[11]=%f,   inv_depth=%f,    layer_flt=%f,   reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u ",
-		//	global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP], uh2, vh2, wh2, k2k_pvt[11], inv_depth, layer_flt, reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS] );
-// 		if(global_id_u%100000==0  ) printf("\nkernel transform_cost_volume: global_id_u=%u,   u3_flt=%f,    v3_flt=%f,    wh3=%f,   fp32_params[INV_DEPTH_STEP]=%f,    layer_flt=%f,       reduction=%u,   cv_layer=%u   read_cols_=%u,   read_rows_=%u,   uint_params[COSTVOL_LAYERS]=%u    (u3_flt>=0)=%u (u3_flt<read_cols_  )=%u (v3_flt>=0)=%u  (v3_flt<read_rows_  )=%u (layer_flt>=0)=%u (layer_flt< uint_params[COSTVOL_LAYERS]=%u),    whole_bool=%u",
-// 			global_id_u, u3_flt, v3_flt, wh3, fp32_params[INV_DEPTH_STEP],  layer_flt,   reduction, cv_layer, read_cols_, read_rows_, uint_params[COSTVOL_LAYERS], (u3_flt>=0), (u3_flt<read_cols_  ), (v3_flt>=0),  (v3_flt<read_rows_  ), (layer_flt>=0), (layer_flt< uint_params[COSTVOL_LAYERS]),
-// 			( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) )
-// 		);
-*/
-																									// if the transformed voxel is within the  bounds of old volume.
-		if ( (u3_flt>=0) && (u3_flt<read_cols_  ) && (v3_flt>=0) &&  (v3_flt<read_rows_  ) && (layer_flt>=0) && (layer_flt< uint_params[COSTVOL_LAYERS]  ) ) { 
-			// trilinear (__global float* vol, float u_flt, float v_flt, float layer_flt, int mm_pixels, int cols, int read_offset_, uint reduction)
-			//float voxel_c = old_cdata[write_index];
-			float voxel_c = trilinear (old_cdata, u3_flt, v3_flt, layer_flt, mm_pixels, mm_cols, read_offset_, reduction);
-			float voxel_h = trilinear (old_hdata, u3_flt, v3_flt, layer_flt, mm_pixels, mm_cols, read_offset_, reduction);
-			if(lo==-1) lo=voxel_c;																	// TODO should I partially discount previous hits, so they decline in significance? 
-			if(voxel_c > hi) hi = voxel_c;
-			if(voxel_c < lo) lo = voxel_c;
-			mean += voxel_c; //new_cdata[ write_index];
-			count++;
-			new_cdata[ write_index] += voxel_c;
-			new_hdata[ write_index] += voxel_h;
-		}
-		//else{
-			//new_cdata[ write_index] = 1.0f; //layer_flt; //u3_flt; //0; 								// NB If new_hdata is zero, then new_cdata should be read as NULL.
-			//new_hdata[ write_index] += 0; //wh3;       //v3_flt; //0;
-		//}
-	}
-																									// set hi_mem, lo_mem for new cost_vol
-	mean 				/= count;
-	lo_[read_index] 	 = lo;
-	hi_[read_index] 	 = hi;
-	mean_[read_index]	 = mean;
+    float16 k2k_pvt = k2k[0];
+    float uh2 = k2k_pvt[0] * u_flt + k2k_pvt[1] * v_flt + k2k_pvt[2] * 1;
+    float vh2 = k2k_pvt[4] * u_flt + k2k_pvt[5] * v_flt + k2k_pvt[6] * 1;
+    float wh2 = k2k_pvt[8] * u_flt + k2k_pvt[9] * v_flt + k2k_pvt[10] * 1;
+
+    if (global_id_u == 0) {
+        printf("k2k matrix: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n",
+               k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11]);
+        printf("uint_params[COSTVOL_LAYERS] = %u\n", uint_params[COSTVOL_LAYERS]);
+    }
+
+    float hi, lo, mean, count;
+    hi = 0; mean = 0;
+    lo = -1;
+
+    // Early boundary check for original coordinates
+    bool inbounds = (u_flt >= 0) && (u_flt < read_cols_) && (v_flt >= 0) && (v_flt < read_rows_);
+    if (inbounds) {
+        if (global_id_u == 10 || global_id_u == 10000 || global_id_u == 20000 || global_id_u == 30000) {
+            printf("Valid original coordinates: u_flt = %f, v_flt = %f, global_id_u = %u\n", u_flt, v_flt, global_id_u);
+        }
+
+        // Check if cv_layer loop should run
+        bool valid_cv_layer_loop = (uint_params[COSTVOL_LAYERS] > 0);
+
+        for (int cv_layer = 0; cv_layer < uint_params[COSTVOL_LAYERS]; cv_layer++) {
+            // Check if current layer is valid
+            bool valid_layer = (cv_layer < uint_params[COSTVOL_LAYERS]);
+
+            if (valid_layer) {
+                float inv_depth = (float)cv_layer * fp32_params[INV_DEPTH_STEP];
+                float uh3 = uh2 + k2k_pvt[3] * inv_depth;
+                float vh3 = vh2 + k2k_pvt[7] * inv_depth;
+                float wh3 = wh2 + k2k_pvt[11] * inv_depth;
+
+                float u3_flt = uh3 / (wh3 * reduction);    // 2D homogeneous pixel coordinates
+                float v3_flt = vh3 / (wh3 * reduction);
+                float layer_flt = wh3 * inv_depth / fp32_params[INV_DEPTH_STEP]; // 3D depth by layer of old cost volume.
+
+                int write_index = read_index + cv_layer * mm_pixels;
+
+                if (global_id_u == 0 || global_id_u == 10000 || global_id_u == 20000 || global_id_u == 30000) {
+                    printf("Global ID: %u, Read Index: %u, Write Index: %u, u3_flt: %f, v3_flt: %f, layer_flt: %f\n",
+                           global_id_u, read_index, write_index, u3_flt, v3_flt, layer_flt);
+                }
+
+                // If the transformed voxel is within the bounds of the old volume.
+                bool inbounds_layer_u3 = (u3_flt >= 0);
+                bool inbounds_layer_u4 = (u3_flt < read_cols_);
+                bool inbounds_layer_v3 = (v3_flt >= 0);
+                bool inbounds_layer_v4 = (v3_flt < read_rows_);
+                bool inbounds_layer_lf = (layer_flt >= 0);
+                bool inbounds_layer_lf2 = (layer_flt < uint_params[COSTVOL_LAYERS]);
+                bool inbounds_layer = inbounds_layer_u3 && inbounds_layer_u4 && inbounds_layer_v3 && inbounds_layer_v4 && inbounds_layer_lf && inbounds_layer_lf2;
+                if (inbounds_layer) {
+                    // Trilinear interpolation
+                    float voxel_c = trilinear(old_cdata, u3_flt, v3_flt, layer_flt, mm_pixels, mm_cols, read_offset_, reduction);
+                    float voxel_h = trilinear(old_hdata, u3_flt, v3_flt, layer_flt, mm_pixels, mm_cols, read_offset_, reduction);
+
+                    if (lo == -1) lo = voxel_c;    // TODO should I partially discount previous hits, so they decline in significance?
+                    if (voxel_c > hi) hi = voxel_c;
+                    if (voxel_c < lo) lo = voxel_c;
+                    mean += voxel_c;  // new_cdata[write_index];
+                    count++;
+                    new_cdata[write_index] += voxel_c;
+                    new_hdata[write_index] += voxel_h;
+
+                    if (global_id_u == 0 || global_id_u == 10000 || global_id_u == 20000 || global_id_u == 30000) {
+                        printf("Valid read/write: u3_flt = %f, v3_flt = %f, layer_flt = %f, global_id_u = %u, voxel_c = %f, voxel_h = %f\n",
+                               u3_flt, v3_flt, layer_flt, global_id_u, voxel_c, voxel_h);
+                    }
+                } else {
+                    if (global_id_u == 0 || global_id_u == 10000 || global_id_u == 20000 || global_id_u == 30000) {
+                        printf("Invalid read/write: u3_flt = %f, v3_flt = %f, layer_flt = %f, global_id_u = %u\n", u3_flt, v3_flt, layer_flt, global_id_u);
+                    }
+                }
+            }
+        }
+        // Set hi_mem, lo_mem for new cost_vol
+        mean /= count;
+        lo_[read_index] = lo;
+        hi_[read_index] = hi;
+        mean_[read_index] = mean;
+    } else {
+        if (global_id_u == 0 || global_id_u == 10000 || global_id_u == 20000 || global_id_u == 30000) {
+            printf("Invalid original coordinates: u_flt = %f, v_flt = %f, global_id_u = %u\n", u_flt, v_flt, global_id_u);
+        }
+    }
 }
+
 
 
 __kernel void transform_depthmap(  // Needs to transform as a point cloud. Need to compare & swap the incomming points on the new depthmap.
@@ -175,6 +203,11 @@ __kernel void transform_depthmap(  // Needs to transform as a point cloud. Need 
 		)
 {
 	uint global_id_u 	= get_global_id(0);
+
+    if (global_id_u == 0) {
+    printf("Kernel transform_cost_volume started\n");
+    }
+
 	float global_id_flt = global_id_u;
 	float16 k2k_pvt		= k2k[0];
 
@@ -201,9 +234,9 @@ __kernel void transform_depthmap(  // Needs to transform as a point cloud. Need 
 	//uint depth_index	= v * reduction * base_cols + u * reduction;								// Sparse sampling of the depth map of the base image.
 	float inv_depth 	= depth_map_in[read_index]; 	// depth_index								//1.0f;// mid point max-min inv depth	// Find new pixel position, h=homogeneous coords.//inv dept
 
-	if (global_id_u ==0) printf("\n__kernel void transform_depthmap(): k2k_pvt= %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f, ",\
-		k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11]
-	);
+	//if (global_id_u ==0) printf("\n__kernel void transform_depthmap(): k2k_pvt= %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f,  %f, ",\
+	//	k2k_pvt[0], k2k_pvt[1], k2k_pvt[2], k2k_pvt[3], k2k_pvt[4], k2k_pvt[5], k2k_pvt[6], k2k_pvt[7], k2k_pvt[8], k2k_pvt[9], k2k_pvt[10], k2k_pvt[11]
+	//);
 
 	float uh2 = k2k_pvt[0]*u_flt + k2k_pvt[1]*v_flt + k2k_pvt[2]*1 + k2k_pvt[3]*inv_depth;
 	float vh2 = k2k_pvt[4]*u_flt + k2k_pvt[5]*v_flt + k2k_pvt[6]*1 + k2k_pvt[7]*inv_depth;

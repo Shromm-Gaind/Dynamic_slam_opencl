@@ -32,7 +32,9 @@ message(STATUS "Boost version: ${Boost_VERSION}")
 # or if you have an old version of CMake (<3.5)
 if(NOT TARGET Boost::filesystem)
     add_library(Boost::filesystem IMPORTED INTERFACE
-            src/kernels/kernels_mapping.cl)
+            src/kernels/kernels_mapping.cl
+            src/kernels/kernels_setup_keyframe.cl
+            src/kernels/kernels_setup_keyframe.cl)
     set_property(TARGET Boost::filesystem PROPERTY
         INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
     set_property(TARGET Boost::filesystem PROPERTY

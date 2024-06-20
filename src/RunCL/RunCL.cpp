@@ -528,7 +528,6 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
 
     std::string kernel_name = getKernelName(kernel_to_call);
 
-    // Verify num_threads array and print its values for debugging
     for (uint reduction = start; reduction <= stop; reduction++) {
         if (reduction >= num_threads_size) {
             std::cerr << "Error: reduction index " << reduction << " is out of bounds for num_threads array of size " << num_threads_size << std::endl;
@@ -538,7 +537,6 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
     }
 
     for (uint reduction = start; reduction <= stop; reduction++) {
-        // Check that the reduction value is within a valid range
         if (reduction >= num_threads_size) {
             std::cerr << "Error: reduction index " << reduction << " is out of bounds for num_threads array of size " << num_threads_size << std::endl;
             exit(EXIT_FAILURE);
@@ -550,7 +548,6 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
             exit(EXIT_FAILURE);
         }
 
-        // Ensure that num_threads[reduction] and local_work_size are appropriate
         size_t global_work_size = num_threads[reduction];
         std::cout << "Launching kernel '" << kernel_name << "' with global_work_size = " << global_work_size << ", local_work_size = " << local_work_size << " for reduction " << reduction << std::endl;
 
@@ -583,6 +580,7 @@ void RunCL::mipmap_call_kernel(cl_kernel kernel_to_call, cl_command_queue queue_
         }
     }
 }
+
 
 
 int RunCL::waitForEventAndRelease(cl_event *event){
